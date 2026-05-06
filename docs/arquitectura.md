@@ -1,5 +1,6 @@
 # Estructura del Proyecto
 
+```plaintext
 FASTORDERHA
 |
 ├── api-gateway/
@@ -27,3 +28,4 @@ FASTORDERHA
 │
 ├── docker-compose.yml
 └── README.md
+```
