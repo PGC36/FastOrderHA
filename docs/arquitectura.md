@@ -1,12 +1,8 @@
-# FastOrderHA
-Sistema de pedidos en línea para restaurante con cocina, inventario y despacho.
-
 # Estructura del Proyecto
 
 FASTORDERHA
 |
 ├── api-gateway/
-|
 ├── menu-service/
 ├── order-service/
 ├── inventory-service/
@@ -14,6 +10,10 @@ FASTORDERHA
 ├── delivery-service/
 ├── notification-service/
 │
+├──docs/
+│   ├── api/
+│   └── servicios/
+|
 ├── database/
 │   ├── migrations/
 │   └── init.sql
