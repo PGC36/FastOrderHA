@@ -977,3 +977,273 @@ Validación esperada:
 ## Conclusión
 
 La recomendación para `delivery-service` es construir primero un núcleo transaccional pequeño y sólido: entidad principal de entrega, historial de estados desde la primera fase, `order_id` único, creación idempotente, control optimista de concurrencia y reglas estrictas de transición. Con eso quedará bien posicionado para alta disponibilidad básica y para sumar más adelante Docker operativo, healthchecks, observabilidad y eventos asíncronos sin rehacer el diseño.
+
+## Implementación actual
+
+Hasta este punto ya quedó implementada la base inicial del microservicio:
+
+- paquete base `com.fastorder.delivery`;
+- configuración `application.yaml` con `ddl-auto: validate`;
+- script SQL en `database/delivery-init.sql`;
+- entidad `DeliveryOrder`;
+- entidad `DeliveryStatusHistory`;
+- enum `DeliveryStatus`;
+- DTOs de request y response;
+- repositorios JPA;
+- excepciones de dominio y `GlobalExceptionHandler`;
+- `DeliveryOrderService` con creación idempotente y transiciones de estado;
+- `DeliveryController` con rutas REST bajo `/deliveries`.
+
+Endpoints implementados:
+
+- `POST /deliveries`
+- `GET /deliveries/{id}`
+- `GET /deliveries/by-order/{orderId}`
+- `PATCH /deliveries/{id}/assign`
+- `PATCH /deliveries/{id}/pick-up`
+- `PATCH /deliveries/{id}/in-transit`
+- `PATCH /deliveries/{id}/deliver`
+- `PATCH /deliveries/{id}/fail`
+- `PATCH /deliveries/{id}/cancel`
+
+## Cambios realizados
+
+### 1. Estructura y paquete base
+
+Se realizaron estos cambios estructurales:
+
+- migración del paquete generado por Initializr desde `com.fastorder.delivery_service` hacia `com.fastorder.delivery`;
+- creación de paquetes `controller`, `service`, `repository`, `model`, `dto.request`, `dto.response`, `enums` y `exception`;
+- reemplazo de la clase principal para alinearla con el nuevo paquete base;
+- actualización del test base de contexto al nuevo paquete.
+
+### 2. Dependencias y configuración Maven
+
+Se ajustó `pom.xml` para dejar una base coherente con la primera fase:
+
+- se mantuvo Spring Boot con Maven y empaquetado JAR;
+- se conservó JPA, Validation, PostgreSQL Driver y Lombok;
+- se usó `spring-boot-starter-web` como dependencia REST;
+- se dejó `spring-boot-starter-test` para pruebas;
+- no se agregaron nuevas dependencias;
+- no se agregaron Redis, RabbitMQ, Kafka, Actuator, Prometheus, Flyway ni Security.
+
+### 3. Configuración del servicio
+
+Se dejó configurado `application.yaml` con:
+
+- `spring.application.name=delivery-service`;
+- puerto `8085`;
+- datasource local apuntando a `localhost:5445/delivery_db`;
+- `ddl-auto: validate`;
+- `show-sql: true`;
+- `hibernate.format_sql: true`.
+
+Decisión aplicada:
+
+- Hibernate solo valida el esquema y no crea tablas automáticamente.
+
+### 4. Base de datos
+
+Se implementó el script `database/delivery-init.sql` con:
+
+- tabla `delivery_orders`;
+- tabla `delivery_status_history`;
+- restricción `UNIQUE(order_id)`;
+- índices por `status`, `assigned_driver_id` y `created_at`;
+- índices por `delivery_order_id` y `changed_at` en historial;
+- `version` para concurrencia optimista;
+- `foreign key` entre historial y entrega.
+
+### 5. Dominio implementado
+
+Se creó el enum `DeliveryStatus` con:
+
+- `PENDING`
+- `ASSIGNED`
+- `PICKED_UP`
+- `IN_TRANSIT`
+- `DELIVERED`
+- `FAILED`
+- `CANCELLED`
+
+Se implementaron estas entidades:
+
+- `DeliveryOrder`
+- `DeliveryStatusHistory`
+
+Reglas aplicadas en el modelo:
+
+- uso de `LocalDateTime` para fechas;
+- uso de `@Version` para concurrencia optimista;
+- uso de `@PrePersist` y `@PreUpdate`;
+- relación `ManyToOne(fetch = FetchType.LAZY)` desde historial hacia entrega;
+- sin relaciones JPA con otros microservicios.
+
+### 6. DTOs implementados
+
+Se crearon:
+
+- `CreateDeliveryRequest`
+- `AssignDriverRequest`
+- `FailDeliveryRequest`
+- `CancelDeliveryRequest`
+- `DeliveryResponse`
+- `DeliveryStatusHistoryResponse`
+
+Validaciones aplicadas:
+
+- `@NotNull`
+- `@NotBlank`
+- `@Positive`
+- `@Size`
+
+### 7. Repositorios implementados
+
+Se implementaron:
+
+- `DeliveryOrderRepository`
+- `DeliveryStatusHistoryRepository`
+
+Métodos principales disponibles:
+
+- `findByOrderId`
+- `existsByOrderId`
+- `findByStatus`
+- `findByAssignedDriverId`
+- `findByDeliveryOrderIdOrderByChangedAtAsc`
+
+### 8. Manejo de errores implementado
+
+Se crearon las excepciones:
+
+- `DeliveryNotFoundException`
+- `DeliveryAlreadyExistsException`
+- `InvalidDeliveryStatusException`
+- `DeliveryConflictException`
+
+También se implementó `GlobalExceptionHandler` con este mapeo:
+
+- `400` para errores de validación;
+- `404` para entrega no encontrada;
+- `409` para conflictos de dominio, duplicidad o concurrencia;
+- `500` para errores inesperados.
+
+### 9. Lógica de negocio implementada
+
+Se implementó `DeliveryOrderService` con estos métodos principales:
+
+- `createDelivery`
+- `getDeliveryById`
+- `getDeliveryByOrderId`
+- `assignDriver`
+- `markPickedUp`
+- `markInTransit`
+- `markDelivered`
+- `markFailed`
+- `cancelDelivery`
+- `validateStatusTransition`
+- `recordStatusHistory`
+- `toResponse`
+
+Reglas ya aplicadas:
+
+- creación idempotente por `orderId`;
+- comparación de payload para detectar mismo `orderId` con datos distintos;
+- manejo de `DataIntegrityViolationException` para creación concurrente;
+- persistencia de historial desde la primera fase;
+- transiciones de estado estrictas;
+- bloqueo de cambios desde estados finales.
+
+### 10. API REST implementada
+
+Se implementó `DeliveryController` con rutas limpias bajo `/deliveries`.
+
+Operaciones disponibles:
+
+- crear entrega;
+- consultar por ID;
+- consultar por `orderId`;
+- asignar repartidor;
+- marcar recogida;
+- marcar en tránsito;
+- marcar entregada;
+- marcar fallida;
+- cancelar entrega.
+
+## Archivos creados o modificados
+
+### Archivos creados
+
+- `delivery-service/src/main/java/com/fastorder/delivery/DeliveryServiceApplication.java`
+- `delivery-service/src/main/java/com/fastorder/delivery/enums/DeliveryStatus.java`
+- `delivery-service/src/main/java/com/fastorder/delivery/model/DeliveryOrder.java`
+- `delivery-service/src/main/java/com/fastorder/delivery/model/DeliveryStatusHistory.java`
+- `delivery-service/src/main/java/com/fastorder/delivery/dto/request/CreateDeliveryRequest.java`
+- `delivery-service/src/main/java/com/fastorder/delivery/dto/request/AssignDriverRequest.java`
+- `delivery-service/src/main/java/com/fastorder/delivery/dto/request/FailDeliveryRequest.java`
+- `delivery-service/src/main/java/com/fastorder/delivery/dto/request/CancelDeliveryRequest.java`
+- `delivery-service/src/main/java/com/fastorder/delivery/dto/response/DeliveryResponse.java`
+- `delivery-service/src/main/java/com/fastorder/delivery/dto/response/DeliveryStatusHistoryResponse.java`
+- `delivery-service/src/main/java/com/fastorder/delivery/repository/DeliveryOrderRepository.java`
+- `delivery-service/src/main/java/com/fastorder/delivery/repository/DeliveryStatusHistoryRepository.java`
+- `delivery-service/src/main/java/com/fastorder/delivery/exception/DeliveryNotFoundException.java`
+- `delivery-service/src/main/java/com/fastorder/delivery/exception/DeliveryAlreadyExistsException.java`
+- `delivery-service/src/main/java/com/fastorder/delivery/exception/InvalidDeliveryStatusException.java`
+- `delivery-service/src/main/java/com/fastorder/delivery/exception/DeliveryConflictException.java`
+- `delivery-service/src/main/java/com/fastorder/delivery/exception/GlobalExceptionHandler.java`
+- `delivery-service/src/main/java/com/fastorder/delivery/service/DeliveryOrderService.java`
+- `delivery-service/src/main/java/com/fastorder/delivery/controller/DeliveryController.java`
+- `delivery-service/src/test/java/com/fastorder/delivery/DeliveryServiceApplicationTests.java`
+
+### Archivos modificados
+
+- `delivery-service/pom.xml`
+- `delivery-service/src/main/resources/application.yaml`
+- `database/delivery-init.sql`
+- `docs/servicios/delivery-service.md`
+
+### Archivos reemplazados o eliminados
+
+- clase principal vieja bajo `com.fastorder.delivery_service`;
+- test viejo bajo `com.fastorder.delivery_service`.
+
+## Decisiones técnicas ya tomadas
+
+Quedaron fijadas estas decisiones:
+
+- el microservicio se llama `delivery-service`;
+- el paquete base es `com.fastorder.delivery`;
+- la base de datos es independiente;
+- las rutas REST usan `/deliveries`;
+- `order_id` se usa como referencia simple y única;
+- la creación es idempotente;
+- el historial entra desde la primera fase;
+- se usa concurrencia optimista con `@Version`;
+- las transiciones inválidas devuelven conflicto;
+- no se usan todavía dependencias de observabilidad ni mensajería.
+
+## Estado de validación
+
+Se intentó ejecutar compilación y pruebas con Maven.
+
+Resultado:
+
+- la validación automática no pudo completarse en este entorno porque el sandbox no tiene acceso de red a Maven Central para descargar `spring-boot-starter-parent:4.0.6`.
+
+Conclusión práctica:
+
+- el bloqueo actual fue de entorno, no una excepción confirmada del código del proyecto;
+- la siguiente validación real debe ejecutarse en una máquina o entorno con acceso normal a dependencias Maven.
+
+## Pendiente
+
+Todavía no se ha implementado:
+
+- integración de `delivery-service` al `docker-compose.yml`;
+- integración de rutas en `api-gateway`;
+- `Dockerfile`;
+- healthcheck de contenedor;
+- pruebas automáticas completas;
+- observabilidad;
+- mensajería asíncrona.
