@@ -1,0 +1,56 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: fastorder-postgres
+    environment:
+      POSTGRES_DB: fastorder
+      POSTGRES_USER: fastorder
+      POSTGRES_PASSWORD: fastorder123
+    ports:
+      - "5440:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - fastorder-network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    container_name: fastorder-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - fastorder-network
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: fastorder-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - fastorder-network
+    restart: unless-stopped
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+    container_name: fastorder-api-gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+    networks:
+      - fastorder-network
+    restart: unless-stopped
+
+networks:
+  fastorder-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

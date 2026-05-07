@@ -1,0 +1,62 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: menu-service
+              uri: http://menu-service:8081
+              predicates:
+                - Path=/api/menu/**
+              filters:
+                - StripPrefix=1
+
+            - id: order-service
+              uri: http://order-service:8082
+              predicates:
+                - Path=/api/orders/**
+              filters:
+                - StripPrefix=1
+
+            - id: inventory-service
+              uri: http://inventory-service:8083
+              predicates:
+                - Path=/api/inventory/**
+              filters:
+                - StripPrefix=1
+
+            - id: kitchen-service
+              uri: http://kitchen-service:8084
+              predicates:
+                - Path=/api/kitchen/**
+              filters:
+                - StripPrefix=1
+
+            - id: delivery-service
+              uri: http://delivery-service:8085
+              predicates:
+                - Path=/api/delivery/**
+              filters:
+                - StripPrefix=1
+
+            - id: notification-service
+              uri: http://notification-service:8086
+              predicates:
+                - Path=/api/notifications/**
+              filters:
+                - StripPrefix=1
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: always
