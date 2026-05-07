@@ -5,6 +5,7 @@
 El microservicio `kitchen-service` será responsable de gestionar las órdenes enviadas a cocina dentro de FastOrder HA.
 
 En esta primera etapa nos enfocaremos en una base funcional y estable, trabajando la base de datos de forma aislada para no mezclar todavía integraciones entre microservicios.
+Esta etapa debe entenderse como una base preparada para alta disponibilidad básica dentro del proyecto, no como una implementación completa de alta disponibilidad.
 
 ## Responsabilidades del microservicio
 
@@ -28,6 +29,7 @@ Incluye:
 - Métricas Prometheus.
 - Dockerización inicial.
 - Integración básica con `docker-compose`.
+- Preparación para alta disponibilidad básica con réplicas, health checks y reinicio automático.
 
 No incluye todavía:
 
@@ -35,6 +37,7 @@ No incluye todavía:
 - Consumo o publicación de eventos.
 - Orquestación avanzada entre microservicios.
 - Acoplamiento directo con entidades de otros servicios.
+- Alta disponibilidad completa a nivel de mensajería, descubrimiento de servicios u orquestadores como Kubernetes.
 
 ## Estados de cocina
 
@@ -49,6 +52,8 @@ Los estados definidos para una orden de cocina serán:
 
 - La base de datos se trabajará de forma aislada en esta fase.
 - `kitchen-service` manejará `orderId` como referencia simple, sin relación JPA directa con `order-service`.
+- En esta primera etapa puede mantenerse una `foreign key` hacia `orders(id)` porque el proyecto usa una base compartida para simplificar la demostración.
+- En una versión más desacoplada, `kitchen-service` debería conservar `orderId` como referencia externa sin `foreign key` directa.
 - Hibernate no debe crear ni modificar tablas automáticamente.
 - La creación de órdenes debe ser idempotente por `order_id`.
 - La implementación se hará por capas para mantener claridad y facilidad de prueba.
@@ -127,7 +132,7 @@ Lineamientos:
 
 - Puerto del servicio: `3004`
 - Nombre de aplicación: `kitchen-service`
-- Conexión a PostgreSQL local o aislada
+- Conexión a PostgreSQL levantado desde el `docker-compose.yml` principal del proyecto
 - `ddl-auto: validate`
 - Exposición de `health`, `info`, `prometheus` y `metrics`
 
@@ -164,6 +169,28 @@ management:
       show-details: always
 ```
 
+Nota:
+
+- Usar `localhost` en el datasource solo cuando `kitchen-service` se ejecute fuera de Docker.
+- Cuando `kitchen-service` se ejecute dentro de Docker Compose, debe usarse el nombre del servicio `postgres`, por ejemplo `jdbc:postgresql://postgres:5432/fastorder`.
+
+## Gestión de base de datos en esta etapa
+
+En esta fase, la base de datos no será administrada por `kitchen-service` de forma independiente.
+
+Se trabajará así:
+
+- PostgreSQL se levantará desde el `docker-compose.yml` principal del proyecto.
+- La estructura inicial de la base se cargará usando [init.sql](../../database/init.sql).
+- `kitchen-service` consumirá esa base compartida como cliente.
+- El servicio validará el esquema existente con `ddl-auto: validate`.
+- Hibernate no debe crear ni alterar tablas automáticamente.
+
+Implicación práctica:
+
+- La infraestructura base del entorno se centraliza en el `docker-compose` raíz.
+- El microservicio solo debe conectarse a esa base y trabajar sobre el esquema ya definido.
+
 ## Base de datos
 
 La tabla `kitchen_orders` debe responder a este contrato:
@@ -176,12 +203,17 @@ CREATE TABLE IF NOT EXISTS kitchen_orders (
         status IN ('PENDING', 'PREPARING', 'READY', 'CANCELLED')
     ),
     created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
+    updated_at TIMESTAMP DEFAULT NOW(),
+    started_at TIMESTAMP,
+    ready_at TIMESTAMP
 );
-
-CREATE INDEX IF NOT EXISTS idx_kitchen_orders_order_id
-ON kitchen_orders(order_id);
 ```
+
+Nota:
+
+- En esta fase se mantiene la referencia hacia `orders(id)` porque el proyecto usa una base de datos compartida.
+- Si después queremos acercarnos más a una arquitectura de microservicios estricta, la variante sería `order_id INT NOT NULL UNIQUE` sin `foreign key` directa.
+- No hace falta crear un índice adicional sobre `order_id` porque la restricción `UNIQUE` ya genera uno automáticamente en PostgreSQL.
 
 ## Contrato funcional inicial
 
@@ -190,6 +222,8 @@ ON kitchen_orders(order_id);
 - No se puede crear más de una orden de cocina para el mismo `order_id`.
 - Solo se aceptan estados definidos en el enum.
 - Cada actualización de estado debe refrescar `updated_at`.
+- `started_at` puede registrarse cuando la orden pase a `PREPARING`.
+- `ready_at` puede registrarse cuando la orden pase a `READY`.
 - Si una orden ya existe para un `orderId`, la creación debe devolver la existente.
 
 ### Endpoints esperados
@@ -202,6 +236,18 @@ ON kitchen_orders(order_id);
 | GET | `/kitchen/orders/{id}` | Obtiene una orden por ID |
 | POST | `/kitchen/orders` | Crea una orden de cocina |
 | PATCH | `/kitchen/orders/{id}/status` | Actualiza el estado |
+
+## Enfoque de alta disponibilidad en esta etapa
+
+En esta fase, `kitchen-service` no implementará todavía alta disponibilidad completa. El objetivo es dejar una base técnicamente defendible para demostrar resiliencia básica dentro del stack local.
+
+Esto significa:
+
+- El servicio debe poder ejecutarse con múltiples réplicas.
+- Debe contar con `healthcheck` para detectar instancias no saludables.
+- Debe reiniciarse automáticamente ante fallos simples del contenedor.
+- La demostración final debe acceder al servicio a través de `api-gateway`.
+- RabbitMQ queda diferido para una etapa posterior, cuando se trabaje resiliencia basada en eventos.
 
 ## Plan de trabajo por fases
 
@@ -262,6 +308,7 @@ Actividades:
 
 - Definir `server.port=3004`.
 - Configurar datasource.
+- Apuntar el datasource a la base levantada desde el `docker-compose` principal.
 - Configurar JPA con `ddl-auto: validate`.
 - Exponer endpoints de Actuator y Prometheus.
 
@@ -279,7 +326,9 @@ Actividades:
 
 - Ajustar definición de `kitchen_orders` en `database/init.sql`.
 - Garantizar `order_id` único.
+- Mantener `foreign key` a `orders(id)` en esta etapa compartida.
 - Validar restricción de estados permitidos.
+- Agregar `started_at` y `ready_at` como apoyo para trazabilidad y evidencias.
 
 Resultado esperado:
 
@@ -308,7 +357,7 @@ Objetivo:
 Actividades:
 
 - Crear la entidad.
-- Incluir `orderId`, `status`, `createdAt`, `updatedAt`.
+- Incluir `orderId`, `status`, `createdAt`, `updatedAt`, `startedAt` y `readyAt`.
 - Agregar `@PrePersist` y `@PreUpdate`.
 
 Resultado esperado:
@@ -439,12 +488,37 @@ Actividades:
 - Agregar servicio `kitchen-service`.
 - Configurar variables de entorno para datasource.
 - Agregar `depends_on` hacia `postgres`.
+- Evitar `container_name` fijo para permitir escalado.
+- Dejar la configuración lista para usar `restart: always` y `healthcheck`.
 
 Resultado esperado:
 
 - Servicio integrable al stack local.
 
-### Fase 16. Conectar Prometheus
+### Fase 16. Preparar alta disponibilidad básica
+
+Objetivo:
+
+- Permitir que `kitchen-service` pueda ejecutarse con múltiples réplicas y recuperarse ante fallos básicos.
+
+Actividades:
+
+- Evitar usar `container_name` fijo en `docker-compose` para `kitchen-service`.
+- Configurar `restart: always`.
+- Agregar `healthcheck` usando `/actuator/health`.
+- Validar que `kitchen-service` puede levantarse con más de una réplica.
+- Acceder a `kitchen-service` mediante `api-gateway` y no directamente por puerto fijo en la demo final.
+- Probar la caída manual de un contenedor del `kitchen-service`.
+- Confirmar que el servicio sigue operando si una réplica falla.
+
+Resultado esperado:
+
+- `kitchen-service` puede reiniciarse automáticamente.
+- `kitchen-service` puede ejecutarse con varias réplicas.
+- La caída de una réplica no detiene completamente la operación.
+- La prueba genera evidencia útil para logs, Prometheus y documentación.
+
+### Fase 17. Conectar Prometheus
 
 Objetivo:
 
@@ -458,7 +532,7 @@ Resultado esperado:
 
 - Métricas observables desde Prometheus.
 
-### Fase 17. Documentación final del microservicio
+### Fase 18. Documentación final del microservicio
 
 Objetivo:
 
@@ -473,7 +547,7 @@ Resultado esperado:
 
 - Documentación alineada con la implementación.
 
-### Fase 18. Integración futura con RabbitMQ
+### Fase 19. Integración futura con RabbitMQ
 
 Objetivo:
 
@@ -485,10 +559,15 @@ Actividades futuras:
 - Agregar dependencias de mensajería.
 - Diseñar consumidores y publicadores.
 - Revisar estrategia de idempotencia con eventos.
+- Definir cómo evitar pérdida de eventos ante caída de consumidores o reinicios de servicios.
 
 Resultado esperado:
 
 - Backlog claro para la siguiente iteración.
+
+Nota:
+
+- RabbitMQ será necesario en una etapa posterior para mejorar resiliencia entre servicios, reducir acoplamiento temporal y evitar pérdida de eventos cuando falle un consumidor o una instancia no esté disponible temporalmente.
 
 ## Orden recomendado de ejecución
 
@@ -510,8 +589,116 @@ Trabajaremos exactamente en este orden:
 14. Probar `/actuator/prometheus`.
 15. Crear `Dockerfile`.
 16. Agregar `kitchen-service` al `docker-compose.yml`.
-17. Mantener actualizada esta documentación.
-18. Después agregar RabbitMQ.
+17. Preparar alta disponibilidad básica.
+18. Agregar Prometheus.
+19. Mantener actualizada esta documentación.
+20. Después agregar RabbitMQ.
+
+## Nota técnica para `docker-compose`
+
+Para que `kitchen-service` quede alineado con alta disponibilidad básica dentro del entorno local, debemos seguir estas reglas:
+
+- No usar `container_name` en `kitchen-service` si se desea escalar con Docker Compose.
+- No mapear `ports` directos en `kitchen-service` si se desea escalar con múltiples réplicas.
+- Usar `expose` para publicar el puerto solo dentro de la red interna de Docker.
+- Usar `restart: always`.
+- Agregar `healthcheck` apuntando a `http://localhost:3004/actuator/health`.
+- Verificar que la imagen final del contenedor incluya la herramienta usada por el `healthcheck`, por ejemplo `curl` o `wget`.
+- Usar variables de entorno para la conexión a PostgreSQL.
+- En la demo final, el acceso al flujo funcional debe pasar por `api-gateway`.
+
+Ejemplo de configuración:
+
+```yaml
+kitchen-service:
+  build: ./kitchen-service
+  expose:
+    - "3004"
+  environment:
+    SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/fastorder
+    SPRING_DATASOURCE_USERNAME: postgres
+    SPRING_DATASOURCE_PASSWORD: postgres
+  depends_on:
+    postgres:
+      condition: service_healthy
+  restart: always
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://localhost:3004/actuator/health"]
+    interval: 10s
+    timeout: 5s
+    retries: 5
+```
+
+Importante:
+
+- Este servicio no debe incluir `container_name` si se quiere ejecutar con múltiples réplicas.
+- Este servicio no debe publicar `ports` fijos si se quiere usar `--scale`.
+- El acceso externo debe pasar por `api-gateway`.
+
+## Nota técnica para Dockerfile
+
+Si el `healthcheck` usa `curl` o `wget`, la imagen final del contenedor debe incluir esa herramienta.
+
+Recomendación práctica:
+
+- Si se usa `curl` en `docker-compose`, instalar `curl` en la imagen final del servicio.
+- Si se usa `wget`, verificar que la imagen base lo incluya.
+- No asumir que una imagen JRE mínima ya trae utilidades de red disponibles.
+
+Ejemplo conceptual:
+
+```dockerfile
+FROM eclipse-temurin:21-jre-alpine
+
+RUN apk add --no-cache curl
+
+WORKDIR /app
+
+COPY target/*.jar app.jar
+
+EXPOSE 3004
+
+ENTRYPOINT ["java", "-jar", "app.jar"]
+```
+
+## Prueba básica de resiliencia
+
+Para demostrar disponibilidad básica en la etapa inicial, la prueba sugerida será:
+
+1. Levantar el stack.
+2. Crear varias órdenes de cocina.
+3. Escalar `kitchen-service` a 3 réplicas.
+4. Enviar peticiones continuas mediante `api-gateway`.
+5. Matar una réplica de `kitchen-service`.
+6. Confirmar que las peticiones siguen respondiendo.
+7. Confirmar que no se duplican órdenes por `order_id`, incluyendo reintentos repetidos con el mismo `orderId`.
+8. Revisar logs y métricas en Prometheus.
+
+Comandos de ejemplo:
+
+```bash
+docker compose up --scale kitchen-service=3
+docker ps
+docker kill <contenedor_kitchen_service>
+```
+
+Evidencias esperadas:
+
+- El gateway sigue respondiendo solicitudes funcionales hacia cocina.
+- Al menos una réplica de `kitchen-service` continúa procesando solicitudes.
+- No aparecen órdenes duplicadas para el mismo `orderId`.
+- Los logs muestran reinicio o continuidad operativa.
+- Prometheus refleja el comportamiento del servicio durante la prueba.
+
+Ejemplo de validación de idempotencia:
+
+```bash
+curl -X POST http://localhost:<PUERTO_GATEWAY>/kitchen/orders \
+  -H "Content-Type: application/json" \
+  -d '{"orderId":1}'
+```
+
+Este mismo request puede repetirse varias veces durante la prueba y el resultado esperado es que no se creen órdenes duplicadas para el mismo `orderId`.
 
 ## Resultado esperado de esta primera etapa
 
@@ -525,7 +712,12 @@ Al cerrar esta fase debemos poder demostrar que:
 - Expone health check.
 - Expone métricas para Prometheus.
 - Está listo para dockerizarse.
+- Puede ejecutarse con múltiples réplicas.
+- Tiene `healthcheck` configurado.
+- Tiene reinicio automático básico.
+- Puede demostrar caída y recuperación de una réplica.
+- Mantiene la regla de no duplicar órdenes por `orderId` incluso durante pruebas de resiliencia.
 
 ## Nota de implementación
 
-La meta de esta etapa no es cerrar todo el ecosistema de cocina, sino construir una base sólida y demostrable. Primero hacemos que el servicio funcione bien por REST y PostgreSQL; después añadimos mensajería, eventos e integraciones más complejas.
+La meta de esta etapa no es cerrar todo el ecosistema de cocina, sino construir una base sólida, demostrable y preparada para alta disponibilidad básica. Primero hacemos que el servicio funcione bien por REST, PostgreSQL, Docker y métricas; después añadimos mensajería, eventos e integraciones más complejas.
