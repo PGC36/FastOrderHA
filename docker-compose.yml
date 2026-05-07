@@ -1,16 +1,96 @@
 services:
-  postgres:
+  menu-db:
     image: postgres:16
-    container_name: fastorder-postgres
+    container_name: fastorder-menu-db
     environment:
-      POSTGRES_DB: fastorder
-      POSTGRES_USER: fastorder
-      POSTGRES_PASSWORD: fastorder123
+      POSTGRES_DB: menu_db
+      POSTGRES_USER: menu_user
+      POSTGRES_PASSWORD: menu123
     ports:
-      - "5440:5432"
+      - "5441:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - menu_db_data:/var/lib/postgresql/data
+      - ./database/menu-init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - fastorder-network
+    restart: unless-stopped
+
+  inventory-db:
+    image: postgres:16
+    container_name: fastorder-inventory-db
+    environment:
+      POSTGRES_DB: inventory_db
+      POSTGRES_USER: inventory_user
+      POSTGRES_PASSWORD: inventory123
+    ports:
+      - "5442:5432"
+    volumes:
+      - inventory_db_data:/var/lib/postgresql/data
+      - ./database/inventory-init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - fastorder-network
+    restart: unless-stopped
+
+  order-db:
+    image: postgres:16
+    container_name: fastorder-order-db
+    environment:
+      POSTGRES_DB: order_db
+      POSTGRES_USER: order_user
+      POSTGRES_PASSWORD: order123
+    ports:
+      - "5443:5432"
+    volumes:
+      - order_db_data:/var/lib/postgresql/data
+      - ./database/order-init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - fastorder-network
+    restart: unless-stopped
+
+  kitchen-db:
+    image: postgres:16
+    container_name: fastorder-kitchen-db
+    environment:
+      POSTGRES_DB: kitchen_db
+      POSTGRES_USER: kitchen_user
+      POSTGRES_PASSWORD: kitchen123
+    ports:
+      - "5444:5432"
+    volumes:
+      - kitchen_db_data:/var/lib/postgresql/data
+      - ./database/kitchen-init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - fastorder-network
+    restart: unless-stopped
+
+  delivery-db:
+    image: postgres:16
+    container_name: fastorder-delivery-db
+    environment:
+      POSTGRES_DB: delivery_db
+      POSTGRES_USER: delivery_user
+      POSTGRES_PASSWORD: delivery123
+    ports:
+      - "5445:5432"
+    volumes:
+      - delivery_db_data:/var/lib/postgresql/data
+      - ./database/delivery-init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - fastorder-network
+    restart: unless-stopped
+
+  notification-db:
+    image: postgres:16
+    container_name: fastorder-notification-db
+    environment:
+      POSTGRES_DB: notification_db
+      POSTGRES_USER: notification_user
+      POSTGRES_PASSWORD: notification123
+    ports:
+      - "5446:5432"
+    volumes:
+      - notification_db_data:/var/lib/postgresql/data
+      - ./database/notification-init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - fastorder-network
     restart: unless-stopped
@@ -41,7 +121,6 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - postgres
       - redis
       - rabbitmq
     networks:
@@ -53,4 +132,9 @@ networks:
     driver: bridge
 
 volumes:
-  postgres_data:
+  menu_db_data:
+  inventory_db_data:
+  order_db_data:
+  kitchen_db_data:
+  delivery_db_data:
+  notification_db_data:
