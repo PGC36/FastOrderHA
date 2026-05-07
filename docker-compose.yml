@@ -127,6 +127,27 @@ services:
       - fastorder-network
     restart: unless-stopped
 
+  order-service:
+    build:
+      context: ./order-service
+    container_name: fastorder-order-service
+    ports:
+      - "8082:8082"
+    depends_on:
+      - order-db
+      - rabbitmq
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://order-db:5432/order_db
+      SPRING_DATASOURCE_USERNAME: order_user
+      SPRING_DATASOURCE_PASSWORD: order123
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: guest
+      SPRING_RABBITMQ_PASSWORD: guest
+    networks:
+      - fastorder-network
+    restart: unless-stopped
+
 networks:
   fastorder-network:
     driver: bridge
