@@ -2,7 +2,7 @@
 
 ## Resumen del enfoque
 
-`delivery-service` se implementará como un microservicio autónomo, con base de datos PostgreSQL independiente, reglas explícitas de transición de estado e idempotencia en la creación de entregas. En esta primera etapa el objetivo es construir una base simple, mantenible y técnicamente correcta para un proyecto universitario, sin incorporar todavía mensajería, Redis, Actuator ni Prometheus.
+`delivery-service` se implementará como un microservicio autónomo, con base de datos PostgreSQL independiente, reglas explícitas de transición de estado e idempotencia en la creación de entregas. En esta primera etapa el objetivo es construir una base simple, mantenible y técnicamente correcta para un proyecto universitario, sin incorporar todavía mensajería, Redis, Flyway ni Security.
 
 La meta es dejar el servicio preparado para:
 
@@ -11,7 +11,8 @@ La meta es dejar el servicio preparado para:
 - proteger consistencia ante concurrencia;
 - soportar reintentos seguros;
 - mantener trazabilidad del ciclo de vida de cada entrega;
-- integrarse más adelante con observabilidad y eventos asíncronos.
+- exponer métricas y health checks desde el servicio;
+- integrarse más adelante con eventos asíncronos.
 
 ## Fase 1. Revisión inicial del proyecto
 
@@ -1024,9 +1025,9 @@ Se ajustó `pom.xml` para dejar una base coherente con la primera fase:
 - se mantuvo Spring Boot con Maven y empaquetado JAR;
 - se conservó JPA, Validation, PostgreSQL Driver y Lombok;
 - se usó `spring-boot-starter-web` como dependencia REST;
+- se agregaron `spring-boot-starter-actuator` y `micrometer-registry-prometheus` para observabilidad básica;
 - se dejó `spring-boot-starter-test` para pruebas;
-- no se agregaron nuevas dependencias;
-- no se agregaron Redis, RabbitMQ, Kafka, Actuator, Prometheus, Flyway ni Security.
+- no se agregaron Redis, RabbitMQ, Kafka, Flyway ni Security.
 
 ### 3. Configuración del servicio
 
@@ -1037,7 +1038,9 @@ Se dejó configurado `application.yaml` con:
 - datasource local apuntando a `localhost:5445/delivery_db`;
 - `ddl-auto: validate`;
 - `show-sql: true`;
-- `hibernate.format_sql: true`.
+- `hibernate.format_sql: true`;
+- exposición de `health`, `info`, `metrics` y `prometheus`;
+- `health` con `show-details: always`.
 
 Decisión aplicada:
 
@@ -1221,7 +1224,8 @@ Quedaron fijadas estas decisiones:
 - el historial entra desde la primera fase;
 - se usa concurrencia optimista con `@Version`;
 - las transiciones inválidas devuelven conflicto;
-- no se usan todavía dependencias de observabilidad ni mensajería.
+- el servicio ya expone endpoints para observabilidad básica;
+- no se usa todavía mensajería.
 
 ## Estado de validación
 
@@ -1236,6 +1240,29 @@ Conclusión práctica:
 - el bloqueo actual fue de entorno, no una excepción confirmada del código del proyecto;
 - la siguiente validación real debe ejecutarse en una máquina o entorno con acceso normal a dependencias Maven.
 
+## Integración con Prometheus
+
+Se dejó conectado `delivery-service` del lado de la aplicación para exponer métricas Prometheus.
+
+Cambios aplicados:
+
+- se agregó `spring-boot-starter-actuator` al `pom.xml`;
+- se agregó `micrometer-registry-prometheus` al `pom.xml`;
+- se habilitaron los endpoints `health`, `info`, `metrics` y `prometheus` en `application.yaml`.
+
+Endpoint esperado:
+
+- `GET /actuator/prometheus`
+
+Alcance actual:
+
+- el servicio ya puede exponer métricas;
+- todavía no se configuró el scrape externo en `monitoring/prometheus.yml` ni la integración de runtime en `docker-compose.yml`, porque en esta tarea solo estaba permitido editar `delivery-service` y su documentación.
+
+Siguiente paso pendiente fuera de esta carpeta:
+
+- agregar `delivery-service` como target de scrape dentro de la configuración central de Prometheus.
+
 ## Pendiente
 
 Todavía no se ha implementado:
@@ -1245,5 +1272,5 @@ Todavía no se ha implementado:
 - `Dockerfile`;
 - healthcheck de contenedor;
 - pruebas automáticas completas;
-- observabilidad;
+- scrape central de Prometheus fuera del servicio;
 - mensajería asíncrona.
