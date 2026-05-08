@@ -42,19 +42,12 @@ spring:
             filters:
               - StripPrefix=1
 
-          - id: delivery-service-root
-            uri: http://delivery-service:8085
-            predicates:
-              - Path=/api/delivery
-            filters:
-              - RewritePath=/api/delivery, /deliveries
-
-          - id: delivery-service-paths
+          - id: delivery-service
             uri: http://delivery-service:8085
             predicates:
               - Path=/api/delivery/**
             filters:
-              - RewritePath=/api/delivery/?(?<segment>.*), /deliveries/$\{segment}
+              - StripPrefix=1
 
           - id: notification-service
             uri: http://notification-service:8086
