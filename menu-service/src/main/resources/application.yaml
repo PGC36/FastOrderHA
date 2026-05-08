@@ -1,0 +1,44 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5441}/${DB_NAME:menu_db}
+    username: ${DB_USER:menu_user}
+    password: ${DB_PASSWORD:menu123}
+    driver-class-name: org.postgresql.Driver
+
+  application:
+    name: menu-service
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
+
+server:
+  port: 8081
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: menu-service
+    description: Microservicio de administracion y consulta de productos del menu para FastOrder HA
+    version: 0.0.1-SNAPSHOT
+
+logging:
+  level:
+    root: INFO
+    com.fastorder.menu: DEBUG
