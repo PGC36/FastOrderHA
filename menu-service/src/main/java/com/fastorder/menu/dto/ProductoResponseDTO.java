@@ -1,6 +1,5 @@
 package com.fastorder.menu.dto;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public class ProductoResponseDTO {
@@ -8,7 +7,6 @@ public class ProductoResponseDTO {
     private Long id;
     private String nombre;
     private String descripcion;
-    private BigDecimal precio;
     private String categoria;
     private Boolean disponible;
     private Boolean activo;
@@ -37,14 +35,6 @@ public class ProductoResponseDTO {
 
     public void setDescripcion(String descripcion) {
         this.descripcion = descripcion;
-    }
-
-    public BigDecimal getPrecio() {
-        return precio;
-    }
-
-    public void setPrecio(BigDecimal precio) {
-        this.precio = precio;
     }
 
     public String getCategoria() {

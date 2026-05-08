@@ -13,7 +13,6 @@ Columnas esperadas:
 - `id`: identificador primario.
 - `nombre`: nombre visible del producto.
 - `descripcion`: detalle breve del producto.
-- `precio`: precio en `NUMERIC(10,2)`, mapeado a `BigDecimal`.
 - `categoria`: categoria del producto.
 - `disponible`: indica si puede venderse en este momento.
 - `activo`: permite desactivar productos sin borrarlos fisicamente.

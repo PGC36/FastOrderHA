@@ -115,7 +115,6 @@ public class ProductoService {
     private void aplicarRequest(Producto producto, ProductoRequestDTO request, boolean usarValoresPorDefecto) {
         producto.setNombre(request.getNombre().trim());
         producto.setDescripcion(request.getDescripcion() == null ? null : request.getDescripcion().trim());
-        producto.setPrecio(request.getPrecio());
         producto.setCategoria(request.getCategoria().trim());
         if (request.getDisponible() != null || usarValoresPorDefecto) {
             producto.setDisponible(request.getDisponible() == null ? true : request.getDisponible());
@@ -130,7 +129,6 @@ public class ProductoService {
         response.setId(producto.getId());
         response.setNombre(producto.getNombre());
         response.setDescripcion(producto.getDescripcion());
-        response.setPrecio(producto.getPrecio());
         response.setCategoria(producto.getCategoria());
         response.setDisponible(producto.getDisponible());
         response.setActivo(producto.getActivo());

@@ -1,10 +1,7 @@
 package com.fastorder.menu.dto;
 
-import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import java.math.BigDecimal;
 
 public class ProductoRequestDTO {
 
@@ -14,10 +11,6 @@ public class ProductoRequestDTO {
 
     @Size(max = 500, message = "La descripcion no puede superar 500 caracteres")
     private String descripcion;
-
-    @NotNull(message = "El precio del producto es obligatorio")
-    @DecimalMin(value = "0.01", message = "El precio debe ser mayor a 0")
-    private BigDecimal precio;
 
     @NotBlank(message = "La categoria del producto es obligatoria")
     @Size(max = 80, message = "La categoria no puede superar 80 caracteres")
@@ -40,14 +33,6 @@ public class ProductoRequestDTO {
 
     public void setDescripcion(String descripcion) {
         this.descripcion = descripcion;
-    }
-
-    public BigDecimal getPrecio() {
-        return precio;
-    }
-
-    public void setPrecio(BigDecimal precio) {
-        this.precio = precio;
     }
 
     public String getCategoria() {

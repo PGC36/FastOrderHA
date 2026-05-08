@@ -8,7 +8,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -25,9 +24,6 @@ public class Producto {
 
     @Column(name = "descripcion", length = 500)
     private String descripcion;
-
-    @Column(name = "precio", nullable = false, precision = 10, scale = 2)
-    private BigDecimal precio;
 
     @Column(name = "categoria", nullable = false, length = 80)
     private String categoria;
@@ -84,14 +80,6 @@ public class Producto {
 
     public void setDescripcion(String descripcion) {
         this.descripcion = descripcion;
-    }
-
-    public BigDecimal getPrecio() {
-        return precio;
-    }
-
-    public void setPrecio(BigDecimal precio) {
-        this.precio = precio;
     }
 
     public String getCategoria() {
