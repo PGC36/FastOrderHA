@@ -11,6 +11,7 @@ public class OrderResponse {
     private Integer quantity;
     private String status;
     private LocalDateTime createdAt;
+    private String message;
 
     public static OrderResponse fromEntity(Order order) {
         OrderResponse response = new OrderResponse();
@@ -20,6 +21,12 @@ public class OrderResponse {
         response.setQuantity(order.getQuantity());
         response.setStatus(order.getStatus());
         response.setCreatedAt(order.getCreatedAt());
+        return response;
+    }
+
+    public static OrderResponse fromEntity(Order order, String message) {
+        OrderResponse response = fromEntity(order);
+        response.setMessage(message);
         return response;
     }
 
@@ -69,5 +76,13 @@ public class OrderResponse {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
     }
 }

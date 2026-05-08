@@ -4,11 +4,11 @@ import com.fastorder.orderservice.dto.CreateOrderRequest;
 import com.fastorder.orderservice.entity.Order;
 import com.fastorder.orderservice.exception.BusinessRuleException;
 import com.fastorder.orderservice.exception.InventoryUnavailableException;
+import com.fastorder.orderservice.exception.ProductNotFoundException;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -53,7 +53,10 @@ public class OrderWorkflowClient {
             logger.info("Inventario reservado productId={}, quantity={}",
                     request.getProductId(), request.getQuantity());
         } catch (RestClientResponseException exception) {
-            if (isBusinessError(exception.getStatusCode())) {
+            if (exception.getStatusCode().value() == 404) {
+                throw new ProductNotFoundException("El producto solicitado no existe");
+            }
+            if (exception.getStatusCode().is4xxClientError()) {
                 throw new BusinessRuleException("No hay stock suficiente para el producto solicitado");
             }
             throw new InventoryUnavailableException("inventory-service no pudo reservar stock");
@@ -63,14 +66,24 @@ public class OrderWorkflowClient {
     }
 
     public void createKitchenOrder(Order order) {
-        post(kitchenBaseUrl, Map.of("orderId", order.getId()), "kitchen-service");
+        Map<String, Object> kitchenOrder = post(kitchenBaseUrl, Map.of("orderId", order.getId()), "kitchen-service");
+        Long kitchenOrderId = readId(kitchenOrder, "kitchen-service");
+
+        patch(kitchenBaseUrl + "/" + kitchenOrderId + "/status", Map.of("status", "PREPARING"), "kitchen-service");
+        patch(kitchenBaseUrl + "/" + kitchenOrderId + "/status", Map.of("status", "READY"), "kitchen-service");
     }
 
     public void createDelivery(Order order, CreateOrderRequest request) {
-        post(deliveryBaseUrl, Map.of(
+        Map<String, Object> delivery = post(deliveryBaseUrl, Map.of(
                 "orderId", order.getId(),
                 "deliveryAddress", valueOrDefault(request.getDeliveryAddress(), DEFAULT_DELIVERY_ADDRESS)),
                 "delivery-service");
+        Long deliveryId = readId(delivery, "delivery-service");
+
+        patch(deliveryBaseUrl + "/" + deliveryId + "/assign", Map.of("driverId", 1), "delivery-service");
+        patch(deliveryBaseUrl + "/" + deliveryId + "/pick-up", null, "delivery-service");
+        patch(deliveryBaseUrl + "/" + deliveryId + "/in-transit", null, "delivery-service");
+        patch(deliveryBaseUrl + "/" + deliveryId + "/deliver", null, "delivery-service");
     }
 
     public void createNotification(Order order, CreateOrderRequest request) {
@@ -82,14 +95,15 @@ public class OrderWorkflowClient {
                 "notification-service");
     }
 
-    private void post(String url, Map<String, ?> body, String serviceName) {
+    private Map<String, Object> post(String url, Map<String, ?> body, String serviceName) {
         try {
-            restClient.post()
+            Map<String, Object> response = restClient.post()
                     .uri(url)
                     .body(body)
                     .retrieve()
-                    .toBodilessEntity();
+                    .body(Map.class);
             logger.info("{} procesado correctamente para body={}", serviceName, body);
+            return response;
         } catch (RestClientResponseException exception) {
             throw new BusinessRuleException(serviceName + " rechazo la operacion");
         } catch (RestClientException exception) {
@@ -97,8 +111,26 @@ public class OrderWorkflowClient {
         }
     }
 
-    private boolean isBusinessError(HttpStatusCode statusCode) {
-        return statusCode.is4xxClientError();
+    private void patch(String url, Map<String, ?> body, String serviceName) {
+        try {
+            RestClient.RequestBodySpec request = restClient.patch().uri(url);
+            if (body != null) {
+                request.body(body);
+            }
+            request.retrieve().toBodilessEntity();
+            logger.info("{} actualizado correctamente url={}, body={}", serviceName, url, body);
+        } catch (RestClientResponseException exception) {
+            throw new BusinessRuleException(serviceName + " rechazo la actualizacion");
+        } catch (RestClientException exception) {
+            throw new InventoryUnavailableException(serviceName + " no disponible");
+        }
+    }
+
+    private Long readId(Map<String, Object> response, String serviceName) {
+        if (response == null || !(response.get("id") instanceof Number id)) {
+            throw new InventoryUnavailableException(serviceName + " no devolvio id");
+        }
+        return id.longValue();
     }
 
     private String valueOrDefault(String value, String defaultValue) {

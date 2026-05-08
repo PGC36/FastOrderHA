@@ -1,13 +1,17 @@
 package com.fastorder.orderservice.service;
 
 import com.fastorder.orderservice.dto.CreateOrderRequest;
+import com.fastorder.orderservice.dto.OrderCreationResult;
 import com.fastorder.orderservice.dto.OrderResponse;
+import com.fastorder.orderservice.dto.UpdateOrderStatusRequest;
 import com.fastorder.orderservice.entity.Order;
 import com.fastorder.orderservice.entity.OutboxEvent;
+import com.fastorder.orderservice.exception.DuplicateOrderException;
 import com.fastorder.orderservice.exception.OrderNotFoundException;
 import com.fastorder.orderservice.repository.OrderRepository;
 import com.fastorder.orderservice.repository.OutboxEventRepository;
 import java.util.List;
+import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -18,6 +22,7 @@ public class OrderService {
 
     private static final Logger logger = LoggerFactory.getLogger(OrderService.class);
     private static final String INITIAL_STATUS = "PENDING";
+    private static final String COMPLETED_STATUS = "COMPLETED";
 
     private final OrderRepository orderRepository;
     private final OutboxEventRepository outboxEventRepository;
@@ -32,8 +37,7 @@ public class OrderService {
         this.orderWorkflowClient = orderWorkflowClient;
     }
 
-    @Transactional
-    public OrderResponse createOrder(CreateOrderRequest request) {
+    public OrderCreationResult createOrder(CreateOrderRequest request) {
         logger.info("Inicio de creación de pedido");
         logger.info("idempotencyKey recibido={}", request.getIdempotencyKey());
 
@@ -41,7 +45,10 @@ public class OrderService {
                 .map(existingOrder -> {
                     logger.info("Pedido ya existente detectado por idempotencia idempotencyKey={}",
                             request.getIdempotencyKey());
-                    return OrderResponse.fromEntity(existingOrder);
+                    validateIdempotentRetry(existingOrder, request);
+                    return new OrderCreationResult(
+                            OrderResponse.fromEntity(existingOrder, idempotentMessage(existingOrder)),
+                            false);
                 })
                 .orElseGet(() -> createNewOrder(request));
     }
@@ -61,7 +68,18 @@ public class OrderService {
         return OrderResponse.fromEntity(order);
     }
 
-    private OrderResponse createNewOrder(CreateOrderRequest request) {
+    @Transactional
+    public OrderResponse updateOrderStatus(Long id, UpdateOrderStatusRequest request) {
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new OrderNotFoundException("Pedido no encontrado con id " + id));
+
+        order.setStatus(request.getStatus());
+        Order updated = orderRepository.save(order);
+        logger.info("Estado de pedido actualizado orderId={}, status={}", id, request.getStatus());
+        return OrderResponse.fromEntity(updated);
+    }
+
+    private OrderCreationResult createNewOrder(CreateOrderRequest request) {
         orderWorkflowClient.reserveInventory(request);
 
         Order order = new Order();
@@ -85,9 +103,13 @@ public class OrderService {
 
         orderWorkflowClient.createKitchenOrder(savedOrder);
         orderWorkflowClient.createDelivery(savedOrder, request);
+        savedOrder.setStatus(COMPLETED_STATUS);
+        savedOrder = orderRepository.save(savedOrder);
         orderWorkflowClient.createNotification(savedOrder, request);
 
-        return OrderResponse.fromEntity(savedOrder);
+        return new OrderCreationResult(
+                OrderResponse.fromEntity(savedOrder, "Orden creada y entregada correctamente"),
+                true);
     }
 
     private String buildOrderCreatedPayload(Order order) {
@@ -97,5 +119,22 @@ public class OrderService {
                 order.getProductId(),
                 order.getQuantity(),
                 order.getStatus());
+    }
+
+    private void validateIdempotentRetry(Order existingOrder, CreateOrderRequest request) {
+        boolean sameRequest = Objects.equals(existingOrder.getProductId(), request.getProductId())
+                && Objects.equals(existingOrder.getQuantity(), request.getQuantity());
+
+        if (!sameRequest) {
+            throw new DuplicateOrderException(
+                    "idempotencyKey ya fue usada con datos diferentes");
+        }
+    }
+
+    private String idempotentMessage(Order existingOrder) {
+        if (COMPLETED_STATUS.equals(existingOrder.getStatus())) {
+            return "Orden ya entregada anteriormente";
+        }
+        return "Orden ya recibida anteriormente";
     }
 }

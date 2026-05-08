@@ -41,6 +41,7 @@ public class DeliveryOrderService {
 
     private final DeliveryOrderRepository deliveryOrderRepository;
     private final DeliveryStatusHistoryRepository deliveryStatusHistoryRepository;
+    private final OrderStatusClient orderStatusClient;
 
     @Transactional
     public DeliveryResponse createDelivery(CreateDeliveryRequest request) {
@@ -157,6 +158,7 @@ public class DeliveryOrderService {
 
         DeliveryOrder updated = deliveryOrderRepository.save(deliveryOrder);
         recordStatusHistory(updated, previousStatus, targetStatus, reason, changedBy);
+        orderStatusClient.syncDeliveryStatus(updated.getOrderId(), updated.getStatus());
         return toResponse(updated);
     }
 

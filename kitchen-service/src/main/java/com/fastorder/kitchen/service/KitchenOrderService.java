@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class KitchenOrderService {
 
     private final KitchenOrderRepository kitchenOrderRepository;
+    private final OrderStatusClient orderStatusClient;
 
     @Transactional(readOnly = true)
     public List<KitchenOrderResponse> getAllOrders() {
@@ -81,6 +82,7 @@ public class KitchenOrderService {
         }
 
         KitchenOrder updated = kitchenOrderRepository.save(kitchenOrder);
+        orderStatusClient.syncKitchenStatus(updated.getOrderId(), updated.getStatus());
         return toResponse(updated);
     }
 

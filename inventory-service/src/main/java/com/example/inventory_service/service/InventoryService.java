@@ -2,6 +2,7 @@ package com.example.inventory_service.service;
 
 import com.example.inventory_service.dto.StockUpdateRequest;
 import com.example.inventory_service.entity.Inventory;
+import com.example.inventory_service.exception.ProductNotFoundException;
 import com.example.inventory_service.repository.InventoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -24,7 +25,7 @@ public class InventoryService {
     @Transactional
     public boolean reserveStock(StockUpdateRequest request) {
         Inventory inventory = inventoryRepository.findByProductId(request.getProductId())
-                .orElseThrow(() -> new RuntimeException("Producto no encontrado en inventario"));
+                .orElseThrow(() -> new ProductNotFoundException("El producto solicitado no existe"));
 
         int stockDisponible = inventory.getQuantity() - inventory.getReserved();
 
