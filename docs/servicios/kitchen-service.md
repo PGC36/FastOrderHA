@@ -2,9 +2,22 @@
 
 ## Objetivo
 
-El microservicio `kitchen-service` será responsable de gestionar las órdenes enviadas a cocina dentro de FastOrder HA.
+El microservicio `kitchen-service` gestiona las órdenes enviadas a cocina dentro del proyecto FastOrder HA.
 
-En esta primera etapa nos enfocaremos en una base funcional y estable, trabajando la base de datos de forma aislada para no mezclar todavía integraciones entre microservicios.
+En esta etapa se dejó implementada una base funcional por REST + PostgreSQL + validaciones + métricas, preparada para continuar luego con Docker, alta disponibilidad básica y, en una fase posterior, mensajería con RabbitMQ.
+
+## Estado actual
+
+Actualmente ya quedaron implementadas las fases 1 a 13 del plan:
+
+- Proyecto Spring Boot con Maven.
+- Paquete base `com.fastorder.kitchen`.
+- Estructura por capas.
+- Entidad, DTOs, repository, service y controller.
+- Manejo global de excepciones.
+- Configuración JPA con `ddl-auto: validate`.
+- Actuator y Prometheus habilitados.
+- Script SQL propio del servicio en `database/kitchen-init.sql`.
 
 ## Responsabilidades del microservicio
 
@@ -16,7 +29,7 @@ En esta primera etapa nos enfocaremos en una base funcional y estable, trabajand
 - Exponer métricas para Prometheus.
 - Quedar preparado para integrar RabbitMQ más adelante.
 
-## Alcance de esta etapa
+## Alcance implementado en esta etapa
 
 Incluye:
 
@@ -24,128 +37,107 @@ Incluye:
 - API REST.
 - Persistencia con PostgreSQL.
 - Validaciones.
-- Actuator.
+- Spring Boot Actuator.
 - Métricas Prometheus.
-- Dockerización inicial.
-- Integración básica con `docker-compose`.
+- Configuración local para trabajar contra la base del servicio.
 
 No incluye todavía:
 
 - RabbitMQ.
 - Consumo o publicación de eventos.
-- Orquestación avanzada entre microservicios.
-- Acoplamiento directo con entidades de otros servicios.
+- Dockerfile.
+- Integración de `kitchen-service` al `docker-compose.yml`.
+- Healthcheck de contenedor.
+- Réplicas y pruebas de resiliencia.
+- Orquestación avanzada.
 
 ## Estados de cocina
 
-Los estados definidos para una orden de cocina serán:
+Los estados definidos e implementados son:
 
 - `PENDING`
 - `PREPARING`
 - `READY`
 - `CANCELLED`
 
-## Principios de diseño
+## Principios de diseño aplicados
 
-- La base de datos se trabajará de forma aislada en esta fase.
-- `kitchen-service` manejará `orderId` como referencia simple, sin relación JPA directa con `order-service`.
-- Hibernate no debe crear ni modificar tablas automáticamente.
-- La creación de órdenes debe ser idempotente por `order_id`.
-- La implementación se hará por capas para mantener claridad y facilidad de prueba.
+- `kitchen-service` usa `orderId` como referencia simple.
+- No existe relación JPA directa con una entidad `Order`.
+- Hibernate no crea ni modifica tablas automáticamente.
+- La creación de órdenes es idempotente por `order_id`.
+- La lógica se separa por capas para mantener claridad y facilidad de prueba.
+- La base actual del servicio es independiente y usa su propio script SQL.
 
-## Estructura objetivo del proyecto
-
-```text
-FASTORDERHA/
-├── kitchen-service/
-│   ├── src/
-│   ├── pom.xml
-│   ├── mvnw
-│   ├── mvnw.cmd
-│   └── HELP.md
-```
-
-## Estructura objetivo de paquetes
-
-Dentro de `kitchen-service/src/main/java/com/fastorder/kitchen/`:
+## Estructura implementada
 
 ```text
-com.fastorder.kitchen
-├── KitchenServiceApplication.java
-├── controller/
-│   └── KitchenOrderController.java
-├── service/
-│   └── KitchenOrderService.java
-├── repository/
-│   └── KitchenOrderRepository.java
-├── model/
-│   └── KitchenOrder.java
-├── dto/
-│   ├── CreateKitchenOrderRequest.java
-│   ├── UpdateKitchenStatusRequest.java
-│   └── KitchenOrderResponse.java
-├── enums/
-│   └── KitchenOrderStatus.java
-└── exception/
-    ├── GlobalExceptionHandler.java
-    └── ResourceNotFoundException.java
+kitchen-service/
+├── pom.xml
+├── mvnw
+├── mvnw.cmd
+├── HELP.md
+└── src/
+    ├── main/
+    │   ├── java/com/fastorder/kitchen/
+    │   │   ├── KitchenServiceApplication.java
+    │   │   ├── controller/
+    │   │   │   └── KitchenOrderController.java
+    │   │   ├── dto/
+    │   │   │   ├── CreateKitchenOrderRequest.java
+    │   │   │   ├── KitchenOrderResponse.java
+    │   │   │   └── UpdateKitchenStatusRequest.java
+    │   │   ├── enums/
+    │   │   │   └── KitchenOrderStatus.java
+    │   │   ├── exception/
+    │   │   │   ├── GlobalExceptionHandler.java
+    │   │   │   └── ResourceNotFoundException.java
+    │   │   ├── model/
+    │   │   │   └── KitchenOrder.java
+    │   │   ├── repository/
+    │   │   │   └── KitchenOrderRepository.java
+    │   │   └── service/
+    │   │       └── KitchenOrderService.java
+    │   └── resources/
+    │       └── application.yaml
+    └── test/
+        └── java/com/fastorder/kitchen/
+            └── KitchenServiceApplicationTests.java
 ```
 
-## Dependencias requeridas
+## Dependencias configuradas
 
-Por ahora, el proyecto Spring Boot de `kitchen-service` parte con estas dependencias base:
-
-- `Spring Web`
-- `Spring Data JPA`
-- `PostgreSQL Driver`
-- `Validation`
-- `Spring Boot Actuator`
-- `Prometheus`
-- `Lombok`
-
-Traducido a `pom.xml`, esto normalmente corresponde a:
+En `pom.xml` quedaron configuradas estas dependencias:
 
 - `spring-boot-starter-web`
 - `spring-boot-starter-data-jpa`
-- `org.postgresql:postgresql`
 - `spring-boot-starter-validation`
 - `spring-boot-starter-actuator`
 - `io.micrometer:micrometer-registry-prometheus`
+- `org.postgresql:postgresql`
 - `org.projectlombok:lombok`
-
-Para pruebas, también debemos considerar:
-
 - `spring-boot-starter-test`
 
-RabbitMQ queda fuera de esta primera implementación.
+Nota:
 
-## Configuración base esperada
+- El proyecto quedó con Java `21`.
+- RabbitMQ todavía no forma parte del `pom.xml`.
 
-Archivo: `src/main/resources/application.yml`
+## Configuración actual
 
-Lineamientos:
-
-- Puerto del servicio: `3004`
-- Nombre de aplicación: `kitchen-service`
-- Conexión a PostgreSQL local o aislada
-- `ddl-auto: validate`
-- Exposición de `health`, `info`, `prometheus` y `metrics`
-
-Ejemplo base:
+Archivo: [application.yaml](../../kitchen-service/src/main/resources/application.yaml)
 
 ```yaml
 server:
-  port: 3004
+  port: 8084
 
 spring:
   application:
     name: kitchen-service
-
   datasource:
-    url: jdbc:postgresql://localhost:5432/fastorder
-    username: postgres
-    password: postgres
-
+    url: jdbc:postgresql://localhost:5444/kitchen_db
+    username: kitchen_user
+    password: kitchen123
   jpa:
     hibernate:
       ddl-auto: validate
@@ -164,368 +156,179 @@ management:
       show-details: always
 ```
 
-## Base de datos
+Notas:
 
-La tabla `kitchen_orders` debe responder a este contrato:
+- El puerto quedó en `8084` para alinearse con el `api-gateway` actual.
+- `localhost:5444` aplica para ejecución local fuera de Docker, usando la base `kitchen-db` del `docker-compose.yml` raíz.
+- Cuando el servicio se ejecute dentro de Docker Compose, el datasource deberá cambiar a `jdbc:postgresql://kitchen-db:5432/kitchen_db`.
+
+## Gestión de base de datos en esta etapa
+
+La base de datos del servicio se administra actualmente desde el `docker-compose.yml` principal del proyecto, pero no como base compartida con `order-service`.
+
+Se trabaja así:
+
+- PostgreSQL de cocina se levanta como `kitchen-db`.
+- La estructura inicial se carga usando [kitchen-init.sql](../../database/kitchen-init.sql).
+- `kitchen-service` consume esa base como cliente.
+- El servicio valida el esquema existente con `ddl-auto: validate`.
+- Hibernate no crea ni altera tablas automáticamente.
+
+Implicación práctica:
+
+- En la implementación real actual, `kitchen-service` usa una base separada.
+- Por esa razón `order_id` se maneja como referencia simple y no como `foreign key`.
+
+## Contrato SQL implementado
+
+Archivo: [kitchen-init.sql](../../database/kitchen-init.sql)
 
 ```sql
 CREATE TABLE IF NOT EXISTS kitchen_orders (
-    id SERIAL PRIMARY KEY,
-    order_id INT NOT NULL UNIQUE REFERENCES orders(id),
+    id BIGSERIAL PRIMARY KEY,
+    order_id BIGINT NOT NULL UNIQUE,
     status VARCHAR(50) NOT NULL CHECK (
         status IN ('PENDING', 'PREPARING', 'READY', 'CANCELLED')
     ),
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    started_at TIMESTAMP,
+    ready_at TIMESTAMP
 );
-
-CREATE INDEX IF NOT EXISTS idx_kitchen_orders_order_id
-ON kitchen_orders(order_id);
 ```
 
-## Contrato funcional inicial
+## Modelo implementado
 
-### Reglas
+La entidad `KitchenOrder` incluye:
 
-- No se puede crear más de una orden de cocina para el mismo `order_id`.
-- Solo se aceptan estados definidos en el enum.
-- Cada actualización de estado debe refrescar `updated_at`.
-- Si una orden ya existe para un `orderId`, la creación debe devolver la existente.
+- `id`
+- `orderId`
+- `status`
+- `createdAt`
+- `updatedAt`
+- `startedAt`
+- `readyAt`
 
-### Endpoints esperados
+Comportamiento implementado:
+
+- `@PrePersist` asigna `createdAt`, `updatedAt` y `PENDING` por defecto si no viene estado.
+- `@PreUpdate` actualiza `updatedAt`.
+
+## DTOs implementados
+
+Se crearon estos DTOs:
+
+- `CreateKitchenOrderRequest`
+- `UpdateKitchenStatusRequest`
+- `KitchenOrderResponse`
+
+Validaciones implementadas:
+
+- `orderId` es obligatorio en creación.
+- `status` es obligatorio en actualización.
+
+## Repository implementado
+
+`KitchenOrderRepository` extiende `JpaRepository<KitchenOrder, Long>` e incluye:
+
+- `findByOrderId(Long orderId)`
+- `existsByOrderId(Long orderId)`
+
+## Manejo de errores implementado
+
+Se implementó:
+
+- `ResourceNotFoundException`
+- `GlobalExceptionHandler`
+
+El manejador global cubre:
+
+- recurso no encontrado;
+- errores de validación;
+- errores generales no controlados.
+
+## Lógica de negocio implementada
+
+`KitchenOrderService` ya resuelve estos casos:
+
+- listar órdenes;
+- obtener orden por ID;
+- crear orden de forma idempotente por `orderId`;
+- actualizar estado;
+- asignar `startedAt` cuando la orden pasa a `PREPARING`;
+- asignar `readyAt` cuando la orden pasa a `READY`;
+- convertir entidad a DTO de respuesta.
+
+Detalles importantes:
+
+- Si se intenta crear la misma orden más de una vez, se devuelve la existente.
+- También se agregó una protección ante `DataIntegrityViolationException` para soportar mejor concurrencia básica en la creación idempotente.
+
+## API implementada
+
+Controlador: [KitchenOrderController.java](../../kitchen-service/src/main/java/com/fastorder/kitchen/controller/KitchenOrderController.java)
+
+Endpoints implementados:
 
 | Método | Endpoint | Descripción |
 |---|---|---|
-| GET | `/actuator/health` | Estado del servicio |
-| GET | `/actuator/prometheus` | Métricas Prometheus |
 | GET | `/kitchen/orders` | Lista órdenes de cocina |
 | GET | `/kitchen/orders/{id}` | Obtiene una orden por ID |
 | POST | `/kitchen/orders` | Crea una orden de cocina |
 | PATCH | `/kitchen/orders/{id}/status` | Actualiza el estado |
+| GET | `/actuator/health` | Estado del servicio |
+| GET | `/actuator/prometheus` | Métricas Prometheus |
 
-## Plan de trabajo por fases
+## Reglas funcionales vigentes
 
-### Fase 1. Crear y verificar el proyecto base Spring Boot
+- No se puede crear más de una orden de cocina para el mismo `order_id`.
+- Solo se aceptan estados definidos en `KitchenOrderStatus`.
+- Cada actualización de estado refresca `updated_at`.
+- `started_at` puede registrarse al pasar a `PREPARING`.
+- `ready_at` puede registrarse al pasar a `READY`.
 
-Objetivo:
+## Validación y pruebas realizadas
 
-- Confirmar que `kitchen-service` arranca correctamente.
+Se dejó implementado:
 
-Actividades:
+- test base de contexto con `SpringBootTest`;
+- estructura lista para probar endpoints localmente;
+- configuración de Actuator y Prometheus activa.
 
-- Validar que la estructura del proyecto esté completa.
-- Entrar a `kitchen-service`.
-- Ejecutar `mvn spring-boot:run`.
-- Confirmar que el servicio levanta sin errores.
+Limitación actual:
 
-Resultado esperado:
+- La validación completa con Maven no se pudo ejecutar en este entorno por restricciones del sandbox para descargar dependencias desde Maven Central.
 
-- El proyecto arranca localmente.
+## Fases completadas
 
-### Fase 2. Verificar dependencias
+Quedaron completadas:
 
-Objetivo:
+1. Verificar o crear estructura de paquetes.
+2. Crear `KitchenOrderStatus`.
+3. Crear entidad `KitchenOrder`.
+4. Configurar `@PrePersist`.
+5. Configurar `@PreUpdate`.
+6. Crear DTOs.
+7. Crear `KitchenOrderRepository`.
+8. Crear `ResourceNotFoundException`.
+9. Crear `GlobalExceptionHandler`.
+10. Crear `KitchenOrderService`.
+11. Crear `KitchenOrderController`.
+12. Validar payloads con `@Valid`.
+13. Mantener Actuator y Prometheus configurados.
 
-- Asegurar que el `pom.xml` contiene todo lo necesario para la primera etapa.
+## Pendiente para siguientes fases
 
-Actividades:
+Todavía falta implementar:
 
-- Revisar dependencias REST, JPA, PostgreSQL, Validation, Actuator, Prometheus, Lombok y Test.
-- Confirmar que RabbitMQ no se incluye todavía.
-
-Resultado esperado:
-
-- `pom.xml` listo para construir la base del servicio.
-
-### Fase 3. Definir estructura de paquetes
-
-Objetivo:
-
-- Crear una organización clara para controller, service, repository, model, dto, enums y exception.
-
-Actividades:
-
-- Crear la estructura de paquetes acordada.
-- Definir la clase principal `KitchenServiceApplication`.
-
-Resultado esperado:
-
-- Estructura base lista para implementar.
-
-### Fase 4. Configurar `application.yml`
-
-Objetivo:
-
-- Dejar configuración local alineada con una base de datos aislada.
-
-Actividades:
-
-- Definir `server.port=3004`.
-- Configurar datasource.
-- Configurar JPA con `ddl-auto: validate`.
-- Exponer endpoints de Actuator y Prometheus.
-
-Resultado esperado:
-
-- Configuración estable y predecible.
-
-### Fase 5. Ajustar la tabla `kitchen_orders`
-
-Objetivo:
-
-- Alinear la tabla con las reglas funcionales del servicio.
-
-Actividades:
-
-- Ajustar definición de `kitchen_orders` en `database/init.sql`.
-- Garantizar `order_id` único.
-- Validar restricción de estados permitidos.
-
-Resultado esperado:
-
-- Base de datos compatible con la entidad del servicio.
-
-### Fase 6. Crear enum de estados
-
-Objetivo:
-
-- Centralizar los estados válidos de cocina.
-
-Actividades:
-
-- Crear `KitchenOrderStatus`.
-
-Resultado esperado:
-
-- Estados definidos y reutilizables.
-
-### Fase 7. Crear entidad `KitchenOrder`
-
-Objetivo:
-
-- Mapear la tabla `kitchen_orders` en JPA.
-
-Actividades:
-
-- Crear la entidad.
-- Incluir `orderId`, `status`, `createdAt`, `updatedAt`.
-- Agregar `@PrePersist` y `@PreUpdate`.
-
-Resultado esperado:
-
-- Entidad persistible y consistente.
-
-### Fase 8. Crear DTOs
-
-Objetivo:
-
-- Separar el contrato de entrada y salida de la entidad.
-
-Actividades:
-
-- Crear `CreateKitchenOrderRequest`.
-- Crear `UpdateKitchenStatusRequest`.
-- Crear `KitchenOrderResponse`.
-
-Resultado esperado:
-
-- API desacoplada del modelo interno.
-
-### Fase 9. Crear repository
-
-Objetivo:
-
-- Exponer operaciones de acceso a datos necesarias para la fase inicial.
-
-Actividades:
-
-- Crear `KitchenOrderRepository`.
-- Incluir `findByOrderId` y `existsByOrderId`.
-
-Resultado esperado:
-
-- Capa de persistencia lista para uso en servicio.
-
-### Fase 10. Crear manejo de excepciones
-
-Objetivo:
-
-- Estandarizar respuestas de error.
-
-Actividades:
-
-- Crear `ResourceNotFoundException`.
-- Crear `GlobalExceptionHandler`.
-- Manejar validaciones y errores inesperados.
-
-Resultado esperado:
-
-- Errores controlados y respuestas uniformes.
-
-### Fase 11. Crear lógica de negocio
-
-Objetivo:
-
-- Implementar comportamiento principal del microservicio.
-
-Actividades:
-
-- Listar órdenes.
-- Obtener orden por ID.
-- Crear orden idempotente por `orderId`.
-- Actualizar estado.
-- Convertir entidad a DTO de respuesta.
-
-Resultado esperado:
-
-- Servicio funcional con reglas básicas de negocio.
-
-### Fase 12. Crear controlador REST
-
-Objetivo:
-
-- Exponer el contrato HTTP del servicio.
-
-Actividades:
-
-- Implementar endpoints GET, POST y PATCH.
-- Validar payloads con `@Valid`.
-
-Resultado esperado:
-
-- API REST utilizable localmente.
-
-### Fase 13. Probar localmente
-
-Objetivo:
-
-- Validar que el servicio funciona de punta a punta.
-
-Actividades:
-
-- Levantar PostgreSQL.
-- Ejecutar `mvn spring-boot:run`.
-- Probar creación, consulta y actualización de órdenes.
-- Probar health y métricas.
-
-Resultado esperado:
-
-- Flujo funcional validado localmente.
-
-### Fase 14. Crear Dockerfile
-
-Objetivo:
-
-- Dejar el servicio listo para contenedor.
-
-Actividades:
-
-- Crear `Dockerfile` multi-stage.
-- Empaquetar la aplicación como jar.
-- Exponer puerto `3004`.
-
-Resultado esperado:
-
-- Imagen construible del servicio.
-
-### Fase 15. Integrar con `docker-compose`
-
-Objetivo:
-
-- Permitir levantar `kitchen-service` junto al entorno base.
-
-Actividades:
-
-- Agregar servicio `kitchen-service`.
-- Configurar variables de entorno para datasource.
-- Agregar `depends_on` hacia `postgres`.
-
-Resultado esperado:
-
-- Servicio integrable al stack local.
-
-### Fase 16. Conectar Prometheus
-
-Objetivo:
-
-- Habilitar scraping de métricas del servicio.
-
-Actividades:
-
-- Agregar `kitchen-service` a `monitoring/prometheus.yml`.
-
-Resultado esperado:
-
-- Métricas observables desde Prometheus.
-
-### Fase 17. Documentación final del microservicio
-
-Objetivo:
-
-- Dejar documentado el servicio para implementación y revisión.
-
-Actividades:
-
-- Mantener actualizado este documento.
-- Ajustar endpoints, reglas y notas técnicas según avance real.
-
-Resultado esperado:
-
-- Documentación alineada con la implementación.
-
-### Fase 18. Integración futura con RabbitMQ
-
-Objetivo:
-
-- Preparar la siguiente etapa sin mezclarla con esta base inicial.
-
-Actividades futuras:
-
-- Definir eventos de entrada y salida.
-- Agregar dependencias de mensajería.
-- Diseñar consumidores y publicadores.
-- Revisar estrategia de idempotencia con eventos.
-
-Resultado esperado:
-
-- Backlog claro para la siguiente iteración.
-
-## Orden recomendado de ejecución
-
-Trabajaremos exactamente en este orden:
-
-1. Verificar que el proyecto Spring Boot arranca.
-2. Revisar dependencias del `pom.xml`.
-3. Configurar `application.yml`.
-4. Ajustar tabla `kitchen_orders` en `init.sql`.
-5. Crear enum `KitchenOrderStatus`.
-6. Crear entidad `KitchenOrder`.
-7. Crear DTOs.
-8. Crear repository.
-9. Crear excepciones.
-10. Crear service.
-11. Crear controller.
-12. Probar endpoints con curl o Postman.
-13. Probar `/actuator/health`.
-14. Probar `/actuator/prometheus`.
-15. Crear `Dockerfile`.
-16. Agregar `kitchen-service` al `docker-compose.yml`.
-17. Mantener actualizada esta documentación.
-18. Después agregar RabbitMQ.
-
-## Resultado esperado de esta primera etapa
-
-Al cerrar esta fase debemos poder demostrar que:
-
-- `kitchen-service` levanta correctamente.
-- Se conecta a PostgreSQL.
-- Crea órdenes de cocina.
-- No duplica órdenes por `orderId`.
-- Permite cambiar estado.
-- Expone health check.
-- Expone métricas para Prometheus.
-- Está listo para dockerizarse.
+- `Dockerfile` del servicio.
+- Integración de `kitchen-service` al `docker-compose.yml`.
+- Variables de entorno de datasource para entorno Docker.
+- Healthcheck de contenedor.
+- Preparación de alta disponibilidad básica con réplicas.
+- Integración con Prometheus a nivel de stack.
+- RabbitMQ en una fase posterior.
 
 ## Nota de implementación
 
-La meta de esta etapa no es cerrar todo el ecosistema de cocina, sino construir una base sólida y demostrable. Primero hacemos que el servicio funcione bien por REST y PostgreSQL; después añadimos mensajería, eventos e integraciones más complejas.
+La base del microservicio ya quedó lista para continuar. El siguiente paso natural es avanzar con Docker, compose, healthcheck, conexión mediante `api-gateway` y luego preparar la fase de resiliencia básica antes de incorporar mensajería.
