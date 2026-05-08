@@ -1,81 +1,227 @@
 # Docker Compose
 
-## Descripcion
+## Resumen
 
-`docker-compose.yml` define la infraestructura local de FastOrder HA. Permite levantar servicios de aplicacion, bases de datos, Redis, RabbitMQ y la red compartida necesaria para que los contenedores se comuniquen entre si.
+El archivo principal de orquestación local del proyecto es:
 
-Este archivo se usa principalmente para desarrollo local y pruebas tecnicas de integracion.
+- [docker-compose.yml](../docker-compose.yml)
 
-## Servicios configurados actualmente
+Su propósito es levantar todo el entorno de integración local de FastOrder HA:
 
-Servicios principales solicitados para el estado actual:
+- bases de datos PostgreSQL por dominio
+- microservicios de aplicación
+- `api-gateway`
+- `redis`
+- `rabbitmq`
+- red compartida
+- volúmenes persistentes
 
-| Servicio | Contenedor | Puerto local | Descripcion |
-| --- | --- | --- | --- |
-| `api-gateway` | `fastorder-api-gateway` | `8080` | Entrada HTTP del sistema |
-| `order-service` | `fastorder-order-service` | `8082` | Microservicio de pedidos |
-| `order-db` | `fastorder-order-db` | `5443` | PostgreSQL para `order-service` |
-| `redis` | `fastorder-redis` | `6379` | Redis compartido para infraestructura futura |
-| `rabbitmq` | `fastorder-rabbitmq` | `5672`, `15672` | Broker de mensajeria y consola web |
+## Rol dentro del proyecto
 
-El archivo tambien contiene bases de datos para otros dominios:
+`docker-compose.yml` permite:
 
-| Servicio | Base | Puerto local | Estado |
-| --- | --- | --- | --- |
-| `menu-db` | `menu_db` | `5441` | Base configurada; aplicacion pendiente |
-| `inventory-db` | `inventory_db` | `5442` | Base configurada; aplicacion pendiente |
-| `kitchen-db` | `kitchen_db` | `5444` | Base configurada; aplicacion pendiente |
-| `delivery-db` | `delivery_db` | `5445` | Base configurada; aplicacion pendiente |
-| `notification-db` | `notification_db` | `5446` | Base configurada; aplicacion pendiente |
+- levantar el stack completo en desarrollo local
+- conectar servicios entre sí por nombre de contenedor
+- inicializar cada base con su script SQL
+- probar la integración entre gateway, servicios y bases
 
-## Red fastorder-network
+No representa todavía un despliegue productivo.
 
-Todos los servicios configurados usan la red:
+## Estructura general del archivo
+
+El archivo actual define estas secciones principales:
+
+- `services`
+- `networks`
+- `volumes`
+
+## Servicios definidos actualmente
+
+### Bases de datos PostgreSQL
+
+| Servicio | Base | Puerto local | Script |
+|---|---|---:|---|
+| `menu-db` | `menu_db` | `5441` | `database/menu-init.sql` |
+| `inventory-db` | `inventory_db` | `5442` | `database/inventory-init.sql` |
+| `order-db` | `order_db` | `5443` | `database/order-init.sql` |
+| `kitchen-db` | `kitchen_db` | `5444` | `database/kitchen-init.sql` |
+| `delivery-db` | `delivery_db` | `5445` | `database/delivery-init.sql` |
+| `notification-db` | `notification_db` | `5446` | `database/notification-init.sql` |
+
+### Infraestructura compartida
+
+| Servicio | Puerto |
+|---|---:|
+| `redis` | `6379` |
+| `rabbitmq` | `5672` |
+| `rabbitmq` management | `15672` |
+
+### Servicios de aplicación
+
+| Servicio | Puerto |
+|---|---:|
+| `api-gateway` | `8080` |
+| `menu-service` | `8081` |
+| `order-service` | `8082` |
+| `inventory-service` | `8083` |
+| `kitchen-service` | `8084` |
+| `delivery-service` | `8085` |
+| `notification-service` | `8086` |
+
+## Red compartida
+
+Todos los servicios definidos se conectan a:
+
+- `fastorder-network`
+
+Función de esta red:
+
+- permitir comunicación interna entre contenedores
+- resolver servicios por nombre
+
+Ejemplos:
+
+- `order-service` se conecta a `order-db`
+- `kitchen-service` se conecta a `kitchen-db`
+- `delivery-service` se conecta a `delivery-db`
+- `api-gateway` se conecta a `menu-service`, `order-service`, `inventory-service`, `kitchen-service`, `delivery-service` y `notification-service`
+
+## Volúmenes persistentes
+
+El archivo define estos volúmenes:
+
+- `menu_db_data`
+- `inventory_db_data`
+- `order_db_data`
+- `kitchen_db_data`
+- `delivery_db_data`
+- `notification_db_data`
+
+Función:
+
+- persistir datos de PostgreSQL entre reinicios
+
+Implicación práctica:
+
+- los scripts `database/*-init.sql` se ejecutan en la creación inicial del volumen
+- si se elimina el volumen, la base se vuelve a inicializar desde el script
+
+## Inicialización de bases
+
+Cada servicio PostgreSQL monta su SQL en:
 
 ```text
-fastorder-network
+/docker-entrypoint-initdb.d/init.sql
 ```
 
-Esta red permite que los contenedores se resuelvan por nombre de servicio. Por ejemplo, dentro de Docker:
+Scripts usados actualmente:
+
+- `database/menu-init.sql`
+- `database/inventory-init.sql`
+- `database/order-init.sql`
+- `database/kitchen-init.sql`
+- `database/delivery-init.sql`
+- `database/notification-init.sql`
+
+Más detalle:
+
+- ver [database.md](./database.md)
+
+## Variables de entorno visibles
+
+El archivo ya muestra estas convenciones:
+
+### Bases PostgreSQL
+
+- `POSTGRES_DB`
+- `POSTGRES_USER`
+- `POSTGRES_PASSWORD`
+
+### Servicios Spring Boot
+
+- `SPRING_DATASOURCE_URL`
+- `SPRING_DATASOURCE_USERNAME`
+- `SPRING_DATASOURCE_PASSWORD`
+
+### RabbitMQ
+
+- `SPRING_RABBITMQ_HOST`
+- `SPRING_RABBITMQ_PORT`
+- `SPRING_RABBITMQ_USERNAME`
+- `SPRING_RABBITMQ_PASSWORD`
+
+### URLs internas de integración
+
+`order-service` ya usa:
+
+- `INVENTORY_SERVICE_URL`
+- `KITCHEN_SERVICE_URL`
+- `DELIVERY_SERVICE_URL`
+- `NOTIFICATION_SERVICE_URL`
+
+## Dependencias entre servicios
+
+El archivo ya expresa dependencias con `depends_on`.
+
+Relaciones visibles:
+
+- `menu-service` depende de `menu-db`
+- `inventory-service` depende de `inventory-db` y `rabbitmq`
+- `order-service` depende de `order-db`, `rabbitmq`, `inventory-service`, `kitchen-service`, `delivery-service` y `notification-service`
+- `kitchen-service` depende de `kitchen-db` y `rabbitmq`
+- `delivery-service` depende de `delivery-db` y `rabbitmq`
+- `notification-service` depende de `notification-db` y `rabbitmq`
+- `api-gateway` depende de `redis`, `rabbitmq`, `menu-service`, `inventory-service` y `notification-service`
+
+Nota:
+
+- `depends_on` ayuda con el orden básico de arranque
+- no garantiza que la aplicación ya esté lista funcionalmente
+
+## Convención de acceso interno
+
+Dentro de Docker Compose, los servicios usan nombres internos.
+
+Ejemplos:
 
 ```text
-order-service -> order-db:5432
-api-gateway -> order-service:8082
-order-service -> rabbitmq:5672
+jdbc:postgresql://order-db:5432/order_db
+jdbc:postgresql://kitchen-db:5432/kitchen_db
+jdbc:postgresql://delivery-db:5432/delivery_db
+http://inventory-service:8083/inventory
+http://kitchen-service:8084/kitchen/orders
+http://delivery-service:8085/deliveries
+http://notification-service:8086/notifications
 ```
 
-## Conexion dentro de Docker vs maquina local
+## Convención de acceso local
 
-Dentro de Docker se usan nombres de servicio y puertos internos:
+Desde la máquina host se usan puertos publicados.
 
-| Recurso | URL interna |
-| --- | --- |
-| order-db | `jdbc:postgresql://order-db:5432/order_db` |
-| RabbitMQ | `rabbitmq:5672` |
-| order-service | `http://order-service:8082` |
+Ejemplos:
 
-Desde la maquina local se usan `localhost` y los puertos publicados:
+```text
+http://localhost:8080
+http://localhost:8082
+http://localhost:8084
+http://localhost:8085
+jdbc:postgresql://localhost:5443/order_db
+jdbc:postgresql://localhost:5444/kitchen_db
+jdbc:postgresql://localhost:5445/delivery_db
+```
 
-| Recurso | URL local |
-| --- | --- |
-| order-db | `jdbc:postgresql://localhost:5443/order_db` |
-| RabbitMQ AMQP | `localhost:5672` |
-| RabbitMQ Management | `http://localhost:15672` |
-| order-service | `http://localhost:8082` |
-| API Gateway | `http://localhost:8080` |
+## Comandos útiles
 
-## Comandos utiles
+Levantar todo el stack:
 
-Levantar todos los servicios configurados:
+```bash
+docker compose up --build
+```
+
+Levantar en segundo plano:
 
 ```bash
 docker compose up --build -d
-```
-
-Levantar solo lo necesario para probar `order-service`:
-
-```bash
-docker compose up --build -d order-db rabbitmq order-service
 ```
 
 Ver contenedores activos:
@@ -84,83 +230,88 @@ Ver contenedores activos:
 docker ps
 ```
 
-Ver logs de `order-service`:
+Ver logs de todo el entorno:
 
 ```bash
-docker compose logs -f order-service
+docker compose logs
 ```
 
-Apagar servicios y eliminar volumenes:
+Ver logs de un servicio específico:
+
+```bash
+docker compose logs order-service
+docker compose logs kitchen-service
+docker compose logs delivery-service
+```
+
+Detener el stack:
+
+```bash
+docker compose down
+```
+
+Detener y eliminar volúmenes:
 
 ```bash
 docker compose down -v
 ```
 
-> Nota: `docker compose down -v` elimina los volumenes de datos. Al volver a levantar PostgreSQL, los scripts `database/*-init.sql` se ejecutaran de nuevo sobre volumenes nuevos.
+Advertencia:
 
-## Acceso a RabbitMQ
+- `docker compose down -v` elimina los datos persistidos de PostgreSQL
 
-RabbitMQ expone la consola de administracion en:
+## Relación con el gateway
 
-```text
-http://localhost:15672
-```
+El despliegue actual ya deja `api-gateway` como punto de entrada HTTP externo.
 
-Credenciales configuradas por defecto:
+Rutas visibles hoy:
 
-| Usuario | Contrasena |
-| --- | --- |
-| `guest` | `guest` |
+- `/api/menu/**`
+- `/api/orders`
+- `/api/orders/**`
+- `/api/inventory/**`
+- `/api/kitchen/**`
+- `/api/delivery`
+- `/api/delivery/**`
+- `/api/notifications`
+- `/api/notifications/**`
 
-El puerto AMQP usado por aplicaciones es:
+## Relación con observabilidad
 
-```text
-localhost:5672
-```
+El `docker-compose.yml` actual no define servicios de Prometheus ni Grafana, aunque el repositorio sí contiene:
 
-## Acceso a order-service
+- `monitoring/prometheus.yml`
+- `monitoring/grafana/`
 
-Endpoint base local:
+Además:
 
-```text
-http://localhost:8082/orders
-```
+- `api-gateway`, `kitchen-service` y `delivery-service` ya exponen métricas Prometheus desde la aplicación
 
-Ejemplos:
+## Limitaciones actuales del Compose
 
-```bash
-curl http://localhost:8082/orders/health-check
-curl http://localhost:8082/orders
-```
+En el estado actual del archivo:
 
-## Acceso al API Gateway
+- se usan `container_name` fijos
+- no hay healthchecks definidos
+- no hay estrategia de réplicas
+- no se describe despliegue productivo
+- la orquestación está orientada a desarrollo e integración local
 
-Endpoint base local:
+## Estado actual
 
-```text
-http://localhost:8080
-```
+El `docker-compose.yml` ya permite levantar un entorno local completo con:
 
-Ejemplos de rutas hacia `order-service` por medio del gateway:
+- gateway
+- microservicios
+- bases separadas por dominio
+- Redis
+- RabbitMQ
 
-```text
-GET  http://localhost:8080/api/orders
-POST http://localhost:8080/api/orders
-GET  http://localhost:8080/api/orders/1
-```
+Eso lo convierte en la pieza central del entorno local de desarrollo del proyecto.
 
-## Estado actual de Docker Compose
+## Archivos relacionados
 
-Docker Compose ya permite construir y levantar `order-service`, `order-db`, `rabbitmq`, `redis` y `api-gateway`.
-
-El servicio `order-service` se conecta a `order-db` usando variables de entorno:
-
-```text
-SPRING_DATASOURCE_URL=jdbc:postgresql://order-db:5432/order_db
-SPRING_DATASOURCE_USERNAME=order_user
-SPRING_DATASOURCE_PASSWORD=order123
-SPRING_RABBITMQ_HOST=rabbitmq
-SPRING_RABBITMQ_PORT=5672
-```
-
-Las rutas del API Gateway hacia microservicios no implementados quedan pendientes hasta que existan las aplicaciones correspondientes dentro de la red `fastorder-network`.
+- [docker-compose.yml](../docker-compose.yml)
+- [deployment.md](./deployment.md)
+- [arquitectura.md](./arquitectura.md)
+- [database.md](./database.md)
