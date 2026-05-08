@@ -1,0 +1,43 @@
+server:
+  port: 8082 # El gateway suele ser 8080, menú 8081, el tuyo será 8082
+
+spring:
+  application:
+    name: inventory-service
+  
+  # Configuración de la Base de Datos
+  datasource:
+    url: jdbc:postgresql://localhost:5442/inventory_db
+    username: inventory_user
+    password: inventory123
+    driver-class-name: org.postgresql.Driver
+
+  # Configuración de JPA/Hibernate
+  jpa:
+    hibernate:
+      ddl-auto: validate # Solo valida, ya que la tabla se crea con el SQL
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  # Configuración de RabbitMQ (Por defecto buscará en localhost:5672)
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+
+# Configuración de Observabilidad (Prometheus)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, prometheus
+  endpoint:
+    health:
+      show-details: always
+  prometheus:
+    metrics:
+      export:
+        enabled: true
