@@ -7,14 +7,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/inventory")
+@RequestMapping("/inventory")
 @RequiredArgsConstructor
 public class InventoryController {
 
     private final InventoryService inventoryService;
 
-    // Endpoint para consultar stock (Ej: GET
-    // /api/inventory/check?productId=1&quantity=2)
+    // Endpoint para consultar stock.
     @GetMapping("/check")
     public ResponseEntity<Boolean> checkStock(
             @RequestParam Long productId,
@@ -24,7 +23,7 @@ public class InventoryController {
         return ResponseEntity.ok(isAvailable);
     }
 
-    // Endpoint para reservar stock (Ej: POST /api/inventory/reserve)
+    // Endpoint para reservar stock.
     @PostMapping("/reserve")
     public ResponseEntity<String> reserveStock(@RequestBody StockUpdateRequest request) {
         boolean reserved = inventoryService.reserveStock(request);
@@ -32,7 +31,7 @@ public class InventoryController {
         if (reserved) {
             return ResponseEntity.ok("Stock reservado exitosamente");
         } else {
-            // Regla crítica cumplida: Si no hay stock, rechazamos la petición
+            // Si no hay stock, rechazamos la peticion.
             return ResponseEntity.badRequest().body("No hay suficiente stock disponible");
         }
     }

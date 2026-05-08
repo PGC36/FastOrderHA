@@ -124,6 +124,7 @@ services:
       - redis
       - rabbitmq
       - menu-service
+      - inventory-service
     networks:
       - fastorder-network
     restart: unless-stopped
@@ -142,6 +143,27 @@ services:
       DB_PASSWORD: menu123
     depends_on:
       - menu-db
+    networks:
+      - fastorder-network
+    restart: unless-stopped
+
+  inventory-service:
+    build:
+      context: ./inventory-service
+    container_name: fastorder-inventory-service
+    ports:
+      - "8083:8083"
+    depends_on:
+      - inventory-db
+      - rabbitmq
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://inventory-db:5432/inventory_db
+      SPRING_DATASOURCE_USERNAME: inventory_user
+      SPRING_DATASOURCE_PASSWORD: inventory123
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: guest
+      SPRING_RABBITMQ_PASSWORD: guest
     networks:
       - fastorder-network
     restart: unless-stopped

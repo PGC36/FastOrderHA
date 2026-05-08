@@ -1,4 +1,4 @@
-package com.example.inventory_service.entity; // Ajusta "com.example.inventoryservice" a tu paquete real
+package com.example.inventory_service.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
