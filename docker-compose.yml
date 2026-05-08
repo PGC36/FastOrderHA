@@ -123,6 +123,25 @@ services:
     depends_on:
       - redis
       - rabbitmq
+      - menu-service
+    networks:
+      - fastorder-network
+    restart: unless-stopped
+
+  menu-service:
+    build:
+      context: ./menu-service
+    container_name: fastorder-menu-service
+    ports:
+      - "8081:8081"
+    environment:
+      DB_HOST: menu-db
+      DB_PORT: 5432
+      DB_NAME: menu_db
+      DB_USER: menu_user
+      DB_PASSWORD: menu123
+    depends_on:
+      - menu-db
     networks:
       - fastorder-network
     restart: unless-stopped
