@@ -21,10 +21,15 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final OutboxEventRepository outboxEventRepository;
+    private final OrderWorkflowClient orderWorkflowClient;
 
-    public OrderService(OrderRepository orderRepository, OutboxEventRepository outboxEventRepository) {
+    public OrderService(
+            OrderRepository orderRepository,
+            OutboxEventRepository outboxEventRepository,
+            OrderWorkflowClient orderWorkflowClient) {
         this.orderRepository = orderRepository;
         this.outboxEventRepository = outboxEventRepository;
+        this.orderWorkflowClient = orderWorkflowClient;
     }
 
     @Transactional
@@ -57,7 +62,7 @@ public class OrderService {
     }
 
     private OrderResponse createNewOrder(CreateOrderRequest request) {
-        validateInventoryReservation(request);
+        orderWorkflowClient.reserveInventory(request);
 
         Order order = new Order();
         order.setIdempotencyKey(request.getIdempotencyKey());
@@ -78,12 +83,11 @@ public class OrderService {
         outboxEventRepository.save(outboxEvent);
         logger.info("Evento order.created guardado en outbox para orderId={}", savedOrder.getId());
 
-        return OrderResponse.fromEntity(savedOrder);
-    }
+        orderWorkflowClient.createKitchenOrder(savedOrder);
+        orderWorkflowClient.createDelivery(savedOrder, request);
+        orderWorkflowClient.createNotification(savedOrder, request);
 
-    private void validateInventoryReservation(CreateOrderRequest request) {
-        // Preparado para integrar inventory-service en una siguiente fase.
-        // Por ahora no se realiza llamada remota y el pedido queda en estado PENDING.
+        return OrderResponse.fromEntity(savedOrder);
     }
 
     private String buildOrderCreatedPayload(Order order) {

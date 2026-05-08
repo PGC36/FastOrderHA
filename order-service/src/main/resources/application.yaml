@@ -37,3 +37,10 @@ logging:
     com.fastorder.orderservice: INFO
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} %-5level order-service - %msg%n"
+
+app:
+  services:
+    inventory-url: ${INVENTORY_SERVICE_URL:http://localhost:8083/inventory}
+    kitchen-url: ${KITCHEN_SERVICE_URL:http://localhost:8084/kitchen/orders}
+    delivery-url: ${DELIVERY_SERVICE_URL:http://localhost:8085/deliveries}
+    notification-url: ${NOTIFICATION_SERVICE_URL:http://localhost:8086/notifications}

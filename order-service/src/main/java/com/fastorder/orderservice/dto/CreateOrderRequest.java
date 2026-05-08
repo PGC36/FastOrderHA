@@ -16,6 +16,12 @@ public class CreateOrderRequest {
     @NotBlank(message = "idempotencyKey no puede estar vacio")
     private String idempotencyKey;
 
+    private String deliveryAddress;
+
+    private String notificationChannel;
+
+    private String notificationRecipient;
+
     public Long getProductId() {
         return productId;
     }
@@ -38,5 +44,29 @@ public class CreateOrderRequest {
 
     public void setIdempotencyKey(String idempotencyKey) {
         this.idempotencyKey = idempotencyKey;
+    }
+
+    public String getDeliveryAddress() {
+        return deliveryAddress;
+    }
+
+    public void setDeliveryAddress(String deliveryAddress) {
+        this.deliveryAddress = deliveryAddress;
+    }
+
+    public String getNotificationChannel() {
+        return notificationChannel;
+    }
+
+    public void setNotificationChannel(String notificationChannel) {
+        this.notificationChannel = notificationChannel;
+    }
+
+    public String getNotificationRecipient() {
+        return notificationRecipient;
+    }
+
+    public void setNotificationRecipient(String notificationRecipient) {
+        this.notificationRecipient = notificationRecipient;
     }
 }
