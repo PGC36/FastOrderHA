@@ -3,8 +3,11 @@ package com.example.demo.service;
 import com.example.demo.dto.CreateNotificationRequest;
 import com.example.demo.dto.NotificationResponse;
 import com.example.demo.entity.Notification;
+import com.example.demo.exception.NotificationNotFoundException;
 import com.example.demo.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -13,6 +16,7 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class NotificationService {
 
+    private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
     private final NotificationRepository notificationRepository;
 
     public NotificationResponse create(CreateNotificationRequest request) {
@@ -26,12 +30,15 @@ public class NotificationService {
                 .build();
 
         Notification saved = notificationRepository.save(notification);
+        log.info("Notification created successfully. id={}, orderId={}, channel={}",
+                saved.getId(), saved.getOrderId(), saved.getChannel());
         return toResponse(saved);
     }
 
     public NotificationResponse getById(Long id) {
         Notification notification = notificationRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Notification not found: " + id));
+                .orElseThrow(() -> new NotificationNotFoundException(id));
+        log.info("Notification fetched successfully. id={}", id);
         return toResponse(notification);
     }
 
