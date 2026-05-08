@@ -33,3 +33,9 @@ management:
   endpoint:
     health:
       show-details: always
+
+app:
+  rabbit:
+    exchange: notification.exchange
+    queue: notification.created.queue
+    routing-key: notification.created
