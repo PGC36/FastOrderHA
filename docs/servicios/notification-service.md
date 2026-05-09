@@ -13,16 +13,16 @@ Dentro de la arquitectura distribuida, `notification-service` participa como un 
 
 Relación con otros componentes:
 - Entrada actual: API REST directa.
-- Persistencia: PostgreSQL dedicado (`notification_db`).
+- Persistencia: PostgreSQL general (`fastorder_db`).
 - Mensajería: RabbitMQ configurado a nivel de aplicación para integración asíncrona posterior.
 
 Principio aplicado:
-- **Database per Service**: la base de datos de notificaciones es independiente del resto de microservicios.
+- La base fisica es compartida, pero `notification-service` mantiene la propiedad logica de la tabla `notifications`.
 
 ## 3. Configuración Técnica
 - Puerto HTTP del servicio: `8086`
-- Base de datos: `notification_db`
-- Puerto PostgreSQL en host: `5446`
+- Base de datos: `fastorder_db`
+- Puerto PostgreSQL en host: `5440`
 - Driver: PostgreSQL JDBC
 - Broker configurado: RabbitMQ (`5672`)
 - Gestión y observabilidad básica: Spring Boot Actuator
@@ -52,7 +52,7 @@ Implementación actual:
 Este diseño separa claramente transporte HTTP, lógica de negocio, acceso a datos y manejo transversal de errores.
 
 ## 6. Modelo de Datos
-Archivo de inicialización: `database/notification-init.sql`
+Archivo de inicializacion: `database/fastorder-init.sql`
 
 Tabla principal: `notifications`
 - `id` BIGSERIAL PRIMARY KEY
@@ -113,6 +113,6 @@ Pruebas manuales realizadas en Postman:
 - `GET` inexistente -> `404` con mensaje descriptivo.
 
 Estado de infraestructura validado:
-- Contenedor `notification-db` operativo.
+- Contenedor `fastorder-db` operativo.
 - Tabla `notifications` creada y accesible.
 - Conexión JPA activa con validación de esquema.

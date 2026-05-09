@@ -7,68 +7,69 @@ spring:
 
   cloud:
     gateway:
-      mvc:
-        routes:
-          - id: menu-service
-            uri: http://menu-service:8081
-            predicates:
-              - Path=/api/menu/**
+      server:
+        webmvc:
+          routes:
+            - id: menu-service
+              uri: http://menu-service:8081
+              predicates:
+                - Path=/api/menu/**
 
-          - id: order-service-root
-            uri: http://order-service:8082
-            predicates:
-              - Path=/api/orders
-            filters:
-              - StripPrefix=1
+            - id: order-service-root
+              uri: http://order-service:8082
+              predicates:
+                - Path=/api/orders
+              filters:
+                - StripPrefix=1
 
-          - id: order-service-paths
-            uri: http://order-service:8082
-            predicates:
-              - Path=/api/orders/**
-            filters:
-              - StripPrefix=1
+            - id: order-service-paths
+              uri: http://order-service:8082
+              predicates:
+                - Path=/api/orders/**
+              filters:
+                - StripPrefix=1
 
-          - id: inventory-service
-            uri: http://inventory-service:8083
-            predicates:
-              - Path=/api/inventory/**
-            filters:
-              - StripPrefix=1
+            - id: inventory-service
+              uri: http://inventory-service:8083
+              predicates:
+                - Path=/api/inventory/**
+              filters:
+                - StripPrefix=1
 
-          - id: kitchen-service
-            uri: http://kitchen-service:8084
-            predicates:
-              - Path=/api/kitchen/**
-            filters:
-              - StripPrefix=1
+            - id: kitchen-service
+              uri: http://kitchen-service:8084
+              predicates:
+                - Path=/api/kitchen/**
+              filters:
+                - StripPrefix=1
 
-          - id: delivery-service-root
-            uri: http://delivery-service:8085
-            predicates:
-              - Path=/api/delivery
-            filters:
-              - RewritePath=/api/delivery, /deliveries
+            - id: delivery-service-root
+              uri: http://delivery-service:8085
+              predicates:
+                - Path=/api/delivery
+              filters:
+                - RewritePath=/api/delivery, /deliveries
 
-          - id: delivery-service-paths
-            uri: http://delivery-service:8085
-            predicates:
-              - Path=/api/delivery/**
-            filters:
-              - RewritePath=/api/delivery/?(?<segment>.*), /deliveries/$\{segment}
+            - id: delivery-service-paths
+              uri: http://delivery-service:8085
+              predicates:
+                - Path=/api/delivery/**
+              filters:
+                - RewritePath=/api/delivery/?(?<segment>.*), /deliveries/$\{segment}
 
-          - id: notification-service-root
-            uri: http://notification-service:8086
-            predicates:
-              - Path=/api/notifications
-            filters:
-              - StripPrefix=1
+            - id: notification-service-root
+              uri: http://notification-service:8086
+              predicates:
+                - Path=/api/notifications
+              filters:
+                - StripPrefix=1
 
-          - id: notification-service-paths
-            uri: http://notification-service:8086
-            predicates:
-              - Path=/api/notifications/**
-            filters:
-              - StripPrefix=1
+            - id: notification-service-paths
+              uri: http://notification-service:8086
+              predicates:
+                - Path=/api/notifications/**
+              filters:
+                - StripPrefix=1
 
 management:
   endpoints:

@@ -27,7 +27,7 @@ Hasta este punto ya quedó creado:
 - controlador REST
 - manejo global de excepciones
 - configuración `application.yaml`
-- script SQL en `database/kitchen-init.sql`
+- script SQL consolidado en `database/fastorder-init.sql`
 - test base de contexto
 
 ## Responsabilidad del servicio
@@ -94,10 +94,12 @@ En `pom.xml` están configuradas estas dependencias:
 - `spring-boot-starter-data-jpa`
 - `spring-boot-starter-validation`
 - `spring-boot-starter-actuator`
+- `spring-boot-starter-amqp`
 - `io.micrometer:micrometer-registry-prometheus`
 - `org.postgresql:postgresql`
 - `org.projectlombok:lombok`
 - `spring-boot-starter-test`
+- `spring-rabbit-test`
 
 Adicionalmente:
 
@@ -116,9 +118,9 @@ spring:
   application:
     name: kitchen-service
   datasource:
-    url: jdbc:postgresql://localhost:5444/kitchen_db
-    username: kitchen_user
-    password: kitchen123
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5440/fastorder_db}
+    username: ${SPRING_DATASOURCE_USERNAME:fastorder_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:fastorder123}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -139,9 +141,9 @@ management:
 
 ## Base de datos utilizada
 
-La base del servicio es independiente y usa el script:
+El servicio usa la base general `fastorder_db` y el script consolidado:
 
-- [kitchen-init.sql](../../database/kitchen-init.sql)
+- [fastorder-init.sql](../../database/fastorder-init.sql)
 
 Contrato SQL actual:
 
@@ -164,6 +166,14 @@ Decisiones aplicadas:
 - `order_id` es único
 - no existe `foreign key` hacia otra tabla de otro microservicio
 - Hibernate solo valida el esquema con `ddl-auto: validate`
+
+## Integracion con RabbitMQ
+
+El servicio tiene Spring AMQP configurado y declara:
+
+- exchange: `kitchen.exchange`
+- cola: `kitchen.events.queue`
+- routing key: `kitchen.event`
 
 ## Modelo implementado
 
@@ -277,5 +287,5 @@ Endpoints disponibles:
 
 ### Base de datos y documentación
 
-- `database/kitchen-init.sql`
+- `database/fastorder-init.sql`
 - `docs/servicios/kitchen-service.md`

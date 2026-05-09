@@ -1,96 +1,16 @@
 services:
-  menu-db:
+  fastorder-db:
     image: postgres:16
-    container_name: fastorder-menu-db
+    container_name: fastorder-db
     environment:
-      POSTGRES_DB: menu_db
-      POSTGRES_USER: menu_user
-      POSTGRES_PASSWORD: menu123
+      POSTGRES_DB: fastorder_db
+      POSTGRES_USER: fastorder_user
+      POSTGRES_PASSWORD: fastorder123
     ports:
-      - "5441:5432"
+      - "5440:5432"
     volumes:
-      - menu_db_data:/var/lib/postgresql/data
-      - ./database/menu-init.sql:/docker-entrypoint-initdb.d/init.sql
-    networks:
-      - fastorder-network
-    restart: unless-stopped
-
-  inventory-db:
-    image: postgres:16
-    container_name: fastorder-inventory-db
-    environment:
-      POSTGRES_DB: inventory_db
-      POSTGRES_USER: inventory_user
-      POSTGRES_PASSWORD: inventory123
-    ports:
-      - "5442:5432"
-    volumes:
-      - inventory_db_data:/var/lib/postgresql/data
-      - ./database/inventory-init.sql:/docker-entrypoint-initdb.d/init.sql
-    networks:
-      - fastorder-network
-    restart: unless-stopped
-
-  order-db:
-    image: postgres:16
-    container_name: fastorder-order-db
-    environment:
-      POSTGRES_DB: order_db
-      POSTGRES_USER: order_user
-      POSTGRES_PASSWORD: order123
-    ports:
-      - "5443:5432"
-    volumes:
-      - order_db_data:/var/lib/postgresql/data
-      - ./database/order-init.sql:/docker-entrypoint-initdb.d/init.sql
-    networks:
-      - fastorder-network
-    restart: unless-stopped
-
-  kitchen-db:
-    image: postgres:16
-    container_name: fastorder-kitchen-db
-    environment:
-      POSTGRES_DB: kitchen_db
-      POSTGRES_USER: kitchen_user
-      POSTGRES_PASSWORD: kitchen123
-    ports:
-      - "5444:5432"
-    volumes:
-      - kitchen_db_data:/var/lib/postgresql/data
-      - ./database/kitchen-init.sql:/docker-entrypoint-initdb.d/init.sql
-    networks:
-      - fastorder-network
-    restart: unless-stopped
-
-  delivery-db:
-    image: postgres:16
-    container_name: fastorder-delivery-db
-    environment:
-      POSTGRES_DB: delivery_db
-      POSTGRES_USER: delivery_user
-      POSTGRES_PASSWORD: delivery123
-    ports:
-      - "5445:5432"
-    volumes:
-      - delivery_db_data:/var/lib/postgresql/data
-      - ./database/delivery-init.sql:/docker-entrypoint-initdb.d/init.sql
-    networks:
-      - fastorder-network
-    restart: unless-stopped
-
-  notification-db:
-    image: postgres:16
-    container_name: fastorder-notification-db
-    environment:
-      POSTGRES_DB: notification_db
-      POSTGRES_USER: notification_user
-      POSTGRES_PASSWORD: notification123
-    ports:
-      - "5446:5432"
-    volumes:
-      - notification_db_data:/var/lib/postgresql/data
-      - ./database/notification-init.sql:/docker-entrypoint-initdb.d/init.sql
+      - fastorder_db_data:/var/lib/postgresql/data
+      - ./database/fastorder-init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - fastorder-network
     restart: unless-stopped
@@ -137,13 +57,18 @@ services:
     ports:
       - "8081:8081"
     environment:
-      DB_HOST: menu-db
+      DB_HOST: fastorder-db
       DB_PORT: 5432
-      DB_NAME: menu_db
-      DB_USER: menu_user
-      DB_PASSWORD: menu123
+      DB_NAME: fastorder_db
+      DB_USER: fastorder_user
+      DB_PASSWORD: fastorder123
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: guest
+      SPRING_RABBITMQ_PASSWORD: guest
     depends_on:
-      - menu-db
+      - fastorder-db
+      - rabbitmq
     networks:
       - fastorder-network
     restart: unless-stopped
@@ -155,12 +80,12 @@ services:
     ports:
       - "8083:8083"
     depends_on:
-      - inventory-db
+      - fastorder-db
       - rabbitmq
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://inventory-db:5432/inventory_db
-      SPRING_DATASOURCE_USERNAME: inventory_user
-      SPRING_DATASOURCE_PASSWORD: inventory123
+      SPRING_DATASOURCE_URL: jdbc:postgresql://fastorder-db:5432/fastorder_db
+      SPRING_DATASOURCE_USERNAME: fastorder_user
+      SPRING_DATASOURCE_PASSWORD: fastorder123
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: guest
@@ -176,16 +101,16 @@ services:
     ports:
       - "8082:8082"
     depends_on:
-      - order-db
+      - fastorder-db
       - rabbitmq
       - inventory-service
       - kitchen-service
       - delivery-service
       - notification-service
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://order-db:5432/order_db
-      SPRING_DATASOURCE_USERNAME: order_user
-      SPRING_DATASOURCE_PASSWORD: order123
+      SPRING_DATASOURCE_URL: jdbc:postgresql://fastorder-db:5432/fastorder_db
+      SPRING_DATASOURCE_USERNAME: fastorder_user
+      SPRING_DATASOURCE_PASSWORD: fastorder123
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: guest
@@ -205,12 +130,16 @@ services:
     ports:
       - "8084:8084"
     depends_on:
-      - kitchen-db
+      - fastorder-db
       - rabbitmq
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://kitchen-db:5432/kitchen_db
-      SPRING_DATASOURCE_USERNAME: kitchen_user
-      SPRING_DATASOURCE_PASSWORD: kitchen123
+      SPRING_DATASOURCE_URL: jdbc:postgresql://fastorder-db:5432/fastorder_db
+      SPRING_DATASOURCE_USERNAME: fastorder_user
+      SPRING_DATASOURCE_PASSWORD: fastorder123
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: guest
+      SPRING_RABBITMQ_PASSWORD: guest
       ORDER_SERVICE_URL: http://order-service:8082/orders
     networks:
       - fastorder-network
@@ -223,12 +152,16 @@ services:
     ports:
       - "8085:8085"
     depends_on:
-      - delivery-db
+      - fastorder-db
       - rabbitmq
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://delivery-db:5432/delivery_db
-      SPRING_DATASOURCE_USERNAME: delivery_user
-      SPRING_DATASOURCE_PASSWORD: delivery123
+      SPRING_DATASOURCE_URL: jdbc:postgresql://fastorder-db:5432/fastorder_db
+      SPRING_DATASOURCE_USERNAME: fastorder_user
+      SPRING_DATASOURCE_PASSWORD: fastorder123
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: guest
+      SPRING_RABBITMQ_PASSWORD: guest
       ORDER_SERVICE_URL: http://order-service:8082/orders
     networks:
       - fastorder-network
@@ -241,12 +174,12 @@ services:
     ports:
       - "8086:8086"
     depends_on:
-      - notification-db
+      - fastorder-db
       - rabbitmq
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://notification-db:5432/notification_db
-      SPRING_DATASOURCE_USERNAME: notification_user
-      SPRING_DATASOURCE_PASSWORD: notification123
+      SPRING_DATASOURCE_URL: jdbc:postgresql://fastorder-db:5432/fastorder_db
+      SPRING_DATASOURCE_USERNAME: fastorder_user
+      SPRING_DATASOURCE_PASSWORD: fastorder123
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: guest
@@ -260,9 +193,4 @@ networks:
     driver: bridge
 
 volumes:
-  menu_db_data:
-  inventory_db_data:
-  order_db_data:
-  kitchen_db_data:
-  delivery_db_data:
-  notification_db_data:
+  fastorder_db_data:

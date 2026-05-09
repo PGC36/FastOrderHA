@@ -29,7 +29,7 @@ public class OrderStatusClient {
             case ASSIGNED, PICKED_UP, IN_TRANSIT -> "IN_DELIVERY";
             case DELIVERED -> "COMPLETED";
             case FAILED -> "DELIVERY_FAILED";
-            case CANCELLED -> "CANCELLED";
+            case CANCELLED -> "DELIVERY_CANCELLED";
             default -> null;
         };
 

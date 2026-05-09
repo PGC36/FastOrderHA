@@ -2,9 +2,9 @@ spring:
   application:
     name: delivery-service
   datasource:
-    url: jdbc:postgresql://localhost:5445/delivery_db
-    username: delivery_user
-    password: delivery123
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5440/fastorder_db}
+    username: ${SPRING_DATASOURCE_USERNAME:fastorder_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:fastorder123}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -12,6 +12,12 @@ spring:
     properties:
       hibernate:
         format_sql: true
+
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:guest}
+    password: ${SPRING_RABBITMQ_PASSWORD:guest}
 
 server:
   port: 8085
@@ -28,3 +34,7 @@ management:
 app:
   services:
     order-url: ${ORDER_SERVICE_URL:http://localhost:8082/orders}
+  rabbit:
+    exchange: delivery.exchange
+    queue: delivery.events.queue
+    routing-key: delivery.event

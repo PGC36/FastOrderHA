@@ -4,7 +4,7 @@
 
 `order-service` es el microservicio responsable de la gestion inicial de pedidos dentro de FastOrder HA. Actualmente funciona como orquestador inicial del flujo critico de creacion de pedidos.
 
-El servicio recibe solicitudes HTTP, valida los datos de entrada, aplica idempotencia mediante `idempotencyKey`, guarda el pedido en su base de datos propia y registra un evento en la tabla `outbox_events`.
+El servicio recibe solicitudes HTTP, valida los datos de entrada, aplica idempotencia mediante `idempotencyKey`, guarda el pedido en la base general `fastorder_db` y registra un evento en la tabla `outbox_events`.
 
 ## Responsabilidad actual
 
@@ -22,7 +22,7 @@ El servicio recibe solicitudes HTTP, valida los datos de entrada, aplica idempot
 | Spring Boot 3.5.14 | Base de la aplicacion |
 | Spring Web | API REST |
 | Spring Data JPA | Persistencia |
-| PostgreSQL Driver | Conexion con `order_db` |
+| PostgreSQL Driver | Conexion con `fastorder_db` |
 | Spring for RabbitMQ | Preparacion para mensajeria |
 | Spring Boot Actuator | Endpoints de monitoreo |
 | Micrometer Prometheus | Metricas |
@@ -37,21 +37,29 @@ El servicio recibe solicitudes HTTP, valida los datos de entrada, aplica idempot
 
 ## Base de datos
 
-`order-service` usa una base de datos propia:
+`order-service` usa la base general del proyecto:
 
 | Propiedad | Valor |
 | --- | --- |
-| Base de datos | `order_db` |
-| Contenedor | `fastorder-order-db` |
-| Puerto local | `5443` |
+| Base de datos | `fastorder_db` |
+| Contenedor | `fastorder-db` |
+| Puerto local | `5440` |
 | Puerto interno Docker | `5432` |
-| Usuario | `order_user` |
-| Contrasena | `order123` |
+| Usuario | `fastorder_user` |
+| Contrasena | `fastorder123` |
 
 ## Tablas usadas
 
 - `orders`
 - `outbox_events`
+
+## Integracion con RabbitMQ
+
+El servicio tiene Spring AMQP configurado y declara:
+
+- exchange: `order.exchange`
+- cola: `order.events.queue`
+- routing key: `order.event`
 
 ## Endpoints implementados
 
@@ -159,7 +167,7 @@ El formato configurado incluye fecha, nivel, nombre del servicio y mensaje:
 Levantar solo lo necesario para `order-service`:
 
 ```bash
-docker compose up --build -d order-db rabbitmq order-service
+docker compose up --build -d fastorder-db rabbitmq order-service
 ```
 
 Levantar todo lo configurado en Docker Compose:

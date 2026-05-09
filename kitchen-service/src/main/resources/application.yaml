@@ -5,9 +5,9 @@ spring:
   application:
     name: kitchen-service
   datasource:
-    url: jdbc:postgresql://localhost:5444/kitchen_db
-    username: kitchen_user
-    password: kitchen123
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5440/fastorder_db}
+    username: ${SPRING_DATASOURCE_USERNAME:fastorder_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:fastorder123}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -15,6 +15,12 @@ spring:
     properties:
       hibernate:
         format_sql: true
+
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:guest}
+    password: ${SPRING_RABBITMQ_PASSWORD:guest}
 
 management:
   endpoints:
@@ -28,3 +34,7 @@ management:
 app:
   services:
     order-url: ${ORDER_SERVICE_URL:http://localhost:8082/orders}
+  rabbit:
+    exchange: kitchen.exchange
+    queue: kitchen.events.queue
+    routing-key: kitchen.event

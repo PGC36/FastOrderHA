@@ -6,9 +6,9 @@ spring:
     name: notification-service
 
   datasource:
-    url: jdbc:postgresql://localhost:5446/notification_db
-    username: notification_user
-    password: notification123
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5440/fastorder_db}
+    username: ${SPRING_DATASOURCE_USERNAME:fastorder_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:fastorder123}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -20,10 +20,10 @@ spring:
         format_sql: true
 
   rabbitmq:
-    host: localhost
-    port: 5672
-    username: guest
-    password: guest
+    host: ${SPRING_RABBITMQ_HOST:rabbitmq}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:guest}
+    password: ${SPRING_RABBITMQ_PASSWORD:guest}
 
 management:
   endpoints:

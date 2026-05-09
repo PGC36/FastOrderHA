@@ -28,7 +28,7 @@ Hasta este punto ya quedó creado:
 - controlador REST
 - manejo global de excepciones
 - configuración `application.yaml`
-- script SQL en `database/delivery-init.sql`
+- script SQL consolidado en `database/fastorder-init.sql`
 - test base de contexto
 
 ## Responsabilidad del servicio
@@ -114,10 +114,12 @@ En `pom.xml` están configuradas estas dependencias:
 - `spring-boot-starter-data-jpa`
 - `spring-boot-starter-validation`
 - `spring-boot-starter-actuator`
+- `spring-boot-starter-amqp`
 - `io.micrometer:micrometer-registry-prometheus`
 - `org.postgresql:postgresql`
 - `org.projectlombok:lombok`
 - `spring-boot-starter-test`
+- `spring-rabbit-test`
 
 Adicionalmente:
 
@@ -133,9 +135,9 @@ spring:
   application:
     name: delivery-service
   datasource:
-    url: jdbc:postgresql://localhost:5445/delivery_db
-    username: delivery_user
-    password: delivery123
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5440/fastorder_db}
+    username: ${SPRING_DATASOURCE_USERNAME:fastorder_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:fastorder123}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -159,9 +161,9 @@ management:
 
 ## Base de datos utilizada
 
-La base del servicio es independiente y usa el script:
+El servicio usa la base general `fastorder_db` y el script consolidado:
 
-- [delivery-init.sql](../../database/delivery-init.sql)
+- [fastorder-init.sql](../../database/fastorder-init.sql)
 
 Contrato SQL actual:
 
@@ -226,9 +228,17 @@ ON delivery_status_history(changed_at);
 Decisiones aplicadas:
 
 - `order_id` es único
-- la base es independiente del resto de microservicios
+- las tablas del dominio de delivery viven junto al resto de dominios en `fastorder_db`
 - el historial entra desde la primera fase
 - Hibernate solo valida el esquema con `ddl-auto: validate`
+
+## Integracion con RabbitMQ
+
+El servicio tiene Spring AMQP configurado y declara:
+
+- exchange: `delivery.exchange`
+- cola: `delivery.events.queue`
+- routing key: `delivery.event`
 
 ## Modelo implementado
 
@@ -418,5 +428,5 @@ Endpoints disponibles:
 
 ### Base de datos y documentación
 
-- `database/delivery-init.sql`
+- `database/fastorder-init.sql`
 - `docs/servicios/delivery-service.md`

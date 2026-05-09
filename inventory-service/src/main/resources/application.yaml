@@ -6,9 +6,9 @@ spring:
     name: inventory-service
 
   datasource:
-    url: jdbc:postgresql://localhost:5442/inventory_db
-    username: inventory_user
-    password: inventory123
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5440/fastorder_db}
+    username: ${SPRING_DATASOURCE_USERNAME:fastorder_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:fastorder123}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -20,10 +20,10 @@ spring:
         format_sql: true
 
   rabbitmq:
-    host: localhost
-    port: 5672
-    username: guest
-    password: guest
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:guest}
+    password: ${SPRING_RABBITMQ_PASSWORD:guest}
 
 management:
   endpoints:
@@ -37,3 +37,9 @@ management:
     metrics:
       export:
         enabled: true
+
+app:
+  rabbit:
+    exchange: inventory.exchange
+    queue: inventory.events.queue
+    routing-key: inventory.event

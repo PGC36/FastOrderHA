@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5441}/${DB_NAME:menu_db}
-    username: ${DB_USER:menu_user}
-    password: ${DB_PASSWORD:menu123}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5440}/${DB_NAME:fastorder_db}
+    username: ${DB_USER:fastorder_user}
+    password: ${DB_PASSWORD:fastorder123}
     driver-class-name: org.postgresql.Driver
 
   application:
@@ -16,6 +16,12 @@ spring:
       hibernate:
         format_sql: true
     open-in-view: false
+
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:guest}
+    password: ${SPRING_RABBITMQ_PASSWORD:guest}
 
 server:
   port: 8081
@@ -37,6 +43,12 @@ info:
     name: menu-service
     description: Microservicio de administracion y consulta de productos del menu para FastOrder HA
     version: 0.0.1-SNAPSHOT
+
+app:
+  rabbit:
+    exchange: menu.exchange
+    queue: menu.events.queue
+    routing-key: menu.event
 
 logging:
   level:

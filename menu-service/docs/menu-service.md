@@ -2,11 +2,11 @@
 
 ## Proposito
 
-`menu-service` es el microservicio de FastOrder HA encargado de consultar y administrar los productos del menu del restaurante. Expone endpoints REST consumidos por `api-gateway` y trabaja de forma independiente sobre la base de datos `menu_db`.
+`menu-service` es el microservicio de FastOrder HA encargado de consultar y administrar los productos del menu del restaurante. Expone endpoints REST consumidos por `api-gateway` y trabaja sobre la base general `fastorder_db`.
 
 ## Tabla Utilizada
 
-El servicio usa la tabla `productos`, definida en `database/menu-init.sql`.
+El servicio usa la tabla `productos`, definida en `database/fastorder-init.sql`.
 
 Columnas esperadas:
 
@@ -37,17 +37,17 @@ La conexion usa variables de entorno para facilitar despliegues en Docker, Kuber
 | Variable | Valor por defecto | Descripcion |
 | --- | --- | --- |
 | `DB_HOST` | `localhost` | Host de PostgreSQL. |
-| `DB_PORT` | `5441` | Puerto publicado para desarrollo local. En Docker interno normalmente es `5432`. |
-| `DB_NAME` | `menu_db` | Base de datos del servicio. |
-| `DB_USER` | `menu_user` | Usuario de base de datos. |
-| `DB_PASSWORD` | `menu123` | Contrasena de base de datos. |
+| `DB_PORT` | `5440` | Puerto publicado para desarrollo local. En Docker interno normalmente es `5432`. |
+| `DB_NAME` | `fastorder_db` | Base de datos general. |
+| `DB_USER` | `fastorder_user` | Usuario de base de datos. |
+| `DB_PASSWORD` | `fastorder123` | Contrasena de base de datos. |
 
 URL configurada:
 
 ```yaml
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5441}/${DB_NAME:menu_db}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5440}/${DB_NAME:fastorder_db}
 ```
 
 ## Endpoints
@@ -83,7 +83,15 @@ uri: http://menu-service:8081
 
 Por eso las rutas del controlador mantienen el prefijo `/api/menu/productos`.
 
-En `docker-compose.yml`, el contenedor `menu-service` se registra en la misma red que `api-gateway` y `menu-db`. Dentro de Docker usa `DB_HOST=menu-db` y `DB_PORT=5432`; para desarrollo local usa por defecto `localhost:5441`.
+En `docker-compose.yml`, el contenedor `menu-service` se registra en la misma red que `api-gateway`, `fastorder-db` y `rabbitmq`. Dentro de Docker usa `DB_HOST=fastorder-db` y `DB_PORT=5432`; para desarrollo local usa por defecto `localhost:5440`.
+
+## Integracion con RabbitMQ
+
+El servicio tiene Spring AMQP configurado y declara:
+
+- exchange: `menu.exchange`
+- cola: `menu.events.queue`
+- routing key: `menu.event`
 
 ## Health Check y Metricas
 
@@ -104,7 +112,8 @@ El endpoint `/actuator/health` sirve para Docker, API Gateway o herramientas de 
 
 ## Decisiones de Resiliencia
 
-- Base de datos independiente para `menu-service`, evitando acoplamiento directo con otros microservicios.
+- Propiedad logica de la tabla `productos`, aunque la base fisica sea compartida.
+- Integracion con RabbitMQ para preparar mensajeria asincrona del dominio de menu.
 - Endpoints de lectura para catalogo del menu, utiles para que `order-service` o el gateway consulten productos sin depender de operaciones de escritura.
 - Eliminacion logica mediante `activo=false`, preservando historial de productos y reduciendo fallos por referencias externas.
 - Health checks y metricas basicas con Spring Boot Actuator.

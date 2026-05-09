@@ -8,14 +8,15 @@ Su objetivo no es solo guardar números en una tabla, sino actuar como un "guard
 ##  2. Estado Actual y Especificaciones Técnicas
 * **Tecnología Base:** Java 21 / Spring Boot 3.5.14
 * **Puerto de Aplicación:** `8082`
-* **Persistencia Independiente:** PostgreSQL (Puerto local `5442`)
-  * **Aislamiento:** Cumpliendo el patrón *Database-per-service*, este servicio es el **único** dueño absoluto de la tabla `inventory`. Ningún otro microservicio puede leer o escribir en el inventario directamente; deben comunicarse por los endpoints expuestos o mediante eventos.
+* **Persistencia:** PostgreSQL general `fastorder_db` (puerto local `5440`)
+  * **Aislamiento logico:** aunque la base fisica es compartida, este servicio sigue siendo el duenio funcional de la tabla `inventory`. Otros microservicios deben comunicarse por los endpoints expuestos o mediante eventos.
 * **Componentes Listos:** 
   * Entidad (`Inventory.java`)
   * Repositorio JPA (`InventoryRepository.java`)
   * Capa de Negocio Transaccional (`InventoryService.java`)
   * API RESTful (`InventoryController.java`)
-  * Script de Migración Inicial (`inventory-init.sql`)
+  * Script de migracion inicial consolidado (`fastorder-init.sql`)
+  * Integracion RabbitMQ con `inventory.events.queue`
 
 ##  3. Reglas Críticas de Negocio Aseguradas
 De acuerdo a las reglas críticas del sistema, este microservicio defiende las siguientes directrices bajo cualquier condición de concurrencia:

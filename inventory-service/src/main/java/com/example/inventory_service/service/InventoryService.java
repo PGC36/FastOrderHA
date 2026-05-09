@@ -36,4 +36,14 @@ public class InventoryService {
         }
         return false;
     }
+
+    @Transactional
+    public void releaseStock(StockUpdateRequest request) {
+        Inventory inventory = inventoryRepository.findByProductId(request.getProductId())
+                .orElseThrow(() -> new ProductNotFoundException("El producto solicitado no existe"));
+
+        int releasedQuantity = Math.min(inventory.getReserved(), request.getQuantity());
+        inventory.setReserved(inventory.getReserved() - releasedQuantity);
+        inventoryRepository.save(inventory);
+    }
 }
