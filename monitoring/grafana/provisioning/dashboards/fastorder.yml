@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: FastOrder HA
+    orgId: 1
+    folder: FastOrder HA
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards
