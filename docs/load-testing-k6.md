@@ -13,7 +13,7 @@ Validar los requisitos de rendimiento del proyecto:
 - tasa de error.
 - CPU y memoria mediante Grafana.
 
-La prueba de falla inducida por eliminacion de contenedores queda pendiente para la etapa de replicas, Redis y backups.
+La prueba de falla inducida por eliminacion de contenedores queda pendiente para la etapa de replicas y backups.
 
 ## Scripts disponibles
 
@@ -57,7 +57,7 @@ node .\monitoring\check-results.js --watch
 
 ## Resultado de referencia
 
-Prueba completa registrada antes de Redis, replicas y backups con stock suficiente:
+Prueba completa registrada antes de replicas y backups con stock suficiente:
 
 | Metrica | Resultado |
 |---|---:|
@@ -132,8 +132,9 @@ El sistema cumple la prueba minima de 50,000 peticiones de escritura sin errores
 
 Para mejorar el tiempo total de cierre de ordenes, los siguientes pasos serian:
 
-- Redis para lecturas/cache donde aplique.
 - replicas de servicios consumidores.
 - backups y estrategia de recuperacion.
 - pruebas de caos matando contenedores.
 - tuning de base de datos y RabbitMQ bajo carga real.
+
+Redis ya esta integrado en el API Gateway para rate limiting. El limite por defecto permite esta prueba de 50,000 peticiones; si se baja `API_RATE_LIMIT_CAPACITY`, k6 puede recibir respuestas `429` por exceso de trafico.

@@ -8,7 +8,7 @@ El archivo principal de orquestacion local es [docker-compose.yml](../docker-com
 - microservicios Spring Boot.
 - API Gateway.
 - RabbitMQ con Management y metricas Prometheus.
-- Redis disponible para cache futuro.
+- Redis para rate limiting del API Gateway.
 - Prometheus.
 - Grafana.
 - cAdvisor.
@@ -29,7 +29,7 @@ Todos los microservicios usan esta misma base fisica y separan datos por tablas 
 
 | Servicio | Uso | Puerto local |
 |---|---|---:|
-| `redis` | Cache futuro / infraestructura disponible | `6379` |
+| `redis` | Rate limiting del API Gateway | `6379` |
 | `rabbitmq` | Broker AMQP | `5672` |
 | `rabbitmq` management | Consola web RabbitMQ | `15672` |
 | `rabbitmq` prometheus | Metricas RabbitMQ | `15692` |
@@ -90,6 +90,25 @@ docker compose up --build -d
 
 Advertencia: ese comando elimina tambien los volumenes persistidos.
 
+## Redis
+
+Redis se usa desde `api-gateway` para limitar peticiones por cliente antes de enviarlas a los microservicios.
+
+Variables del gateway:
+
+```text
+SPRING_DATA_REDIS_HOST=redis
+SPRING_DATA_REDIS_PORT=6379
+SPRING_DATA_REDIS_TIMEOUT=500ms
+SPRING_DATA_REDIS_CONNECT_TIMEOUT=500ms
+API_RATE_LIMIT_ENABLED=true
+API_RATE_LIMIT_FAIL_OPEN=true
+API_RATE_LIMIT_CAPACITY=100000
+API_RATE_LIMIT_WINDOW_SECONDS=60
+```
+
+El limite esta configurado alto para permitir la prueba de 50,000 peticiones. Para demostrar rechazo por exceso de trafico, se puede bajar `API_RATE_LIMIT_CAPACITY` temporalmente y recrear el gateway.
+
 ## Observabilidad
 
 Prometheus recolecta:
@@ -143,6 +162,10 @@ SPRING_RABBITMQ_HOST=rabbitmq
 SPRING_RABBITMQ_PORT=5672
 SPRING_RABBITMQ_USERNAME=guest
 SPRING_RABBITMQ_PASSWORD=guest
+SPRING_DATA_REDIS_HOST=redis
+SPRING_DATA_REDIS_PORT=6379
+SPRING_DATA_REDIS_TIMEOUT=500ms
+SPRING_DATA_REDIS_CONNECT_TIMEOUT=500ms
 ```
 
 Workers RabbitMQ:
@@ -159,6 +182,15 @@ ORDER_PROCESSING_MODE=event
 ```
 
 `ORDER_PROCESSING_MODE=event` mantiene activo el flujo por outbox + RabbitMQ. El modo `internal-worker` queda reservado para pruebas puntuales y no debe usarse al mismo tiempo que el flujo por eventos.
+
+Rate limiting:
+
+```text
+API_RATE_LIMIT_ENABLED=true
+API_RATE_LIMIT_FAIL_OPEN=true
+API_RATE_LIMIT_CAPACITY=100000
+API_RATE_LIMIT_WINDOW_SECONDS=60
+```
 
 ## Volumen persistente
 

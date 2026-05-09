@@ -4,6 +4,12 @@ server:
 spring:
   application:
     name: api-gateway
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      timeout: ${SPRING_DATA_REDIS_TIMEOUT:500ms}
+      connect-timeout: ${SPRING_DATA_REDIS_CONNECT_TIMEOUT:500ms}
 
   cloud:
     gateway:
@@ -79,3 +85,10 @@ management:
   endpoint:
     health:
       show-details: always
+
+app:
+  rate-limit:
+    enabled: ${API_RATE_LIMIT_ENABLED:true}
+    fail-open: ${API_RATE_LIMIT_FAIL_OPEN:true}
+    capacity: ${API_RATE_LIMIT_CAPACITY:100000}
+    window-seconds: ${API_RATE_LIMIT_WINDOW_SECONDS:60}

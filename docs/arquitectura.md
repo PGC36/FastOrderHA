@@ -10,13 +10,14 @@ La arquitectura actual prioriza:
 - idempotencia en creacion de pedidos.
 - procesamiento asincrono por colas durables.
 - workers paralelos por servicio.
+- rate limiting centralizado con Redis en el API Gateway.
 - observabilidad con Prometheus, Grafana, cAdvisor y metricas de RabbitMQ.
 
 ## Componentes
 
 | Componente | Responsabilidad | Puerto local |
 |---|---|---:|
-| `api-gateway` | Entrada HTTP centralizada | `8080` |
+| `api-gateway` | Entrada HTTP centralizada y rate limiting con Redis | `8080` |
 | `menu-service` | Catalogo de productos | `8081` |
 | `order-service` | Ordenes, idempotencia, outbox y estado global | `8082` |
 | `inventory-service` | Reserva, liberacion y confirmacion de ventas de stock | `8083` |
@@ -25,7 +26,7 @@ La arquitectura actual prioriza:
 | `notification-service` | Persistencia de notificaciones | `8086` |
 | `fastorder-db` | PostgreSQL general | `5440` |
 | `rabbitmq` | Broker de eventos | `5672`, `15672`, `15692` |
-| `redis` | Infraestructura disponible para cache futuro | `6379` |
+| `redis` | Rate limiting del API Gateway | `6379` |
 | `prometheus` | Recoleccion de metricas | `9090` |
 | `grafana` | Dashboards | `3000` |
 | `cadvisor` | CPU y memoria de contenedores | `8087` |
@@ -119,6 +120,18 @@ URLs:
 - RabbitMQ Management: `http://localhost:15672`
 - cAdvisor: `http://localhost:8087`
 
+## Redis y proteccion de entrada
+
+Redis se usa en `api-gateway` para aplicar rate limiting por cliente antes de enrutar hacia los microservicios. El limite por defecto es alto para permitir la prueba de 50,000 peticiones:
+
+```text
+API_RATE_LIMIT_CAPACITY=100000
+API_RATE_LIMIT_WINDOW_SECONDS=60
+API_RATE_LIMIT_FAIL_OPEN=true
+```
+
+Con `fail-open=true`, si Redis se reinicia o queda temporalmente no disponible, el gateway sigue aceptando trafico y marca la respuesta con `X-RateLimit-Redis: unavailable`. Esto permite degradacion controlada sin tumbar operaciones criticas.
+
 ## Rendimiento validado
 
 Se agregaron scripts k6 para:
@@ -128,7 +141,7 @@ Se agregaron scripts k6 para:
 - picos de escritura.
 - picos de lectura.
 
-La prueba final antes de Redis, replicas y backups proceso 50,000 ordenes con error HTTP 0 y termino con 50,000 ordenes en `COMPLETED`. Tambien se valido inventario insuficiente: el sistema vendio solo el stock disponible, cancelo el resto y termino con `reserved = 0`.
+La prueba final antes de replicas y backups proceso 50,000 ordenes con error HTTP 0 y termino con 50,000 ordenes en `COMPLETED`. Tambien se valido inventario insuficiente: el sistema vendio solo el stock disponible, cancelo el resto y termino con `reserved = 0`.
 
 Mas detalle en [load-testing-k6.md](./load-testing-k6.md).
 

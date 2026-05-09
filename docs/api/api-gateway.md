@@ -2,9 +2,9 @@
 
 ## Descripcion
 
-El API Gateway es el punto de entrada HTTP para FastOrder HA. Su responsabilidad actual es recibir peticiones externas y redirigirlas hacia los microservicios internos configurados en `api-gateway/src/main/resources/application.yaml`.
+El API Gateway es el punto de entrada HTTP para FastOrder HA. Su responsabilidad actual es recibir peticiones externas, aplicar rate limiting con Redis y redirigirlas hacia los microservicios internos configurados en `api-gateway/src/main/resources/application.yaml`.
 
-El gateway no implementa logica de negocio de pedidos. Su funcion es enrutar solicitudes y exponer endpoints operativos de Actuator.
+El gateway no implementa logica de negocio de pedidos. Su funcion es proteger la entrada, enrutar solicitudes y exponer endpoints operativos de Actuator.
 
 ## Tecnologias usadas
 
@@ -13,6 +13,7 @@ El gateway no implementa logica de negocio de pedidos. Su funcion es enrutar sol
 | Java 21 | Runtime del servicio |
 | Spring Boot 3.5.14 | Base de la aplicacion |
 | Spring Cloud Gateway Server WebMVC | Enrutamiento HTTP hacia microservicios |
+| Spring Data Redis | Contadores de rate limiting por cliente |
 | Spring Boot Actuator | Endpoints de monitoreo |
 | Micrometer Prometheus | Exportacion de metricas |
 | Maven | Gestion de dependencias y build |
@@ -27,13 +28,36 @@ El gateway no implementa logica de negocio de pedidos. Su funcion es enrutar sol
 
 | ID de ruta | Path externo | Destino interno | Estado del destino |
 | --- | --- | --- | --- |
-| `menu-service` | `/api/menu/**` | `http://menu-service:8081` | Pendiente: servicio no implementado |
+| `menu-service` | `/api/menu/**` | `http://menu-service:8081` | Implementado |
 | `order-service-root` | `/api/orders` | `http://order-service:8082` | Implementado |
 | `order-service-paths` | `/api/orders/**` | `http://order-service:8082` | Implementado |
-| `inventory-service` | `/api/inventory/**` | `http://inventory-service:8083` | Pendiente: servicio no implementado |
-| `kitchen-service` | `/api/kitchen/**` | `http://kitchen-service:8084` | Pendiente: servicio no implementado |
-| `delivery-service` | `/api/delivery/**` | `http://delivery-service:8085` | Pendiente: servicio no implementado |
-| `notification-service` | `/api/notifications/**` | `http://notification-service:8086` | Pendiente: servicio no implementado |
+| `inventory-service` | `/api/inventory/**` | `http://inventory-service:8083` | Implementado |
+| `kitchen-service` | `/api/kitchen/**` | `http://kitchen-service:8084` | Implementado |
+| `delivery-service` | `/api/delivery/**` | `http://delivery-service:8085` | Implementado |
+| `notification-service` | `/api/notifications/**` | `http://notification-service:8086` | Implementado |
+
+## Rate limiting
+
+El gateway usa Redis para contar peticiones por cliente en una ventana de tiempo. La configuracion por defecto permite la prueba de estres de 50,000 peticiones sin bloquearla:
+
+```text
+API_RATE_LIMIT_ENABLED=true
+API_RATE_LIMIT_FAIL_OPEN=true
+API_RATE_LIMIT_CAPACITY=100000
+API_RATE_LIMIT_WINDOW_SECONDS=60
+SPRING_DATA_REDIS_TIMEOUT=500ms
+SPRING_DATA_REDIS_CONNECT_TIMEOUT=500ms
+```
+
+Cuando el cliente supera el limite, el gateway responde `429 Too Many Requests`. Cada respuesta normal incluye:
+
+| Header | Significado |
+| --- | --- |
+| `X-RateLimit-Limit` | Limite maximo de la ventana |
+| `X-RateLimit-Remaining` | Peticiones restantes para el cliente |
+| `X-RateLimit-Window-Seconds` | Duracion de la ventana |
+
+Si Redis se reinicia, `API_RATE_LIMIT_FAIL_OPEN=true` permite que el gateway siga operando y agrega `X-RateLimit-Redis: unavailable`. Los timeouts de Redis se mantienen bajos para que esa degradacion ocurra rapido.
 
 ## Redireccion hacia order-service
 
@@ -66,6 +90,4 @@ La configuracion actual tambien incluye `info` dentro de la exposicion de Actuat
 
 ## Estado actual
 
-El API Gateway esta configurado para enrutar hacia todos los microservicios previstos por la arquitectura. Actualmente, la ruta funcional implementada a nivel de microservicio es `order-service`.
-
-Las rutas hacia `menu-service`, `inventory-service`, `kitchen-service`, `delivery-service` y `notification-service` dependen de aplicaciones que todavia estan pendientes de implementacion. Por esa razon, esas rutas pueden fallar en ejecucion hasta que dichos servicios existan y esten levantados dentro de la red de Docker.
+El API Gateway esta configurado para enrutar hacia todos los microservicios previstos por la arquitectura y para proteger la entrada con Redis. La logica de negocio sigue viviendo en los microservicios.

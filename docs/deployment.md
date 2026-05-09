@@ -60,7 +60,7 @@ Credenciales:
 
 | Servicio | Puerto | Funcion |
 |---|---:|---|
-| `api-gateway` | `8080` | Entrada HTTP |
+| `api-gateway` | `8080` | Entrada HTTP y rate limiting |
 | `menu-service` | `8081` | Menu |
 | `order-service` | `8082` | Ordenes y Saga |
 | `inventory-service` | `8083` | Stock |
@@ -69,7 +69,7 @@ Credenciales:
 | `notification-service` | `8086` | Notificaciones |
 | `fastorder-db` | `5440` | PostgreSQL |
 | `rabbitmq` | `5672` | Broker |
-| `redis` | `6379` | Cache futuro |
+| `redis` | `6379` | Rate limiting del gateway |
 | `prometheus` | `9090` | Metricas |
 | `grafana` | `3000` | Dashboards |
 | `cadvisor` | `8087` | Contenedores |
@@ -96,6 +96,18 @@ curl http://localhost:8086/actuator/health
 - `GET /api/kitchen/orders`
 - `GET /api/delivery`
 - `GET /api/notifications`
+
+## Rate limiting con Redis
+
+El gateway usa Redis para limitar peticiones por cliente. En Docker Compose queda configurado con:
+
+```text
+API_RATE_LIMIT_CAPACITY=100000
+API_RATE_LIMIT_WINDOW_SECONDS=60
+API_RATE_LIMIT_FAIL_OPEN=true
+```
+
+Las respuestas del gateway incluyen encabezados `X-RateLimit-Limit`, `X-RateLimit-Remaining` y `X-RateLimit-Window-Seconds`. Si Redis se reinicia, el gateway mantiene el trafico con degradacion controlada por `fail-open`; los timeouts de Redis estan configurados en `500ms` para que la degradacion sea rapida.
 
 ## RabbitMQ
 
