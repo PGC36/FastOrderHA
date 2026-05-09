@@ -64,6 +64,18 @@ El pedido se crea rapido y luego avanza por eventos:
 10. `inventory-service` consume `delivery.completed` y convierte la reserva en venta: baja `quantity`, baja `reserved` y sube `sold`.
 11. `notification-service` consume `notification.created.queue` y guarda la notificacion.
 
+## Confirmacion de venta
+
+FastOrder HA no implementa un microservicio de pagos. Para el alcance actual del proyecto, la confirmacion comercial se modela como una venta de inventario cuando la entrega termina correctamente.
+
+La venta se confirma solo cuando `inventory-service` consume `delivery.completed`. En ese momento registra la fila en `inventory_sales` y actualiza inventario de forma idempotente:
+
+- `quantity` baja.
+- `reserved` baja.
+- `sold` sube.
+
+La columna unica `inventory_sales.order_id` evita descontar dos veces si RabbitMQ reentrega el mismo evento.
+
 ## Colas principales
 
 | Evento | Cola consumidora | Servicio consumidor |

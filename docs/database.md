@@ -89,6 +89,8 @@ Dato inicial:
 
 Registra las ventas confirmadas cuando llega `delivery.completed`. La columna `order_id` es unica para que un redelivery del evento no descuente inventario dos veces.
 
+Nota: no existe un microservicio de pagos en el alcance actual. `inventory_sales` representa la venta confirmada por negocio cuando la orden ya fue entregada.
+
 | Columna | Tipo | Restricciones | Descripcion |
 |---|---|---|---|
 | `id` | `BIGSERIAL` | Primary key | Identificador interno |
