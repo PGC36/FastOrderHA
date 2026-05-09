@@ -6,13 +6,17 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME:fastorder_user}
     password: ${SPRING_DATASOURCE_PASSWORD:fastorder123}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE:30}
+      minimum-idle: ${SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE:10}
+      connection-timeout: ${SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT:3000}
   jpa:
     hibernate:
       ddl-auto: none
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
   rabbitmq:
     host: ${SPRING_RABBITMQ_HOST:localhost}
     port: ${SPRING_RABBITMQ_PORT:5672}
@@ -49,3 +53,10 @@ app:
     exchange: order.exchange
     queue: order.events.queue
     routing-key: order.event
+  orders:
+    pending-processor-delay-ms: ${ORDER_PENDING_PROCESSOR_DELAY_MS:250}
+    pending-processor-batch-size: ${ORDER_PENDING_PROCESSOR_BATCH_SIZE:200}
+    workflow-worker-core-size: ${ORDER_WORKFLOW_WORKER_CORE_SIZE:10}
+    workflow-worker-max-size: ${ORDER_WORKFLOW_WORKER_MAX_SIZE:20}
+    workflow-worker-queue-capacity: ${ORDER_WORKFLOW_WORKER_QUEUE_CAPACITY:1000}
+    outbox-publisher-delay-ms: ${ORDER_OUTBOX_PUBLISHER_DELAY_MS:500}

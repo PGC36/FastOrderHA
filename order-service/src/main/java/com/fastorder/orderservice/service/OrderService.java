@@ -18,6 +18,7 @@ import java.util.Objects;
 import java.time.LocalDateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +27,7 @@ public class OrderService {
 
     private static final Logger logger = LoggerFactory.getLogger(OrderService.class);
     private static final String INITIAL_STATUS = "PENDING";
+    private static final String PROCESSING_STATUS = "PROCESSING";
     private static final String CANCELLED_STATUS = "CANCELLED";
     private static final String READY_FOR_DELIVERY_STATUS = "READY_FOR_DELIVERY";
     private static final String DELIVERY_FAILED_STATUS = "DELIVERY_FAILED";
@@ -47,6 +49,7 @@ public class OrderService {
         this.orderWorkflowClient = orderWorkflowClient;
     }
 
+    @Transactional
     public OrderCreationResult createOrder(CreateOrderRequest request) {
         logger.info("Inicio de creación de pedido");
         logger.info("idempotencyKey recibido={}", request.getIdempotencyKey());
@@ -89,6 +92,7 @@ public class OrderService {
         return OrderResponse.fromEntity(updated);
     }
 
+    @Transactional
     private OrderCreationResult createNewOrder(CreateOrderRequest request) {
         Order order = new Order();
         order.setIdempotencyKey(request.getIdempotencyKey());
@@ -102,13 +106,6 @@ public class OrderService {
         logger.info("Pedido registrado con estado inicial. id={}, status={}",
                 savedOrder.getId(), savedOrder.getStatus());
 
-        try {
-            orderWorkflowClient.reserveInventory(request);
-        } catch (BusinessRuleException | ProductNotFoundException | InventoryUnavailableException exception) {
-            cancelOrder(savedOrder, exception.getMessage());
-            throw exception;
-        }
-
         OutboxEvent outboxEvent = new OutboxEvent();
         outboxEvent.setAggregateType("ORDER");
         outboxEvent.setAggregateId(savedOrder.getId());
@@ -119,32 +116,57 @@ public class OrderService {
         outboxEventRepository.save(outboxEvent);
         logger.info("Evento order.created guardado en outbox para orderId={}", savedOrder.getId());
 
+        return new OrderCreationResult(
+                OrderResponse.fromEntity(savedOrder, "Orden recibida y encolada para procesamiento"),
+                true);
+    }
+
+    @Transactional
+    public List<Long> claimPendingOrders(int limit) {
+        List<Order> pendingOrders = orderRepository.findByStatusOrderByCreatedAtAsc(
+                INITIAL_STATUS, PageRequest.of(0, limit));
+        pendingOrders.forEach(order -> order.setStatus(PROCESSING_STATUS));
+        orderRepository.saveAll(pendingOrders);
+        return pendingOrders.stream()
+                .map(Order::getId)
+                .toList();
+    }
+
+    public void processClaimedOrder(Long orderId) {
+        Order savedOrder = orderRepository.findById(orderId).orElse(null);
+        if (savedOrder == null || !PROCESSING_STATUS.equals(savedOrder.getStatus())) {
+            return;
+        }
+
+        boolean inventoryReserved = false;
+
         try {
+            orderWorkflowClient.reserveInventory(toCreateOrderRequest(savedOrder));
+            inventoryReserved = true;
             orderWorkflowClient.createKitchenOrder(savedOrder);
             savedOrder.setStatus(READY_FOR_DELIVERY_STATUS);
             savedOrder = orderRepository.save(savedOrder);
         } catch (BusinessRuleException | InventoryUnavailableException exception) {
             cancelOrder(savedOrder, exception.getMessage());
-            orderWorkflowClient.releaseInventory(savedOrder);
-            throw exception;
+            if (inventoryReserved) {
+                orderWorkflowClient.releaseInventory(savedOrder);
+            }
+            return;
+        } catch (ProductNotFoundException exception) {
+            cancelOrder(savedOrder, exception.getMessage());
+            return;
         }
 
         try {
-            orderWorkflowClient.createNotification(savedOrder, request);
-            orderWorkflowClient.createAndCompleteDelivery(savedOrder, request);
+            orderWorkflowClient.createNotification(savedOrder, toCreateOrderRequest(savedOrder));
+            orderWorkflowClient.createAndCompleteDelivery(savedOrder);
             savedOrder.setStatus(COMPLETED_STATUS);
             savedOrder.setDeliveryFailureReason(null);
-            savedOrder = orderRepository.save(savedOrder);
+            orderRepository.save(savedOrder);
+            logger.info("Pedido procesado asincronamente orderId={}, status={}", savedOrder.getId(), COMPLETED_STATUS);
         } catch (BusinessRuleException | InventoryUnavailableException exception) {
             markDeliveryRetryPending(savedOrder, exception.getMessage());
-            throw exception;
         }
-
-        savedOrder = orderRepository.findById(savedOrder.getId()).orElse(savedOrder);
-
-        return new OrderCreationResult(
-                OrderResponse.fromEntity(savedOrder, "Orden preparada, enviada y entregada correctamente"),
-                true);
     }
 
     private void cancelOrder(Order order, String reason) {
@@ -179,6 +201,15 @@ public class OrderService {
                 order.getStatus());
     }
 
+    private CreateOrderRequest toCreateOrderRequest(Order order) {
+        CreateOrderRequest request = new CreateOrderRequest();
+        request.setProductId(order.getProductId());
+        request.setQuantity(order.getQuantity());
+        request.setIdempotencyKey(order.getIdempotencyKey());
+        request.setDeliveryAddress(order.getDeliveryAddress());
+        return request;
+    }
+
     private void validateIdempotentRetry(Order existingOrder, CreateOrderRequest request) {
         boolean sameRequest = Objects.equals(existingOrder.getProductId(), request.getProductId())
                 && Objects.equals(existingOrder.getQuantity(), request.getQuantity());
@@ -192,6 +223,9 @@ public class OrderService {
     private String idempotentMessage(Order existingOrder) {
         if (COMPLETED_STATUS.equals(existingOrder.getStatus())) {
             return "Orden ya entregada anteriormente";
+        }
+        if (PROCESSING_STATUS.equals(existingOrder.getStatus())) {
+            return "Orden en procesamiento";
         }
         if (CANCELLED_STATUS.equals(existingOrder.getStatus())) {
             return "Orden cancelada anteriormente";
