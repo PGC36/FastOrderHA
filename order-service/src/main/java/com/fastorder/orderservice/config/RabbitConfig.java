@@ -18,15 +18,56 @@ public class RabbitConfig {
     }
 
     @Bean
-    public Queue orderQueue(@Value("${app.rabbit.queue}") String queueName) {
+    public TopicExchange inventoryExchange(
+            @Value("${app.rabbit.inventory-exchange:inventory.exchange}") String exchangeName) {
+        return new TopicExchange(exchangeName, true, false);
+    }
+
+    @Bean
+    public Queue orderInventoryRejectedQueue(
+            @Value("${app.rabbit.inventory-rejected-queue:order.inventory-rejected.queue}") String queueName) {
         return QueueBuilder.durable(queueName).build();
     }
 
     @Bean
-    public Binding orderBinding(
-            Queue orderQueue,
-            TopicExchange orderExchange,
-            @Value("${app.rabbit.routing-key}") String routingKey) {
-        return BindingBuilder.bind(orderQueue).to(orderExchange).with(routingKey);
+    public Binding orderInventoryRejectedBinding(
+            Queue orderInventoryRejectedQueue,
+            TopicExchange inventoryExchange,
+            @Value("${app.rabbit.inventory-rejected-routing-key:inventory.rejected}") String routingKey) {
+        return BindingBuilder.bind(orderInventoryRejectedQueue).to(inventoryExchange).with(routingKey);
+    }
+
+    @Bean
+    public TopicExchange deliveryExchange(
+            @Value("${app.rabbit.delivery-exchange:delivery.exchange}") String exchangeName) {
+        return new TopicExchange(exchangeName, true, false);
+    }
+
+    @Bean
+    public Queue orderDeliveryCompletedQueue(
+            @Value("${app.rabbit.delivery-completed-queue:order.delivery-completed.queue}") String queueName) {
+        return QueueBuilder.durable(queueName).build();
+    }
+
+    @Bean
+    public Binding orderDeliveryCompletedBinding(
+            Queue orderDeliveryCompletedQueue,
+            TopicExchange deliveryExchange,
+            @Value("${app.rabbit.delivery-completed-routing-key:delivery.completed}") String routingKey) {
+        return BindingBuilder.bind(orderDeliveryCompletedQueue).to(deliveryExchange).with(routingKey);
+    }
+
+    @Bean
+    public Queue orderDeliveryFailedQueue(
+            @Value("${app.rabbit.delivery-failed-queue:order.delivery-failed.queue}") String queueName) {
+        return QueueBuilder.durable(queueName).build();
+    }
+
+    @Bean
+    public Binding orderDeliveryFailedBinding(
+            Queue orderDeliveryFailedQueue,
+            TopicExchange deliveryExchange,
+            @Value("${app.rabbit.delivery-failed-routing-key:delivery.failed}") String routingKey) {
+        return BindingBuilder.bind(orderDeliveryFailedQueue).to(deliveryExchange).with(routingKey);
     }
 }

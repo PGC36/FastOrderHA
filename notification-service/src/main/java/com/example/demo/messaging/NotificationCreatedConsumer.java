@@ -24,7 +24,9 @@ public class NotificationCreatedConsumer {
     private final NotificationRepository notificationRepository;
     private final ObjectMapper objectMapper;
 
-    @RabbitListener(queues = "notification.created.queue")
+    @RabbitListener(
+            queues = "${app.rabbit.queue:notification.created.queue}",
+            concurrency = "${app.rabbit.created-consumers:8}")
     @Transactional
     public void consumeNotification(Message message) {
         String payload = new String(message.getBody(), StandardCharsets.UTF_8);

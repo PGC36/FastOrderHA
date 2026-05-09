@@ -22,6 +22,11 @@ spring:
     port: ${SPRING_RABBITMQ_PORT:5672}
     username: ${SPRING_RABBITMQ_USERNAME:guest}
     password: ${SPRING_RABBITMQ_PASSWORD:guest}
+    listener:
+      simple:
+        prefetch: ${SPRING_RABBITMQ_LISTENER_SIMPLE_PREFETCH:20}
+        concurrency: ${SPRING_RABBITMQ_LISTENER_SIMPLE_CONCURRENCY:8}
+        max-concurrency: ${SPRING_RABBITMQ_LISTENER_SIMPLE_MAX_CONCURRENCY:16}
 
 server:
   port: 8082
@@ -51,9 +56,10 @@ app:
     notification-url: ${NOTIFICATION_SERVICE_URL:http://localhost:8086/notifications}
   rabbit:
     exchange: order.exchange
-    queue: order.events.queue
     routing-key: order.event
+    workflow-consumers: ${ORDER_WORKFLOW_EVENT_CONSUMERS:8}
   orders:
+    internal-worker-enabled: ${ORDER_INTERNAL_WORKER_ENABLED:false}
     pending-processor-delay-ms: ${ORDER_PENDING_PROCESSOR_DELAY_MS:250}
     pending-processor-batch-size: ${ORDER_PENDING_PROCESSOR_BATCH_SIZE:200}
     workflow-worker-core-size: ${ORDER_WORKFLOW_WORKER_CORE_SIZE:10}

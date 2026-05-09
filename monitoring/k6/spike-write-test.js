@@ -2,19 +2,23 @@ import http from 'k6/http';
 import { check } from 'k6';
 import exec from 'k6/execution';
 
-const totalOrders = Number(__ENV.TOTAL_ORDERS || 50000);
-const vus = Number(__ENV.VUS || 200);
+const rate = Number(__ENV.RATE || 5000);
+const duration = __ENV.DURATION || '10s';
+const preAllocatedVUs = Number(__ENV.PRE_ALLOCATED_VUS || 500);
+const maxVUs = Number(__ENV.MAX_VUS || 2000);
 const baseUrl = __ENV.BASE_URL || 'http://api-gateway:8080';
 const runId = __ENV.RUN_ID || `${Date.now()}`;
 
 export const options = {
   summaryTrendStats: ['avg', 'min', 'med', 'p(90)', 'p(95)', 'p(99)', 'max'],
   scenarios: {
-    create_orders: {
-      executor: 'shared-iterations',
-      vus,
-      iterations: totalOrders,
-      maxDuration: __ENV.MAX_DURATION || '30s',
+    spike_order_writes: {
+      executor: 'constant-arrival-rate',
+      rate,
+      timeUnit: '1s',
+      duration,
+      preAllocatedVUs,
+      maxVUs,
     },
   },
   thresholds: {
@@ -29,10 +33,10 @@ export default function () {
   const payload = JSON.stringify({
     productId: 1,
     quantity: 1,
-    idempotencyKey: `k6-real-${runId}-${iteration}`,
-    deliveryAddress: `Zona k6 ${iteration % 25}`,
+    idempotencyKey: `k6-spike-${runId}-${iteration}`,
+    deliveryAddress: `Zona pico ${iteration % 25}`,
     notificationChannel: 'EMAIL',
-    notificationRecipient: `load-${iteration}@fastorder.test`,
+    notificationRecipient: `spike-${iteration}@fastorder.test`,
   });
 
   const response = http.post(`${baseUrl}/api/orders`, payload, {
@@ -41,6 +45,7 @@ export default function () {
     },
     tags: {
       endpoint: '/api/orders',
+      test_type: 'spike-write',
     },
   });
 

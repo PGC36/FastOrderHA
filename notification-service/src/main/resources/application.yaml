@@ -10,20 +10,29 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME:fastorder_user}
     password: ${SPRING_DATASOURCE_PASSWORD:fastorder123}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE:20}
+      minimum-idle: ${SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE:5}
+      connection-timeout: ${SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT:3000}
 
   jpa:
     hibernate:
       ddl-auto: validate
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
 
   rabbitmq:
     host: ${SPRING_RABBITMQ_HOST:rabbitmq}
     port: ${SPRING_RABBITMQ_PORT:5672}
     username: ${SPRING_RABBITMQ_USERNAME:guest}
     password: ${SPRING_RABBITMQ_PASSWORD:guest}
+    listener:
+      simple:
+        prefetch: ${SPRING_RABBITMQ_LISTENER_SIMPLE_PREFETCH:20}
+        concurrency: ${SPRING_RABBITMQ_LISTENER_SIMPLE_CONCURRENCY:8}
+        max-concurrency: ${SPRING_RABBITMQ_LISTENER_SIMPLE_MAX_CONCURRENCY:16}
 
 management:
   endpoints:
@@ -39,3 +48,4 @@ app:
     exchange: notification.exchange
     queue: notification.created.queue
     routing-key: notification.created
+    created-consumers: ${NOTIFICATION_CREATED_CONSUMERS:8}

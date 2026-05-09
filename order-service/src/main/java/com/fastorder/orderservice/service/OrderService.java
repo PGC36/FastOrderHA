@@ -175,6 +175,29 @@ public class OrderService {
         logger.warn("Pedido cancelado orderId={}, reason={}", order.getId(), reason);
     }
 
+    @Transactional
+    public void cancelOrderById(Long orderId, String reason) {
+        orderRepository.findById(orderId)
+                .ifPresent(order -> cancelOrder(order, reason));
+    }
+
+    @Transactional
+    public void completeOrderById(Long orderId) {
+        orderRepository.findById(orderId)
+                .ifPresent(order -> {
+                    order.setStatus(COMPLETED_STATUS);
+                    order.setDeliveryFailureReason(null);
+                    orderRepository.save(order);
+                    logger.info("Pedido completado por evento orderId={}", orderId);
+                });
+    }
+
+    @Transactional
+    public void markDeliveryRetryPendingById(Long orderId, String reason) {
+        orderRepository.findById(orderId)
+                .ifPresent(order -> markDeliveryRetryPending(order, reason));
+    }
+
     private void markOrderStatus(Order order, String status, String reason) {
         order.setStatus(status);
         orderRepository.save(order);
@@ -194,11 +217,19 @@ public class OrderService {
 
     private String buildOrderCreatedPayload(Order order) {
         return String.format(
-                "{\"orderId\":%d,\"productId\":%d,\"quantity\":%d,\"status\":\"%s\"}",
+                "{\"orderId\":%d,\"productId\":%d,\"quantity\":%d,\"deliveryAddress\":\"%s\",\"status\":\"%s\"}",
                 order.getId(),
                 order.getProductId(),
                 order.getQuantity(),
+                escapeJson(order.getDeliveryAddress()),
                 order.getStatus());
+    }
+
+    private String escapeJson(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
     private CreateOrderRequest toCreateOrderRequest(Order order) {

@@ -7,6 +7,7 @@ const baseUrl = __ENV.BASE_URL || 'http://api-gateway:8080';
 const sleepSeconds = Number(__ENV.SLEEP_SECONDS || 0);
 
 export const options = {
+  summaryTrendStats: ['avg', 'min', 'med', 'p(90)', 'p(95)', 'p(99)', 'max'],
   scenarios: {
     fastorder_read_stress: {
       executor: 'shared-iterations',
@@ -17,7 +18,7 @@ export const options = {
   },
   thresholds: {
     http_req_failed: ['rate<0.05'],
-    http_req_duration: ['p(95)<1000'],
+    http_req_duration: ['p(95)<1000', 'p(99)<2000'],
     checks: ['rate>0.95'],
   },
 };

@@ -27,9 +27,30 @@ services:
   rabbitmq:
     image: rabbitmq:3-management
     container_name: fastorder-rabbitmq
+    command: >
+      bash -c "rabbitmq-plugins enable --offline rabbitmq_prometheus && rabbitmq-server"
     ports:
       - "5672:5672"
       - "15672:15672"
+      - "15692:15692"
+    networks:
+      - fastorder-network
+    restart: unless-stopped
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.52.1
+    container_name: fastorder-cadvisor
+    ports:
+      - "8087:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    devices:
+      - /dev/kmsg:/dev/kmsg
     networks:
       - fastorder-network
     restart: unless-stopped
@@ -203,6 +224,8 @@ services:
       - "--web.console.templates=/usr/share/prometheus/consoles"
     depends_on:
       - api-gateway
+      - cadvisor
+      - rabbitmq
       - menu-service
       - inventory-service
       - order-service

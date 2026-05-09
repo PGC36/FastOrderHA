@@ -8,6 +8,22 @@ scrape_configs:
       - targets:
           - prometheus:9090
 
+  - job_name: cadvisor
+    static_configs:
+      - targets:
+          - cadvisor:8080
+
+  - job_name: rabbitmq
+    static_configs:
+      - targets:
+          - rabbitmq:15692
+
+  - job_name: rabbitmq-per-object
+    metrics_path: /metrics/per-object
+    static_configs:
+      - targets:
+          - rabbitmq:15692
+
   - job_name: api-gateway
     metrics_path: /actuator/prometheus
     static_configs:

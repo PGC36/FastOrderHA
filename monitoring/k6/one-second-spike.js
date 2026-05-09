@@ -8,6 +8,7 @@ const maxVUs = Number(__ENV.MAX_VUS || 5000);
 const baseUrl = __ENV.BASE_URL || 'http://api-gateway:8080';
 
 export const options = {
+  summaryTrendStats: ['avg', 'min', 'med', 'p(90)', 'p(95)', 'p(99)', 'max'],
   scenarios: {
     one_second_spike: {
       executor: 'constant-arrival-rate',
@@ -20,6 +21,7 @@ export const options = {
   },
   thresholds: {
     http_req_failed: ['rate<0.05'],
+    http_req_duration: ['p(95)<3000', 'p(99)<6000'],
     checks: ['rate>0.95'],
   },
 };
