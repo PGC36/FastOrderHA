@@ -45,7 +45,7 @@ Publica:
 
 | Evento | Significado |
 |---|---|
-| `delivery.completed` | La entrega termino correctamente |
+| `delivery.completed` | La entrega termino correctamente; incluye `orderId`, `deliveryId`, `productId` y `quantity` |
 | `delivery.failed` | La entrega fallo |
 | `notification.created` | Se debe registrar una notificacion |
 
@@ -57,7 +57,7 @@ Publica:
 4. Marca recogida.
 5. Marca en transito.
 6. Marca entregada o fallida.
-7. Publica el evento correspondiente.
+7. Publica el evento correspondiente. Cuando publica `delivery.completed`, inventario lo usa para convertir la reserva en venta confirmada.
 
 Si el servicio esta caido, RabbitMQ mantiene los mensajes en cola. Cuando vuelve a levantarse, los consume automaticamente.
 

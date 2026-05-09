@@ -44,6 +44,7 @@ public class NotificationCreatedConsumer {
             processNewNotification(root);
         } catch (Exception ex) {
             log.error("Error al procesar mensaje desde notification.created.queue: {}", payload, ex);
+            throw new IllegalStateException("Error procesando notification.created", ex);
         }
     }
 
@@ -69,7 +70,7 @@ public class NotificationCreatedConsumer {
 
         if (orderId == null || isBlank(channel) || isBlank(recipient)) {
             log.error("Mensaje recibido sin datos suficientes para guardar notificacion: {}", root);
-            return;
+            throw new IllegalArgumentException("Mensaje notification.created sin datos suficientes");
         }
 
         if (isBlank(message)) {

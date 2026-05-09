@@ -22,11 +22,20 @@ spring:
     port: ${SPRING_RABBITMQ_PORT:5672}
     username: ${SPRING_RABBITMQ_USERNAME:guest}
     password: ${SPRING_RABBITMQ_PASSWORD:guest}
+    publisher-confirm-type: correlated
+    publisher-returns: true
     listener:
       simple:
         prefetch: ${SPRING_RABBITMQ_LISTENER_SIMPLE_PREFETCH:20}
         concurrency: ${SPRING_RABBITMQ_LISTENER_SIMPLE_CONCURRENCY:8}
         max-concurrency: ${SPRING_RABBITMQ_LISTENER_SIMPLE_MAX_CONCURRENCY:16}
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          max-attempts: ${SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_ATTEMPTS:3}
+          initial-interval: ${SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_INITIAL_INTERVAL:1000}
+          multiplier: ${SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MULTIPLIER:2}
+          max-interval: ${SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_INTERVAL:10000}
 
 server:
   port: 8082
@@ -59,6 +68,7 @@ app:
     routing-key: order.event
     workflow-consumers: ${ORDER_WORKFLOW_EVENT_CONSUMERS:8}
   orders:
+    processing-mode: ${ORDER_PROCESSING_MODE:event}
     internal-worker-enabled: ${ORDER_INTERNAL_WORKER_ENABLED:false}
     pending-processor-delay-ms: ${ORDER_PENDING_PROCESSOR_DELAY_MS:250}
     pending-processor-batch-size: ${ORDER_PENDING_PROCESSOR_BATCH_SIZE:200}
@@ -66,3 +76,4 @@ app:
     workflow-worker-max-size: ${ORDER_WORKFLOW_WORKER_MAX_SIZE:20}
     workflow-worker-queue-capacity: ${ORDER_WORKFLOW_WORKER_QUEUE_CAPACITY:1000}
     outbox-publisher-delay-ms: ${ORDER_OUTBOX_PUBLISHER_DELAY_MS:500}
+    outbox-publisher-confirm-timeout-ms: ${ORDER_OUTBOX_PUBLISHER_CONFIRM_TIMEOUT_MS:5000}

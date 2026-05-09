@@ -28,71 +28,84 @@ La prueba de falla inducida por eliminacion de contenedores queda pendiente para
 ## Prueba 50k de escritura
 
 ```powershell
-$runId = "50k-" + (Get-Date -Format "yyyyMMddHHmmss")
-docker run --rm --network fastorderha_fastorder-network `
-  -v "${PWD}\monitoring\k6:/scripts" `
-  -e TOTAL_ORDERS=50000 `
-  -e VUS=200 `
-  -e MAX_DURATION=30s `
-  -e RUN_ID=$runId `
-  grafana/k6:0.54.0 run /scripts/order-write-test.js
+k6 run .\monitoring\k6\order-write-test.js
 ```
 
 ## Carga sostenida
 
 ```powershell
-$runId = "sustained-" + (Get-Date -Format "yyyyMMddHHmmss")
-docker run --rm --network fastorderha_fastorder-network `
-  -v "${PWD}\monitoring\k6:/scripts" `
-  -e RATE=250 `
-  -e DURATION=5m `
-  -e RUN_ID=$runId `
-  grafana/k6:0.54.0 run /scripts/sustained-write-test.js
+k6 run .\monitoring\k6\sustained-write-test.js
 ```
 
 ## Pico de escritura
 
 ```powershell
-$runId = "spike-" + (Get-Date -Format "yyyyMMddHHmmss")
-docker run --rm --network fastorderha_fastorder-network `
-  -v "${PWD}\monitoring\k6:/scripts" `
-  -e RATE=5000 `
-  -e DURATION=10s `
-  -e RUN_ID=$runId `
-  grafana/k6:0.54.0 run /scripts/spike-write-test.js
+k6 run .\monitoring\k6\spike-write-test.js
+```
+
+## Ver resultado de negocio
+
+```powershell
+node .\monitoring\check-results.js
+```
+
+Para ver el drenaje asincrono en vivo:
+
+```powershell
+node .\monitoring\check-results.js --watch
 ```
 
 ## Resultado de referencia
 
-Ultima prueba completa registrada antes de Redis, replicas y backups:
+Prueba completa registrada antes de Redis, replicas y backups con stock suficiente:
 
 | Metrica | Resultado |
 |---|---:|
 | Ordenes enviadas | `50,000` |
 | Metodo | `POST /api/orders` |
-| Duracion de envio k6 | `25.7 s` |
-| Throughput aproximado | `1,943 req/s` |
+| Duracion de envio k6 | `26.0 s` |
+| Throughput aproximado | `1,924 req/s` |
 | Tasa de error HTTP | `0%` |
 | Checks k6 | `100%` |
-| Latencia promedio | `102.41 ms` |
-| Latencia p95 | `248.6 ms` |
-| Latencia p99 | `359.96 ms` |
-| Latencia maxima | `828.58 ms` |
-| Ordenes finales `COMPLETED` | `50,000` |
-| Notificaciones finales | `50,000` |
-| Tiempo hasta completar la saga | aprox. `7 min 10 s` |
+| Latencia promedio | `103.6 ms` |
+| Latencia p95 | `257.15 ms` |
+| Latencia p99 | `366.16 ms` |
+| Latencia maxima | `1.65 s` |
+| Ordenes finales `COMPLETED` | `50,010` acumuladas |
+| Inventario `reserved` | `0` |
+| Inventario `sold` | `50,010` |
+| Notificaciones finales | `50,010` |
+| Tiempo hasta completar la saga | aprox. `9 min 30 s` |
+
+## Resultado con inventario insuficiente
+
+Tambien se valido el caso donde entran 50,000 solicitudes adicionales sin stock suficiente. El sistema acepto la carga, no sobrevendio y cancelo lo que no podia cumplir.
+
+| Metrica | Resultado |
+|---|---:|
+| Ordenes totales acumuladas | `100,010` |
+| Ordenes finales `COMPLETED` | `60,000` |
+| Ordenes finales `CANCELLED` | `40,010` |
+| Outbox procesado | `100,010` |
+| Inventario `quantity` | `0` |
+| Inventario `reserved` | `0` |
+| Inventario `sold` | `60,000` |
+| `inventory_sales` | `60,000` |
+| RabbitMQ Ready/Unacked | `0` |
 
 ## Como validar que todo completo
 
 ```powershell
-docker exec fastorder-db psql -U fastorder_user -d fastorder_db -c "select status, count(*) from orders group by status order by status;"
-docker exec fastorder-db psql -U fastorder_user -d fastorder_db -c "select count(*) from notifications;"
+node .\monitoring\check-results.js
 ```
 
-El resultado esperado para la prueba 50k es:
+El resultado esperado para una prueba 50k con stock suficiente es:
 
 - `orders`: 50,000 en `COMPLETED`.
 - `notifications`: 50,000 registros.
+- `inventory.reserved`: 0.
+- `inventory.sold`: 50,000.
+- `outbox.pending`: 0.
 - RabbitMQ sin acumulacion permanente en las colas principales.
 
 ## Grafana

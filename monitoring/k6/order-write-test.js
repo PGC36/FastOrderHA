@@ -4,8 +4,8 @@ import exec from 'k6/execution';
 
 const totalOrders = Number(__ENV.TOTAL_ORDERS || 50000);
 const vus = Number(__ENV.VUS || 200);
-const baseUrl = __ENV.BASE_URL || 'http://api-gateway:8080';
-const runId = __ENV.RUN_ID || `${Date.now()}`;
+const baseUrl = __ENV.BASE_URL || 'http://localhost:8080';
+const runId = __ENV.RUN_ID || `local-${Date.now()}`;
 
 export const options = {
   summaryTrendStats: ['avg', 'min', 'med', 'p(90)', 'p(95)', 'p(99)', 'max'],
@@ -14,7 +14,7 @@ export const options = {
       executor: 'shared-iterations',
       vus,
       iterations: totalOrders,
-      maxDuration: __ENV.MAX_DURATION || '30s',
+      maxDuration: __ENV.MAX_DURATION || '2m',
     },
   },
   thresholds: {

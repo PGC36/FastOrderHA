@@ -19,7 +19,7 @@ La arquitectura actual prioriza:
 | `api-gateway` | Entrada HTTP centralizada | `8080` |
 | `menu-service` | Catalogo de productos | `8081` |
 | `order-service` | Ordenes, idempotencia, outbox y estado global | `8082` |
-| `inventory-service` | Reserva y liberacion de stock | `8083` |
+| `inventory-service` | Reserva, liberacion y confirmacion de ventas de stock | `8083` |
 | `kitchen-service` | Preparacion de ordenes | `8084` |
 | `delivery-service` | Entrega y reintentos de despacho | `8085` |
 | `notification-service` | Persistencia de notificaciones | `8086` |
@@ -60,7 +60,8 @@ El pedido se crea rapido y luego avanza por eventos:
 7. `kitchen-service` consume `inventory.reserved`, prepara la orden y publica `kitchen.ready`.
 8. `delivery-service` consume `kitchen.ready`, procesa la entrega y publica `delivery.completed` o `delivery.failed`.
 9. `order-service` consume eventos de delivery para marcar `COMPLETED`, reintentar o abandonar.
-10. `notification-service` consume `notification.created.queue` y guarda la notificacion.
+10. `inventory-service` consume `delivery.completed` y convierte la reserva en venta: baja `quantity`, baja `reserved` y sube `sold`.
+11. `notification-service` consume `notification.created.queue` y guarda la notificacion.
 
 ## Colas principales
 
@@ -71,6 +72,7 @@ El pedido se crea rapido y luego avanza por eventos:
 | `inventory.rejected` | `order.inventory-rejected.queue` | `order-service` |
 | `kitchen.ready` | `delivery.kitchen-ready.queue` | `delivery-service` |
 | `delivery.completed` | `order.delivery-completed.queue` | `order-service` |
+| `delivery.completed` | `inventory.delivery-completed.queue` | `inventory-service` |
 | `delivery.failed` | `order.delivery-failed.queue` | `order-service` |
 | `notification.created` | `notification.created.queue` | `notification-service` |
 
@@ -90,6 +92,7 @@ Todos los servicios usan `fastorder_db` y tablas separadas por dominio:
 
 - `productos`
 - `inventory`
+- `inventory_sales`
 - `orders`
 - `outbox_events`
 - `kitchen_orders`
@@ -125,7 +128,7 @@ Se agregaron scripts k6 para:
 - picos de escritura.
 - picos de lectura.
 
-La prueba final antes de Redis, replicas y backups proceso 50,000 ordenes con error HTTP 0 y termino con 50,000 ordenes en `COMPLETED`.
+La prueba final antes de Redis, replicas y backups proceso 50,000 ordenes con error HTTP 0 y termino con 50,000 ordenes en `COMPLETED`. Tambien se valido inventario insuficiente: el sistema vendio solo el stock disponible, cancelo el resto y termino con `reserved = 0`.
 
 Mas detalle en [load-testing-k6.md](./load-testing-k6.md).
 

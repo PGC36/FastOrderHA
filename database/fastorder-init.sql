@@ -23,13 +23,28 @@ CREATE TABLE IF NOT EXISTS inventory (
     product_id BIGINT NOT NULL UNIQUE,
     quantity INTEGER NOT NULL DEFAULT 0,
     reserved INTEGER NOT NULL DEFAULT 0,
+    sold INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+ALTER TABLE inventory
+    ADD COLUMN IF NOT EXISTS sold INTEGER NOT NULL DEFAULT 0;
+
 INSERT INTO inventory (product_id, quantity, reserved)
-VALUES (1, 100, 0)
+VALUES (1, 60000, 0)
 ON CONFLICT (product_id) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS inventory_sales (
+    id BIGSERIAL PRIMARY KEY,
+    order_id BIGINT NOT NULL UNIQUE,
+    product_id BIGINT NOT NULL,
+    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_inventory_sales_product_id
+ON inventory_sales(product_id);
 
 CREATE TABLE IF NOT EXISTS orders (
     id SERIAL PRIMARY KEY,

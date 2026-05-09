@@ -73,6 +73,23 @@ SPRING_RABBITMQ_USERNAME=guest
 SPRING_RABBITMQ_PASSWORD=guest
 ```
 
+El flujo de pedidos usa RabbitMQ de forma asincrona con:
+
+- colas durables;
+- reintentos con backoff en los listeners;
+- `default-requeue-rejected=false` para evitar ciclos infinitos;
+- DLQ por cola con sufijo `.dlq`;
+- publisher confirms en `order-service` para marcar eventos outbox como procesados solo cuando RabbitMQ confirma el publish.
+
+Si ya existian colas creadas antes de esta configuracion, RabbitMQ puede rechazar el arranque por cambio de argumentos de cola. En ambiente local se resuelve eliminando las colas desde Management o recreando el entorno con:
+
+```bash
+docker compose down -v
+docker compose up --build -d
+```
+
+Advertencia: ese comando elimina tambien los volumenes persistidos.
+
 ## Observabilidad
 
 Prometheus recolecta:
@@ -131,10 +148,17 @@ SPRING_RABBITMQ_PASSWORD=guest
 Workers RabbitMQ:
 
 ```text
-APP_RABBIT_PREFETCH=20
-APP_RABBIT_CONCURRENCY=8
-APP_RABBIT_MAX_CONCURRENCY=16
+SPRING_RABBITMQ_LISTENER_SIMPLE_PREFETCH=20
+SPRING_RABBITMQ_LISTENER_SIMPLE_CONCURRENCY=8
+SPRING_RABBITMQ_LISTENER_SIMPLE_MAX_CONCURRENCY=16
+SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_ATTEMPTS=3
+SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_INITIAL_INTERVAL=1000
+SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MULTIPLIER=2
+SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_INTERVAL=10000
+ORDER_PROCESSING_MODE=event
 ```
+
+`ORDER_PROCESSING_MODE=event` mantiene activo el flujo por outbox + RabbitMQ. El modo `internal-worker` queda reservado para pruebas puntuales y no debe usarse al mismo tiempo que el flujo por eventos.
 
 ## Volumen persistente
 

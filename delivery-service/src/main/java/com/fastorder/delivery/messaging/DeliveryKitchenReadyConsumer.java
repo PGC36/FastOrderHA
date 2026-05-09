@@ -61,9 +61,15 @@ public class DeliveryKitchenReadyConsumer {
         try {
             JsonNode event = objectMapper.readTree(payload);
             Long orderId = readLong(event, "orderId");
+            Long productId = readLong(event, "productId");
+            Integer quantity = readInteger(event, "quantity");
             if (orderId == null) {
                 logger.error("Evento kitchen.ready sin orderId: {}", payload);
-                return;
+                throw new IllegalArgumentException("Evento kitchen.ready sin orderId");
+            }
+            if (productId == null || quantity == null) {
+                logger.error("Evento kitchen.ready sin producto/cantidad: {}", payload);
+                throw new IllegalArgumentException("Evento kitchen.ready sin producto/cantidad");
             }
 
             CreateDeliveryRequest createRequest = new CreateDeliveryRequest();
@@ -79,6 +85,8 @@ public class DeliveryKitchenReadyConsumer {
             rabbitTemplate.convertAndSend(deliveryExchange, completedRoutingKey, Map.of(
                     "orderId", orderId,
                     "deliveryId", delivery.getId(),
+                    "productId", productId,
+                    "quantity", quantity,
                     "status", "DELIVERY_COMPLETED"));
 
             rabbitTemplate.convertAndSend(notificationExchange, notificationRoutingKey, Map.of(
@@ -112,12 +120,18 @@ public class DeliveryKitchenReadyConsumer {
             }
         } catch (Exception ignored) {
             logger.error("No se pudo publicar delivery.failed para payload={}", payload);
+            throw new IllegalStateException("No se pudo publicar delivery.failed", ignored);
         }
     }
 
     private Long readLong(JsonNode root, String fieldName) {
         JsonNode node = root.get(fieldName);
         return node != null && node.canConvertToLong() ? node.asLong() : null;
+    }
+
+    private Integer readInteger(JsonNode root, String fieldName) {
+        JsonNode node = root.get(fieldName);
+        return node != null && node.canConvertToInt() ? node.asInt() : null;
     }
 
     private String readText(JsonNode root, String fieldName, String defaultValue) {

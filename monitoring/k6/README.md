@@ -5,30 +5,43 @@ Estos scripts generan evidencia para la seccion de rendimiento del proyecto. Las
 ## Carga minima 50k de escritura
 
 ```powershell
-$runId = "50k-" + (Get-Date -Format "yyyyMMddHHmmss")
-docker run --rm --network fastorderha_fastorder-network -v "${PWD}\monitoring\k6:/scripts" -e TOTAL_ORDERS=50000 -e VUS=200 -e MAX_DURATION=30s -e RUN_ID=$runId grafana/k6:0.54.0 run /scripts/order-write-test.js
+k6 run .\monitoring\k6\order-write-test.js
 ```
 
-Este script envia `POST /api/orders` y crea ordenes reales. Para que la prueba termine completa, el inventario debe tener stock suficiente.
+Este script envia `POST /api/orders` y crea ordenes reales. Por defecto corre contra `http://localhost:8080`, envia `50000` pedidos, usa `200` VUs y permite hasta `2m` para completar el envio. Para que todas las ordenes terminen `COMPLETED`, el inventario debe tener stock suficiente.
+
+Si necesitas cambiar algun valor sin editar el archivo:
+
+```powershell
+$env:TOTAL_ORDERS='10000'
+$env:VUS='100'
+$env:MAX_DURATION='1m'
+$env:BASE_URL='http://localhost:8080'
+k6 run .\monitoring\k6\order-write-test.js
+```
 
 ## Escritura concurrente sostenida
 
 ```powershell
-$runId = "sustained-" + (Get-Date -Format "yyyyMMddHHmmss")
-docker run --rm --network fastorderha_fastorder-network -v "${PWD}\monitoring\k6:/scripts" -e RATE=250 -e DURATION=5m -e RUN_ID=$runId grafana/k6:0.54.0 run /scripts/sustained-write-test.js
+k6 run .\monitoring\k6\sustained-write-test.js
 ```
 
 ## Pico de escritura
 
 ```powershell
-$runId = "spike-" + (Get-Date -Format "yyyyMMddHHmmss")
-docker run --rm --network fastorderha_fastorder-network -v "${PWD}\monitoring\k6:/scripts" -e RATE=5000 -e DURATION=10s -e RUN_ID=$runId grafana/k6:0.54.0 run /scripts/spike-write-test.js
+k6 run .\monitoring\k6\spike-write-test.js
 ```
 
 ## Pico de lectura
 
 ```powershell
-docker run --rm --network fastorderha_fastorder-network -v "${PWD}\monitoring\k6:/scripts" -e RATE=50000 -e DURATION=1s grafana/k6:0.54.0 run /scripts/one-second-spike.js
+k6 run .\monitoring\k6\one-second-spike.js
+```
+
+## Lectura concurrente
+
+```powershell
+k6 run .\monitoring\k6\read-stress.js
 ```
 
 ## Metricas
@@ -55,3 +68,24 @@ Dashboard local:
 ```text
 http://localhost:3000
 ```
+
+## Ver resultado final de negocio
+
+Despues de correr k6, puedes ver el resumen de ordenes, inventario, outbox y colas RabbitMQ con:
+
+```powershell
+node .\monitoring\check-results.js
+```
+
+Para verlo refrescandose mientras los workers terminan de procesar:
+
+```powershell
+node .\monitoring\check-results.js --watch
+```
+
+El resultado esta completo cuando el script muestra:
+
+- `Status: DONE`
+- `Outbox pending: 0`
+- `reserved=0`
+- `Rabbit queues: empty`

@@ -27,6 +27,13 @@ spring:
         prefetch: ${SPRING_RABBITMQ_LISTENER_SIMPLE_PREFETCH:20}
         concurrency: ${SPRING_RABBITMQ_LISTENER_SIMPLE_CONCURRENCY:8}
         max-concurrency: ${SPRING_RABBITMQ_LISTENER_SIMPLE_MAX_CONCURRENCY:16}
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          max-attempts: ${SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_ATTEMPTS:3}
+          initial-interval: ${SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_INITIAL_INTERVAL:1000}
+          multiplier: ${SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MULTIPLIER:2}
+          max-interval: ${SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_INTERVAL:10000}
 
 server:
   port: 8085

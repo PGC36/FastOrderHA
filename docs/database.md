@@ -42,7 +42,7 @@ El script general crea todas las tablas que antes estaban repartidas por scripts
 | Dominio | Tablas |
 |---|---|
 | Menu | `productos` |
-| Inventario | `inventory` |
+| Inventario | `inventory`, `inventory_sales` |
 | Pedidos | `orders`, `outbox_events` |
 | Cocina | `kitchen_orders` |
 | Entregas | `delivery_orders`, `delivery_status_history` |
@@ -77,12 +77,31 @@ Dato inicial:
 | `product_id` | `BIGINT` | `UNIQUE`, `NOT NULL` | Referencia logica al producto |
 | `quantity` | `INTEGER` | `NOT NULL`, `DEFAULT 0` | Stock disponible |
 | `reserved` | `INTEGER` | `NOT NULL`, `DEFAULT 0` | Stock reservado |
+| `sold` | `INTEGER` | `NOT NULL`, `DEFAULT 0` | Stock confirmado como vendido |
 | `created_at` | `TIMESTAMP` | `DEFAULT CURRENT_TIMESTAMP` | Fecha de creacion |
 | `updated_at` | `TIMESTAMP` | `DEFAULT CURRENT_TIMESTAMP` | Fecha de actualizacion |
 
 Dato inicial:
 
-- inserta `product_id = 1` con `quantity = 100` y `reserved = 0`.
+- inserta `product_id = 1` con `quantity = 60000` y `reserved = 0`, suficiente para la prueba de carga de 50k pedidos.
+
+### Tabla `inventory_sales`
+
+Registra las ventas confirmadas cuando llega `delivery.completed`. La columna `order_id` es unica para que un redelivery del evento no descuente inventario dos veces.
+
+| Columna | Tipo | Restricciones | Descripcion |
+|---|---|---|---|
+| `id` | `BIGSERIAL` | Primary key | Identificador interno |
+| `order_id` | `BIGINT` | `UNIQUE`, `NOT NULL` | Pedido confirmado como venta |
+| `product_id` | `BIGINT` | `NOT NULL` | Producto vendido |
+| `quantity` | `INTEGER` | `NOT NULL`, `CHECK (quantity > 0)` | Cantidad vendida |
+| `created_at` | `TIMESTAMP` | `NOT NULL`, `DEFAULT CURRENT_TIMESTAMP` | Fecha de confirmacion |
+
+Flujo esperado:
+
+- al reservar: `reserved += quantity`
+- al cancelar/fallar: `reserved -= quantity`
+- al completar delivery: `quantity -= quantity`, `reserved -= quantity`, `sold += quantity`
 
 ## Pedidos
 
@@ -187,6 +206,8 @@ Estados permitidos: `PENDING`, `ASSIGNED`, `PICKED_UP`, `IN_TRANSIT`, `DELIVERED
 Como ahora todas las tablas viven en `fastorder_db`, es posible agregar foreign keys entre dominios en el futuro. Por ahora se mantienen las relaciones logicas existentes para evitar cambiar el comportamiento de los microservicios:
 
 - `inventory.product_id` apunta logicamente a `productos.id`
+- `inventory_sales.product_id` apunta logicamente a `productos.id`
+- `inventory_sales.order_id` apunta logicamente a `orders.id`
 - `orders.product_id` apunta logicamente a `productos.id`
 - `kitchen_orders.order_id` apunta logicamente a `orders.id`
 - `delivery_orders.order_id` apunta logicamente a `orders.id`

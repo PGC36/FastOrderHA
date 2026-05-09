@@ -27,12 +27,20 @@ public class OrderWorkflowEventConsumer {
             concurrency = "${app.rabbit.workflow-consumers:8}")
     public void handleInventoryRejected(Message message) {
         JsonNode event = read(message, "inventory.rejected");
-        if (event == null) {
-            return;
-        }
         Long orderId = readLong(event, "orderId");
         if (orderId != null) {
             orderService.cancelOrderById(orderId, readText(event, "reason", "Inventario rechazado"));
+        }
+    }
+
+    @RabbitListener(
+            queues = "${app.rabbit.kitchen-failed-queue:order.kitchen-failed.queue}",
+            concurrency = "${app.rabbit.workflow-consumers:8}")
+    public void handleKitchenFailed(Message message) {
+        JsonNode event = read(message, "kitchen.failed");
+        Long orderId = readLong(event, "orderId");
+        if (orderId != null) {
+            orderService.cancelOrderById(orderId, readText(event, "reason", "Kitchen fallo"));
         }
     }
 
@@ -41,9 +49,6 @@ public class OrderWorkflowEventConsumer {
             concurrency = "${app.rabbit.workflow-consumers:8}")
     public void handleDeliveryCompleted(Message message) {
         JsonNode event = read(message, "delivery.completed");
-        if (event == null) {
-            return;
-        }
         Long orderId = readLong(event, "orderId");
         if (orderId != null) {
             orderService.completeOrderById(orderId);
@@ -55,9 +60,6 @@ public class OrderWorkflowEventConsumer {
             concurrency = "${app.rabbit.workflow-consumers:8}")
     public void handleDeliveryFailed(Message message) {
         JsonNode event = read(message, "delivery.failed");
-        if (event == null) {
-            return;
-        }
         Long orderId = readLong(event, "orderId");
         if (orderId != null) {
             orderService.markDeliveryRetryPendingById(orderId, readText(event, "reason", "Delivery fallo"));
@@ -71,7 +73,7 @@ public class OrderWorkflowEventConsumer {
             return objectMapper.readTree(payload);
         } catch (Exception exception) {
             logger.error("No se pudo leer evento {} payload={}", eventName, payload, exception);
-            return null;
+            throw new IllegalArgumentException("No se pudo leer evento " + eventName, exception);
         }
     }
 

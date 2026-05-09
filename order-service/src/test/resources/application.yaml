@@ -1,0 +1,26 @@
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5440/fastorder_db}
+    username: ${SPRING_DATASOURCE_USERNAME:fastorder_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:fastorder123}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+  rabbitmq:
+    dynamic: false
+    listener:
+      simple:
+        auto-startup: false
+
+app:
+  services:
+    inventory-url: http://localhost:8083/inventory
+    kitchen-url: http://localhost:8084/kitchen/orders
+    delivery-url: http://localhost:8085/deliveries
+    notification-url: http://localhost:8086/notifications
+  rabbit:
+    exchange: order.exchange
+    routing-key: order.event
+  orders:
+    processing-mode: test

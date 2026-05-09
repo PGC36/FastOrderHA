@@ -3,7 +3,7 @@ import { check, sleep } from 'k6';
 
 const totalRequests = Number(__ENV.TOTAL_REQUESTS || 50000);
 const vus = Number(__ENV.VUS || 200);
-const baseUrl = __ENV.BASE_URL || 'http://api-gateway:8080';
+const baseUrl = __ENV.BASE_URL || 'http://localhost:8080';
 const sleepSeconds = Number(__ENV.SLEEP_SECONDS || 0);
 
 export const options = {

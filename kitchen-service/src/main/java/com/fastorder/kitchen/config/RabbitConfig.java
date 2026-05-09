@@ -2,6 +2,7 @@ package com.fastorder.kitchen.config;
 
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
+import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.core.TopicExchange;
@@ -16,13 +17,36 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class RabbitConfig {
 
     @Bean
+    public DirectExchange fastorderDeadLetterExchange(
+            @Value("${app.rabbit.dead-letter-exchange:fastorder.dlx}") String exchangeName) {
+        return new DirectExchange(exchangeName, true, false);
+    }
+
+    @Bean
     public TopicExchange kitchenExchange(@Value("${app.rabbit.exchange}") String exchangeName) {
         return new TopicExchange(exchangeName, true, false);
     }
 
     @Bean
-    public Queue kitchenQueue(@Value("${app.rabbit.queue}") String queueName) {
-        return QueueBuilder.durable(queueName).build();
+    public Queue kitchenQueue(
+            @Value("${app.rabbit.queue}") String queueName,
+            @Value("${app.rabbit.dead-letter-exchange:fastorder.dlx}") String deadLetterExchange) {
+        return durableQueueWithDlq(queueName, deadLetterExchange);
+    }
+
+    @Bean
+    public Queue kitchenDlq(@Value("${app.rabbit.queue}") String queueName) {
+        return QueueBuilder.durable(dlqName(queueName)).build();
+    }
+
+    @Bean
+    public Binding kitchenDlqBinding(
+            Queue kitchenDlq,
+            DirectExchange fastorderDeadLetterExchange,
+            @Value("${app.rabbit.queue}") String queueName) {
+        return BindingBuilder.bind(kitchenDlq)
+                .to(fastorderDeadLetterExchange)
+                .with(dlqName(queueName));
     }
 
     @Bean
@@ -41,8 +65,25 @@ public class RabbitConfig {
 
     @Bean
     public Queue kitchenInventoryReservedQueue(
+            @Value("${app.rabbit.inventory-reserved-queue:kitchen.inventory-reserved.queue}") String queueName,
+            @Value("${app.rabbit.dead-letter-exchange:fastorder.dlx}") String deadLetterExchange) {
+        return durableQueueWithDlq(queueName, deadLetterExchange);
+    }
+
+    @Bean
+    public Queue kitchenInventoryReservedDlq(
             @Value("${app.rabbit.inventory-reserved-queue:kitchen.inventory-reserved.queue}") String queueName) {
-        return QueueBuilder.durable(queueName).build();
+        return QueueBuilder.durable(dlqName(queueName)).build();
+    }
+
+    @Bean
+    public Binding kitchenInventoryReservedDlqBinding(
+            Queue kitchenInventoryReservedDlq,
+            DirectExchange fastorderDeadLetterExchange,
+            @Value("${app.rabbit.inventory-reserved-queue:kitchen.inventory-reserved.queue}") String queueName) {
+        return BindingBuilder.bind(kitchenInventoryReservedDlq)
+                .to(fastorderDeadLetterExchange)
+                .with(dlqName(queueName));
     }
 
     @Bean
@@ -61,5 +102,16 @@ public class RabbitConfig {
     @Bean
     public ObjectMapper objectMapper() {
         return new ObjectMapper();
+    }
+
+    private Queue durableQueueWithDlq(String queueName, String deadLetterExchange) {
+        return QueueBuilder.durable(queueName)
+                .deadLetterExchange(deadLetterExchange)
+                .deadLetterRoutingKey(dlqName(queueName))
+                .build();
+    }
+
+    private String dlqName(String queueName) {
+        return queueName + ".dlq";
     }
 }

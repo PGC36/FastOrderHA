@@ -31,4 +31,29 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long> {
              where product_id = :productId
             """, nativeQuery = true)
     int releaseReserved(@Param("productId") Long productId, @Param("quantity") Integer quantity);
+
+    @Modifying
+    @Query(value = """
+            insert into inventory_sales (order_id, product_id, quantity)
+            values (:orderId, :productId, :quantity)
+            on conflict (order_id) do nothing
+            """, nativeQuery = true)
+    int registerSaleIfNew(
+            @Param("orderId") Long orderId,
+            @Param("productId") Long productId,
+            @Param("quantity") Integer quantity);
+
+    @Modifying
+    @Query(value = """
+            update inventory
+               set quantity = quantity - :quantity,
+                   reserved = reserved - :quantity,
+                   sold = sold + :quantity
+             where product_id = :productId
+               and reserved >= :quantity
+               and quantity >= :quantity
+            """, nativeQuery = true)
+    int consumeReserved(
+            @Param("productId") Long productId,
+            @Param("quantity") Integer quantity);
 }

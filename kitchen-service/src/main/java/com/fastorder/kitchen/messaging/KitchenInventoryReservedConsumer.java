@@ -56,7 +56,7 @@ public class KitchenInventoryReservedConsumer {
             Long orderId = readLong(event, "orderId");
             if (orderId == null) {
                 logger.error("Evento inventory.reserved sin orderId: {}", payload);
-                return;
+                throw new IllegalArgumentException("Evento inventory.reserved sin orderId");
             }
 
             CreateKitchenOrderRequest createRequest = new CreateKitchenOrderRequest();
@@ -103,6 +103,7 @@ public class KitchenInventoryReservedConsumer {
             }
         } catch (Exception ignored) {
             logger.error("No se pudo publicar kitchen.failed para payload={}", payload);
+            throw new IllegalStateException("No se pudo publicar kitchen.failed", ignored);
         }
     }
 

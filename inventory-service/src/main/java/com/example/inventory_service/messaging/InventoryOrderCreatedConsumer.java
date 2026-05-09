@@ -1,6 +1,7 @@
 package com.example.inventory_service.messaging;
 
 import com.example.inventory_service.dto.StockUpdateRequest;
+import com.example.inventory_service.exception.ProductNotFoundException;
 import com.example.inventory_service.service.InventoryService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -56,7 +57,7 @@ public class InventoryOrderCreatedConsumer {
 
             if (orderId == null || productId == null || quantity == null) {
                 logger.error("Evento order.created sin datos suficientes: {}", payload);
-                return;
+                throw new IllegalArgumentException("Evento order.created sin datos suficientes");
             }
 
             StockUpdateRequest request = new StockUpdateRequest();
@@ -82,13 +83,40 @@ public class InventoryOrderCreatedConsumer {
                         "status", "INVENTORY_REJECTED"));
                 logger.warn("Inventario rechazado por falta de stock orderId={}", orderId);
             }
+        } catch (ProductNotFoundException exception) {
+            publishRejectedForProductNotFound(payload, exception.getMessage());
         } catch (Exception exception) {
             logger.error("Error procesando order.created en inventory-service: {}", payload, exception);
+            throw new IllegalStateException("Error tecnico procesando order.created", exception);
         }
     }
 
     private void publish(String routingKey, Map<String, ?> event) {
         rabbitTemplate.convertAndSend(inventoryExchange, routingKey, event);
+    }
+
+    private void publishRejectedForProductNotFound(String payload, String reason) {
+        try {
+            JsonNode event = objectMapper.readTree(payload);
+            Long orderId = readLong(event, "orderId");
+            Long productId = readLong(event, "productId");
+            Integer quantity = readInteger(event, "quantity");
+
+            if (orderId == null || productId == null || quantity == null) {
+                throw new IllegalArgumentException("Evento order.created sin datos para rechazo");
+            }
+
+            publish(rejectedRoutingKey, Map.of(
+                    "orderId", orderId,
+                    "productId", productId,
+                    "quantity", quantity,
+                    "reason", reason == null ? "Producto no encontrado" : reason,
+                    "status", "INVENTORY_REJECTED"));
+            logger.warn("Inventario rechazado por producto inexistente orderId={}, productId={}", orderId, productId);
+        } catch (Exception exception) {
+            logger.error("No se pudo publicar inventory.rejected para payload={}", payload, exception);
+            throw new IllegalStateException("No se pudo publicar inventory.rejected", exception);
+        }
     }
 
     private Long readLong(JsonNode root, String fieldName) {

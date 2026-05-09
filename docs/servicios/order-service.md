@@ -29,7 +29,7 @@ Tablas principales:
 2. Valida `idempotencyKey`.
 3. Crea la orden en estado `PENDING`.
 4. Guarda `order.created` en `outbox_events`.
-5. Un publisher procesa el outbox y publica a RabbitMQ.
+5. Un publisher procesa el outbox y publica a RabbitMQ con publisher confirms.
 6. Consume respuestas de inventario y delivery.
 7. Actualiza la orden a `CANCELLED`, `READY_FOR_DELIVERY`, `COMPLETED` o `ABANDONED`.
 
@@ -38,6 +38,12 @@ Tablas principales:
 `idempotencyKey` evita duplicar ordenes cuando el cliente reintenta una solicitud.
 
 Si la misma clave llega otra vez, el servicio devuelve la orden existente y no crea otra fila.
+
+## Outbox
+
+`outbox_events` evita perder eventos entre la escritura de la orden y la publicacion a RabbitMQ. El publisher marca un evento como procesado solo cuando RabbitMQ confirma la publicacion y el mensaje no fue devuelto como no enrutable.
+
+Si RabbitMQ no esta listo o aun no existe un binding, el evento queda pendiente para reintento.
 
 ## RabbitMQ
 

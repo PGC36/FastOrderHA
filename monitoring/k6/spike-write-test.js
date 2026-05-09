@@ -6,8 +6,8 @@ const rate = Number(__ENV.RATE || 5000);
 const duration = __ENV.DURATION || '10s';
 const preAllocatedVUs = Number(__ENV.PRE_ALLOCATED_VUS || 500);
 const maxVUs = Number(__ENV.MAX_VUS || 2000);
-const baseUrl = __ENV.BASE_URL || 'http://api-gateway:8080';
-const runId = __ENV.RUN_ID || `${Date.now()}`;
+const baseUrl = __ENV.BASE_URL || 'http://localhost:8080';
+const runId = __ENV.RUN_ID || `local-${Date.now()}`;
 
 export const options = {
   summaryTrendStats: ['avg', 'min', 'med', 'p(90)', 'p(95)', 'p(99)', 'max'],

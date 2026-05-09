@@ -147,8 +147,13 @@ monitoring/k6/
 Ejemplo 50k:
 
 ```powershell
-$runId = "50k-" + (Get-Date -Format "yyyyMMddHHmmss")
-docker run --rm --network fastorderha_fastorder-network -v "${PWD}\monitoring\k6:/scripts" -e TOTAL_ORDERS=50000 -e VUS=200 -e MAX_DURATION=30s -e RUN_ID=$runId grafana/k6:0.54.0 run /scripts/order-write-test.js
+k6 run .\monitoring\k6\order-write-test.js
+```
+
+Ver resultado final de negocio:
+
+```powershell
+node .\monitoring\check-results.js
 ```
 
 ## Detener

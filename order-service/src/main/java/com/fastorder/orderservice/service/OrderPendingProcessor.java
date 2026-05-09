@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 @Component
-@ConditionalOnProperty(name = "app.orders.internal-worker-enabled", havingValue = "true")
+@ConditionalOnProperty(name = "app.orders.processing-mode", havingValue = "internal-worker")
 public class OrderPendingProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(OrderPendingProcessor.class);

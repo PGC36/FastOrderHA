@@ -40,4 +40,22 @@ public class InventoryService {
             throw new ProductNotFoundException("El producto solicitado no existe");
         }
     }
+
+    @Transactional
+    public boolean confirmSale(Long orderId, StockUpdateRequest request) {
+        int insertedRows = inventoryRepository.registerSaleIfNew(
+                orderId,
+                request.getProductId(),
+                request.getQuantity());
+        if (insertedRows == 0) {
+            return false;
+        }
+
+        int updatedRows = inventoryRepository.consumeReserved(request.getProductId(), request.getQuantity());
+        if (updatedRows == 0) {
+            throw new ProductNotFoundException("No existe reserva suficiente para confirmar la venta");
+        }
+
+        return true;
+    }
 }
