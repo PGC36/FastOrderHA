@@ -1,32 +1,57 @@
-# FastOrder HA k6 Tests
+# Pruebas k6 de FastOrder HA
 
-These scripts generate the evidence required for the performance section.
+Estos scripts generan evidencia para la seccion de rendimiento del proyecto. Las pruebas principales usan el API Gateway y ejecutan trafico real contra los microservicios.
 
-## 50k write load
+## Carga minima 50k de escritura
 
 ```powershell
 $runId = "50k-" + (Get-Date -Format "yyyyMMddHHmmss")
 docker run --rm --network fastorderha_fastorder-network -v "${PWD}\monitoring\k6:/scripts" -e TOTAL_ORDERS=50000 -e VUS=200 -e MAX_DURATION=30s -e RUN_ID=$runId grafana/k6:0.54.0 run /scripts/order-write-test.js
 ```
 
-## Sustained concurrent writes
+Este script envia `POST /api/orders` y crea ordenes reales. Para que la prueba termine completa, el inventario debe tener stock suficiente.
+
+## Escritura concurrente sostenida
 
 ```powershell
 $runId = "sustained-" + (Get-Date -Format "yyyyMMddHHmmss")
 docker run --rm --network fastorderha_fastorder-network -v "${PWD}\monitoring\k6:/scripts" -e RATE=250 -e DURATION=5m -e RUN_ID=$runId grafana/k6:0.54.0 run /scripts/sustained-write-test.js
 ```
 
-## Write spike
+## Pico de escritura
 
 ```powershell
 $runId = "spike-" + (Get-Date -Format "yyyyMMddHHmmss")
 docker run --rm --network fastorderha_fastorder-network -v "${PWD}\monitoring\k6:/scripts" -e RATE=5000 -e DURATION=10s -e RUN_ID=$runId grafana/k6:0.54.0 run /scripts/spike-write-test.js
 ```
 
-## Read spike
+## Pico de lectura
 
 ```powershell
 docker run --rm --network fastorderha_fastorder-network -v "${PWD}\monitoring\k6:/scripts" -e RATE=50000 -e DURATION=1s grafana/k6:0.54.0 run /scripts/one-second-spike.js
 ```
 
-The k6 summaries report throughput, average latency, p95, p99, and error rate. CPU, memory, and RabbitMQ queue behavior are available in Grafana.
+## Metricas
+
+k6 reporta:
+
+- throughput.
+- latencia promedio.
+- p95.
+- p99.
+- tasa de error.
+- checks exitosos.
+
+Grafana reporta:
+
+- CPU y memoria por contenedor.
+- JVM CPU y memoria por servicio.
+- estado de colas RabbitMQ.
+- mensajes Ready y Unacked.
+- metricas HTTP de los servicios.
+
+Dashboard local:
+
+```text
+http://localhost:3000
+```

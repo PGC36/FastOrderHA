@@ -95,7 +95,19 @@ Dato inicial:
 | `product_id` | `INT` | `NOT NULL` | Referencia logica al producto |
 | `quantity` | `INT` | `NOT NULL`, `CHECK (quantity > 0)` | Cantidad solicitada |
 | `status` | `VARCHAR(50)` | `NOT NULL` | Estado actual del pedido |
+| `delivery_address` | `VARCHAR(500)` | nullable | Direccion usada por delivery |
+| `delivery_retry_count` | `INT` | `NOT NULL`, `DEFAULT 0` | Reintentos acumulados de delivery |
+| `delivery_last_retry_at` | `TIMESTAMP` | nullable | Ultimo reintento de delivery |
+| `delivery_failure_reason` | `VARCHAR(255)` | nullable | Ultima causa de fallo de delivery |
 | `created_at` | `TIMESTAMP` | `DEFAULT NOW()` | Fecha de creacion |
+
+Estados principales usados por la Saga:
+
+- `PENDING`
+- `CANCELLED`
+- `READY_FOR_DELIVERY`
+- `COMPLETED`
+- `ABANDONED`
 
 ### Tabla `outbox_events`
 
@@ -108,6 +120,8 @@ Dato inicial:
 | `payload` | `TEXT` | `NOT NULL` | Contenido del evento |
 | `processed` | `BOOLEAN` | `DEFAULT FALSE` | Indicador de procesamiento |
 | `created_at` | `TIMESTAMP` | `DEFAULT NOW()` | Fecha de creacion |
+
+`outbox_events` permite que `order-service` confirme la escritura de la orden y despues publique el evento hacia RabbitMQ de forma desacoplada.
 
 ## Cocina
 

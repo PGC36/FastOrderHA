@@ -2,25 +2,35 @@
 
 ## Resumen
 
-FastOrder HA esta organizado como una arquitectura de microservicios orientada a dominios separados. La entrada principal al sistema se hace mediante `api-gateway` y todos los servicios comparten una base PostgreSQL general llamada `fastorder_db`.
+FastOrder HA esta organizado como una arquitectura de microservicios orientada a eventos. La entrada principal es `api-gateway`, los servicios comparten una base PostgreSQL general llamada `fastorder_db` y el flujo de pedidos se coordina con RabbitMQ mediante un patron Saga.
 
-Ademas de los servicios de aplicacion, el entorno incluye Redis, RabbitMQ y una carpeta de monitoreo con Prometheus y Grafana.
+La arquitectura actual prioriza:
 
-## Componentes principales
+- consistencia de negocio mediante estados de orden.
+- idempotencia en creacion de pedidos.
+- procesamiento asincrono por colas durables.
+- workers paralelos por servicio.
+- observabilidad con Prometheus, Grafana, cAdvisor y metricas de RabbitMQ.
 
-- `api-gateway`
-- `menu-service`
-- `inventory-service`
-- `order-service`
-- `kitchen-service`
-- `delivery-service`
-- `notification-service`
-- `fastorder-db`
-- `redis`
-- `rabbitmq`
-- carpeta `monitoring/`
+## Componentes
 
-## Estructura general del repositorio
+| Componente | Responsabilidad | Puerto local |
+|---|---|---:|
+| `api-gateway` | Entrada HTTP centralizada | `8080` |
+| `menu-service` | Catalogo de productos | `8081` |
+| `order-service` | Ordenes, idempotencia, outbox y estado global | `8082` |
+| `inventory-service` | Reserva y liberacion de stock | `8083` |
+| `kitchen-service` | Preparacion de ordenes | `8084` |
+| `delivery-service` | Entrega y reintentos de despacho | `8085` |
+| `notification-service` | Persistencia de notificaciones | `8086` |
+| `fastorder-db` | PostgreSQL general | `5440` |
+| `rabbitmq` | Broker de eventos | `5672`, `15672`, `15692` |
+| `redis` | Infraestructura disponible para cache futuro | `6379` |
+| `prometheus` | Recoleccion de metricas | `9090` |
+| `grafana` | Dashboards | `3000` |
+| `cadvisor` | CPU y memoria de contenedores | `8087` |
+
+## Estructura del repositorio
 
 ```text
 FASTORDERHA/
@@ -37,130 +47,92 @@ FASTORDERHA/
 `-- docker-compose.yml
 ```
 
-## Estilo arquitectonico
+## Saga de pedidos
 
-Decisiones principales:
+El pedido se crea rapido y luego avanza por eventos:
 
-- separacion por microservicio
-- una base de datos general para todo el stack local
-- tablas separadas por dominio dentro de `fastorder_db`
-- comunicacion sincrona via HTTP entre algunos servicios
-- preparacion para comunicacion asincrona con RabbitMQ
-- entrada centralizada mediante `api-gateway`
-- despliegue local con Docker Compose
+1. `order-service` recibe `POST /api/orders`, valida idempotencia y crea la orden en estado `PENDING`.
+2. `order-service` guarda un evento `order.created` en `outbox_events`.
+3. El publisher de outbox publica el evento en RabbitMQ.
+4. `inventory-service` consume el evento y reserva stock.
+5. Si no hay stock, publica `inventory.rejected` y `order-service` marca la orden como `CANCELLED`.
+6. Si hay stock, publica `inventory.reserved`.
+7. `kitchen-service` consume `inventory.reserved`, prepara la orden y publica `kitchen.ready`.
+8. `delivery-service` consume `kitchen.ready`, procesa la entrega y publica `delivery.completed` o `delivery.failed`.
+9. `order-service` consume eventos de delivery para marcar `COMPLETED`, reintentar o abandonar.
+10. `notification-service` consume `notification.created.queue` y guarda la notificacion.
 
-## Microservicios actuales
+## Colas principales
 
-| Servicio | Responsabilidad | Puerto | Tablas principales |
-|---|---|---:|---|
-| `api-gateway` | Entrada HTTP centralizada | `8080` | N/A |
-| `menu-service` | Catalogo de productos del menu | `8081` | `productos` |
-| `order-service` | Creacion y consulta de pedidos | `8082` | `orders`, `outbox_events` |
-| `inventory-service` | Stock y reservas de inventario | `8083` | `inventory` |
-| `kitchen-service` | Ordenes y estados de cocina | `8084` | `kitchen_orders` |
-| `delivery-service` | Entregas e historial de estados | `8085` | `delivery_orders`, `delivery_status_history` |
-| `notification-service` | Notificaciones del sistema | `8086` | `notifications` |
+| Evento | Cola consumidora | Servicio consumidor |
+|---|---|---|
+| `order.created` | `inventory.order-created.queue` | `inventory-service` |
+| `inventory.reserved` | `kitchen.inventory-reserved.queue` | `kitchen-service` |
+| `inventory.rejected` | `order.inventory-rejected.queue` | `order-service` |
+| `kitchen.ready` | `delivery.kitchen-ready.queue` | `delivery-service` |
+| `delivery.completed` | `order.delivery-completed.queue` | `order-service` |
+| `delivery.failed` | `order.delivery-failed.queue` | `order-service` |
+| `notification.created` | `notification.created.queue` | `notification-service` |
 
-## Base de datos general
+## Estados de orden
 
-El proyecto usa una sola base PostgreSQL:
+| Estado | Significado |
+|---|---|
+| `PENDING` | Orden creada y esperando flujo asincrono |
+| `CANCELLED` | Orden cancelada antes de prepararse, con compensacion de stock cuando aplica |
+| `READY_FOR_DELIVERY` | Cocina termino y la orden queda lista para despacho |
+| `COMPLETED` | Delivery completo y orden cerrada correctamente |
+| `ABANDONED` | Delivery fallo luego de agotar reintentos; no se devuelve inventario porque la comida ya fue preparada |
 
-| Servicio Compose | Base | Puerto local | Usuario |
-|---|---|---:|---|
-| `fastorder-db` | `fastorder_db` | `5440` | `fastorder_user` |
+## Base de datos
 
-Los servicios se conectan internamente con:
+Todos los servicios usan `fastorder_db` y tablas separadas por dominio:
 
-```text
-jdbc:postgresql://fastorder-db:5432/fastorder_db
-```
+- `productos`
+- `inventory`
+- `orders`
+- `outbox_events`
+- `kitchen_orders`
+- `delivery_orders`
+- `delivery_status_history`
+- `notifications`
 
-Desde la maquina local:
+Mas detalle en [database.md](./database.md).
 
-```text
-jdbc:postgresql://localhost:5440/fastorder_db
-```
+## Observabilidad
 
-Mas detalle:
+La observabilidad local incluye:
 
-- ver [database.md](./database.md)
+- Spring Actuator y Micrometer en los servicios.
+- Prometheus para recolectar metricas.
+- Grafana para ver dashboards.
+- cAdvisor para CPU y memoria de contenedores.
+- RabbitMQ Prometheus plugin para colas, consumidores y mensajes pendientes.
 
-## Comunicacion entre servicios
+URLs:
 
-### Comunicacion sincrona actual
+- Prometheus: `http://localhost:9090`
+- Grafana: `http://localhost:3000`
+- RabbitMQ Management: `http://localhost:15672`
+- cAdvisor: `http://localhost:8087`
 
-- `api-gateway` reenvia requests a los servicios internos.
-- `order-service` tiene URLs internas hacia:
-  - `inventory-service`
-  - `kitchen-service`
-  - `delivery-service`
-  - `notification-service`
+## Rendimiento validado
 
-### Comunicacion asincrona prevista
+Se agregaron scripts k6 para:
 
-RabbitMQ forma parte del entorno y todos los microservicios de dominio tienen configuracion para conectarse.
+- carga minima de 50,000 ordenes por `POST /api/orders`.
+- carga concurrente sostenida.
+- picos de escritura.
+- picos de lectura.
 
-Esto prepara al sistema para:
+La prueba final antes de Redis, replicas y backups proceso 50,000 ordenes con error HTTP 0 y termino con 50,000 ordenes en `COMPLETED`.
 
-- publicacion de eventos
-- procesamiento desacoplado
-- consistencia eventual entre dominios
-- colas durables por dominio
-
-## Infraestructura compartida
-
-### PostgreSQL
-
-- contenedor `fastorder-db`
-- base `fastorder_db`
-- inicializacion con `database/fastorder-init.sql`
-- volumen `fastorder_db_data`
-
-### Redis
-
-- servicio `redis:6379`
-
-### RabbitMQ
-
-- servicio `rabbitmq:5672`
-- panel de administracion en `15672`
-
-### Observabilidad
-
-El proyecto incluye:
-
-- carpeta `monitoring/`
-- `prometheus.yml`
-- carpeta `grafana/`
-
-## Flujo logico de negocio
-
-1. Un cliente entra por `api-gateway`.
-2. Se consulta menu y disponibilidad.
-3. `order-service` crea el pedido.
-4. `inventory-service` participa en validacion o reserva logica de stock.
-5. `kitchen-service` registra la orden de cocina.
-6. `delivery-service` gestiona la entrega.
-7. `notification-service` emite notificaciones.
-
-## Despliegue local
-
-La arquitectura local se levanta con:
-
-- `docker-compose.yml`
-
-Ese archivo define:
-
-- `fastorder-db`
-- servicios de aplicacion
-- Redis
-- RabbitMQ
-- red compartida `fastorder-network`
-- volumen persistente `fastorder_db_data`
+Mas detalle en [load-testing-k6.md](./load-testing-k6.md).
 
 ## Archivos relacionados
 
 - [docker-compose.yml](../docker-compose.yml)
 - [database.md](./database.md)
 - [deployment.md](./deployment.md)
-- [api-gateway/application.yaml](../api-gateway/src/main/resources/application.yaml)
+- [load-testing-k6.md](./load-testing-k6.md)
+- [monitoring/k6/README.md](../monitoring/k6/README.md)

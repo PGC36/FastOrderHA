@@ -1,291 +1,80 @@
-# Kitchen Service
+# kitchen-service
 
-## Resumen
+## Responsabilidad
 
-`kitchen-service` es el microservicio encargado de gestionar órdenes de cocina dentro de FastOrder HA.
+`kitchen-service` gestiona la preparacion de ordenes. Dentro de la Saga consume eventos de inventario reservado, crea la orden de cocina y la marca lista para entrega.
 
-Actualmente ya existe una base funcional implementada con:
+## Puerto
 
-- Spring Boot
-- API REST
-- PostgreSQL
-- JPA
-- validaciones
-- Actuator
-- métricas Prometheus
+```text
+8084
+```
 
-## Estado actual implementado
+## Base de datos
 
-Hasta este punto ya quedó creado:
+Usa PostgreSQL general:
 
-- paquete base `com.fastorder.kitchen`
-- estructura por capas
-- entidad principal `KitchenOrder`
-- DTOs de entrada y salida
-- repositorio JPA
-- lógica de negocio
-- controlador REST
-- manejo global de excepciones
-- configuración `application.yaml`
-- script SQL consolidado en `database/fastorder-init.sql`
-- test base de contexto
+```text
+fastorder_db
+```
 
-## Responsabilidad del servicio
+Tabla principal:
 
-El servicio actualmente permite:
+- `kitchen_orders`
 
-- registrar órdenes enviadas a cocina
-- consultar órdenes de cocina
-- cambiar el estado de preparación
-- evitar duplicados por `order_id`
-- exponer health check
-- exponer métricas para Prometheus
-
-## Estados implementados
-
-Los estados definidos e implementados son:
+Estados:
 
 - `PENDING`
 - `PREPARING`
 - `READY`
 - `CANCELLED`
 
-## Estructura actual
+## RabbitMQ
 
-```text
-kitchen-service/
-├── pom.xml
-├── mvnw
-├── mvnw.cmd
-├── HELP.md
-└── src/
-    ├── main/
-    │   ├── java/com/fastorder/kitchen/
-    │   │   ├── KitchenServiceApplication.java
-    │   │   ├── controller/
-    │   │   │   └── KitchenOrderController.java
-    │   │   ├── dto/
-    │   │   │   ├── CreateKitchenOrderRequest.java
-    │   │   │   ├── KitchenOrderResponse.java
-    │   │   │   └── UpdateKitchenStatusRequest.java
-    │   │   ├── enums/
-    │   │   │   └── KitchenOrderStatus.java
-    │   │   ├── exception/
-    │   │   │   ├── GlobalExceptionHandler.java
-    │   │   │   └── ResourceNotFoundException.java
-    │   │   ├── model/
-    │   │   │   └── KitchenOrder.java
-    │   │   ├── repository/
-    │   │   │   └── KitchenOrderRepository.java
-    │   │   └── service/
-    │   │       └── KitchenOrderService.java
-    │   └── resources/
-    │       └── application.yaml
-    └── test/
-        └── java/com/fastorder/kitchen/
-            └── KitchenServiceApplicationTests.java
-```
+Consume:
 
-## Dependencias configuradas
+| Cola | Evento |
+|---|---|
+| `kitchen.inventory-reserved.queue` | `inventory.reserved` |
 
-En `pom.xml` están configuradas estas dependencias:
+Publica:
 
-- `spring-boot-starter-web`
-- `spring-boot-starter-data-jpa`
-- `spring-boot-starter-validation`
-- `spring-boot-starter-actuator`
-- `spring-boot-starter-amqp`
-- `io.micrometer:micrometer-registry-prometheus`
-- `org.postgresql:postgresql`
-- `org.projectlombok:lombok`
-- `spring-boot-starter-test`
-- `spring-rabbit-test`
+| Evento | Significado |
+|---|---|
+| `kitchen.ready` | La orden ya fue preparada y puede pasar a delivery |
 
-Adicionalmente:
+## Comportamiento en la Saga
 
-- Java `21`
-- empaquetado JAR
+1. Recibe `inventory.reserved`.
+2. Crea una orden de cocina de forma idempotente por `orderId`.
+3. Cambia la orden a `PREPARING`.
+4. Cambia la orden a `READY`.
+5. Publica `kitchen.ready`.
 
-## Configuración actual
+## Endpoints
 
-Archivo: [application.yaml](../../kitchen-service/src/main/resources/application.yaml)
-
-```yaml
-server:
-  port: 8084
-
-spring:
-  application:
-    name: kitchen-service
-  datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5440/fastorder_db}
-    username: ${SPRING_DATASOURCE_USERNAME:fastorder_user}
-    password: ${SPRING_DATASOURCE_PASSWORD:fastorder123}
-  jpa:
-    hibernate:
-      ddl-auto: validate
-    show-sql: true
-    properties:
-      hibernate:
-        format_sql: true
-
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,prometheus,metrics
-  endpoint:
-    health:
-      show-details: always
-```
-
-## Base de datos utilizada
-
-El servicio usa la base general `fastorder_db` y el script consolidado:
-
-- [fastorder-init.sql](../../database/fastorder-init.sql)
-
-Contrato SQL actual:
-
-```sql
-CREATE TABLE IF NOT EXISTS kitchen_orders (
-    id BIGSERIAL PRIMARY KEY,
-    order_id BIGINT NOT NULL UNIQUE,
-    status VARCHAR(50) NOT NULL CHECK (
-        status IN ('PENDING', 'PREPARING', 'READY', 'CANCELLED')
-    ),
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    started_at TIMESTAMP,
-    ready_at TIMESTAMP
-);
-```
-
-Decisiones aplicadas:
-
-- `order_id` es único
-- no existe `foreign key` hacia otra tabla de otro microservicio
-- Hibernate solo valida el esquema con `ddl-auto: validate`
-
-## Integracion con RabbitMQ
-
-El servicio tiene Spring AMQP configurado y declara:
-
-- exchange: `kitchen.exchange`
-- cola: `kitchen.events.queue`
-- routing key: `kitchen.event`
-
-## Modelo implementado
-
-Entidad principal: `KitchenOrder`
-
-Campos implementados:
-
-- `id`
-- `orderId`
-- `status`
-- `createdAt`
-- `updatedAt`
-- `startedAt`
-- `readyAt`
-
-Comportamiento implementado:
-
-- `@PrePersist` asigna `createdAt`, `updatedAt` y `PENDING` por defecto
-- `@PreUpdate` actualiza `updatedAt`
-
-## DTOs implementados
-
-Se crearon estos DTOs:
-
-- `CreateKitchenOrderRequest`
-- `UpdateKitchenStatusRequest`
-- `KitchenOrderResponse`
-
-Validaciones implementadas:
-
-- `orderId` obligatorio en creación
-- `status` obligatorio en actualización
-
-## Repositorio implementado
-
-`KitchenOrderRepository` extiende `JpaRepository<KitchenOrder, Long>` e incluye:
-
-- `findByOrderId(Long orderId)`
-- `existsByOrderId(Long orderId)`
-
-## Manejo de errores implementado
-
-Se implementó:
-
-- `ResourceNotFoundException`
-- `GlobalExceptionHandler`
-
-Mapeo actual:
-
-- errores de validación
-- recurso no encontrado
-- errores generales no controlados
-
-## Lógica de negocio implementada
-
-`KitchenOrderService` ya resuelve estos casos:
-
-- listar órdenes
-- obtener orden por ID
-- crear orden de forma idempotente por `orderId`
-- actualizar estado
-- asignar `startedAt` cuando la orden pasa a `PREPARING`
-- asignar `readyAt` cuando la orden pasa a `READY`
-- convertir entidad a DTO de respuesta
-
-Detalles importantes:
-
-- si la misma orden llega otra vez, se devuelve la existente
-- se agregó manejo de `DataIntegrityViolationException` para soportar mejor creación concurrente básica
-
-## API implementada
-
-Controlador: [KitchenOrderController.java](../../kitchen-service/src/main/java/com/fastorder/kitchen/controller/KitchenOrderController.java)
-
-Endpoints disponibles:
-
-| Método | Endpoint | Descripción |
+| Metodo | Endpoint | Descripcion |
 |---|---|---|
-| GET | `/kitchen/orders` | Lista órdenes de cocina |
-| GET | `/kitchen/orders/{id}` | Obtiene una orden por ID |
-| POST | `/kitchen/orders` | Crea una orden de cocina |
-| PATCH | `/kitchen/orders/{id}/status` | Actualiza el estado |
-| GET | `/actuator/health` | Estado del servicio |
-| GET | `/actuator/prometheus` | Métricas Prometheus |
+| `GET` | `/kitchen/orders` | Lista ordenes de cocina |
+| `GET` | `/kitchen/orders/{id}` | Consulta una orden |
+| `POST` | `/kitchen/orders` | Crea una orden manualmente |
+| `PATCH` | `/kitchen/orders/{id}/status` | Actualiza estado |
+| `GET` | `/actuator/health` | Health Actuator |
+| `GET` | `/actuator/prometheus` | Metricas Prometheus |
 
-## Reglas funcionales vigentes
+## Observabilidad
 
-- no se puede crear más de una orden de cocina para el mismo `order_id`
-- solo se aceptan estados definidos en `KitchenOrderStatus`
-- cada actualización de estado refresca `updated_at`
-- `started_at` se usa cuando la orden pasa a `PREPARING`
-- `ready_at` se usa cuando la orden pasa a `READY`
+Registra logs cuando:
 
-## Archivos creados o ajustados
+- consume una reserva de inventario.
+- crea o reutiliza una orden de cocina existente.
+- cambia estado de preparacion.
+- publica `kitchen.ready`.
+- ocurre un error.
 
-### Archivos principales del servicio
+## Docker
 
-- `kitchen-service/src/main/java/com/fastorder/kitchen/KitchenServiceApplication.java`
-- `kitchen-service/src/main/java/com/fastorder/kitchen/controller/KitchenOrderController.java`
-- `kitchen-service/src/main/java/com/fastorder/kitchen/service/KitchenOrderService.java`
-- `kitchen-service/src/main/java/com/fastorder/kitchen/repository/KitchenOrderRepository.java`
-- `kitchen-service/src/main/java/com/fastorder/kitchen/model/KitchenOrder.java`
-- `kitchen-service/src/main/java/com/fastorder/kitchen/dto/CreateKitchenOrderRequest.java`
-- `kitchen-service/src/main/java/com/fastorder/kitchen/dto/UpdateKitchenStatusRequest.java`
-- `kitchen-service/src/main/java/com/fastorder/kitchen/dto/KitchenOrderResponse.java`
-- `kitchen-service/src/main/java/com/fastorder/kitchen/enums/KitchenOrderStatus.java`
-- `kitchen-service/src/main/java/com/fastorder/kitchen/exception/ResourceNotFoundException.java`
-- `kitchen-service/src/main/java/com/fastorder/kitchen/exception/GlobalExceptionHandler.java`
-- `kitchen-service/src/main/resources/application.yaml`
-- `kitchen-service/src/test/java/com/fastorder/kitchen/KitchenServiceApplicationTests.java`
-
-### Base de datos y documentación
-
-- `database/fastorder-init.sql`
-- `docs/servicios/kitchen-service.md`
+```bash
+docker compose up --build -d kitchen-service
+docker compose logs -f kitchen-service
+```

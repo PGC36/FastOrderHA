@@ -2,180 +2,172 @@
 
 ## Resumen
 
-FastOrder HA se despliega localmente con Docker Compose. El archivo principal de despliegue es:
+FastOrder HA se despliega localmente con Docker Compose. El despliegue actual levanta microservicios, base de datos, RabbitMQ, Redis, Prometheus, Grafana y cAdvisor.
+
+Archivo principal:
 
 - [docker-compose.yml](../docker-compose.yml)
 
-Ese archivo define:
+## Requisitos
 
-- una base de datos PostgreSQL general
-- servicios de aplicacion
-- `api-gateway`
-- `redis`
-- `rabbitmq`
-- red compartida interna
-- volumen persistente para PostgreSQL
+- Docker.
+- Docker Compose.
 
-## Requisitos previos
-
-- Docker
-- Docker Compose
-
-Verificacion rapida:
+Verificacion:
 
 ```bash
 docker --version
 docker compose version
 ```
 
-## Componentes que levanta Compose
-
-### Base de datos
-
-| Servicio | Base | Puerto local |
-|---|---|---:|
-| `fastorder-db` | `fastorder_db` | `5440` |
-
-### Infraestructura compartida
-
-| Servicio | Puerto |
-|---|---:|
-| `redis` | `6379` |
-| `rabbitmq` | `5672` |
-| `rabbitmq` management | `15672` |
-
-### Servicios de aplicacion
-
-| Servicio | Puerto |
-|---|---:|
-| `api-gateway` | `8080` |
-| `menu-service` | `8081` |
-| `order-service` | `8082` |
-| `inventory-service` | `8083` |
-| `kitchen-service` | `8084` |
-| `delivery-service` | `8085` |
-| `notification-service` | `8086` |
-
-## Red de despliegue
-
-Todos los servicios se conectan a:
-
-- `fastorder-network`
-
-Esto permite que los contenedores se resuelvan entre si por nombre de servicio.
-
-Ejemplos:
-
-- los microservicios se conectan a `fastorder-db`
-- `api-gateway` se conecta a `menu-service`, `order-service`, `inventory-service`, `kitchen-service`, `delivery-service` y `notification-service`
-
-## Volumen persistente
-
-PostgreSQL usa:
-
-- `fastorder_db_data`
-
-Esto implica:
-
-- los datos persisten entre reinicios de contenedores
-- `database/fastorder-init.sql` se ejecuta solo cuando el volumen se crea por primera vez
-
-## Como levantar el entorno
+## Levantar el entorno
 
 Desde la raiz del proyecto:
-
-```bash
-docker compose up --build
-```
-
-En segundo plano:
 
 ```bash
 docker compose up --build -d
 ```
 
-## Como detener el entorno
+Ver contenedores:
 
 ```bash
-docker compose down
-```
-
-Para detener y eliminar volumenes:
-
-```bash
-docker compose down -v
-```
-
-Advertencia:
-
-- `docker compose down -v` elimina la base `fastorder_db` persistida en el volumen.
-
-## Verificacion del despliegue
-
-Ver contenedores activos:
-
-```bash
-docker ps
+docker compose ps
 ```
 
 Ver logs:
 
 ```bash
-docker compose logs
-docker compose logs order-service
-docker compose logs kitchen-service
-docker compose logs delivery-service
+docker compose logs -f
 ```
 
-Ver estado del gateway:
+## URLs locales
+
+| Componente | URL |
+|---|---|
+| API Gateway | `http://localhost:8080` |
+| RabbitMQ Management | `http://localhost:15672` |
+| RabbitMQ metrics | `http://localhost:15692/metrics` |
+| Prometheus | `http://localhost:9090` |
+| Grafana | `http://localhost:3000` |
+| cAdvisor | `http://localhost:8087` |
+
+Credenciales:
+
+- RabbitMQ: `guest / guest`.
+- Grafana: `admin / admin` en el primer acceso local.
+
+## Componentes
+
+| Servicio | Puerto | Funcion |
+|---|---:|---|
+| `api-gateway` | `8080` | Entrada HTTP |
+| `menu-service` | `8081` | Menu |
+| `order-service` | `8082` | Ordenes y Saga |
+| `inventory-service` | `8083` | Stock |
+| `kitchen-service` | `8084` | Cocina |
+| `delivery-service` | `8085` | Entregas |
+| `notification-service` | `8086` | Notificaciones |
+| `fastorder-db` | `5440` | PostgreSQL |
+| `rabbitmq` | `5672` | Broker |
+| `redis` | `6379` | Cache futuro |
+| `prometheus` | `9090` | Metricas |
+| `grafana` | `3000` | Dashboards |
+| `cadvisor` | `8087` | Contenedores |
+
+## Health checks
 
 ```bash
 curl http://localhost:8080/actuator/health
-```
-
-Ver estado de servicios que exponen Actuator:
-
-```bash
+curl http://localhost:8082/actuator/health
+curl http://localhost:8083/actuator/health
 curl http://localhost:8084/actuator/health
 curl http://localhost:8085/actuator/health
+curl http://localhost:8086/actuator/health
 ```
 
-## Acceso a servicios desde el gateway
+## Rutas principales por gateway
 
-Rutas expuestas:
+- `GET /api/menu/productos`
+- `GET /api/menu/productos/disponibles`
+- `POST /api/orders`
+- `GET /api/orders`
+- `GET /api/orders/{id}`
+- `GET /api/inventory/check`
+- `GET /api/kitchen/orders`
+- `GET /api/delivery`
+- `GET /api/notifications`
 
-- `/api/menu/**`
-- `/api/orders`
-- `/api/orders/**`
-- `/api/inventory/**`
-- `/api/kitchen/**`
-- `/api/delivery`
-- `/api/delivery/**`
-- `/api/notifications`
-- `/api/notifications/**`
+## RabbitMQ
 
-Ejemplos:
+Los microservicios se conectan a RabbitMQ con:
+
+```text
+SPRING_RABBITMQ_HOST=rabbitmq
+SPRING_RABBITMQ_PORT=5672
+SPRING_RABBITMQ_USERNAME=guest
+SPRING_RABBITMQ_PASSWORD=guest
+```
+
+La consola web permite revisar colas, consumidores y mensajes pendientes:
+
+```text
+http://localhost:15672
+```
+
+## Observabilidad
+
+Prometheus:
+
+```text
+http://localhost:9090
+```
+
+Grafana:
+
+```text
+http://localhost:3000
+```
+
+El dashboard principal muestra:
+
+- CPU y memoria por contenedor.
+- metricas JVM.
+- estado de servicios.
+- colas RabbitMQ.
+- mensajes Ready y Unacked.
+
+## Pruebas de rendimiento
+
+Los scripts k6 estan en:
+
+```text
+monitoring/k6/
+```
+
+Ejemplo 50k:
+
+```powershell
+$runId = "50k-" + (Get-Date -Format "yyyyMMddHHmmss")
+docker run --rm --network fastorderha_fastorder-network -v "${PWD}\monitoring\k6:/scripts" -e TOTAL_ORDERS=50000 -e VUS=200 -e MAX_DURATION=30s -e RUN_ID=$runId grafana/k6:0.54.0 run /scripts/order-write-test.js
+```
+
+## Detener
 
 ```bash
-curl http://localhost:8080/api/kitchen/orders
-curl http://localhost:8080/api/delivery
-curl http://localhost:8080/api/delivery/by-order/1
+docker compose down
 ```
 
-## Variables de entorno importantes
+Eliminar datos persistidos:
 
-- `SPRING_DATASOURCE_URL`
-- `SPRING_DATASOURCE_USERNAME`
-- `SPRING_DATASOURCE_PASSWORD`
-- `SPRING_RABBITMQ_HOST`
-- `SPRING_RABBITMQ_PORT`
-- `INVENTORY_SERVICE_URL`
-- `KITCHEN_SERVICE_URL`
-- `DELIVERY_SERVICE_URL`
-- `NOTIFICATION_SERVICE_URL`
+```bash
+docker compose down -v
+```
+
+Advertencia: `down -v` elimina la base de datos local.
 
 ## Archivos relacionados
 
-- [docker-compose.yml](../docker-compose.yml)
-- [arquitectura.md](./arquitectura.md)
+- [docker-compose.md](./docker-compose.md)
 - [database.md](./database.md)
+- [arquitectura.md](./arquitectura.md)
+- [load-testing-k6.md](./load-testing-k6.md)
