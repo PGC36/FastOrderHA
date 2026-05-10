@@ -2,7 +2,7 @@
 
 ## Resumen
 
-FastOrder HA se despliega localmente con Docker Compose. El despliegue actual levanta microservicios, base de datos, RabbitMQ, Redis, Prometheus, Grafana y cAdvisor.
+FastOrder HA se despliega localmente con Docker Compose. El despliegue actual levanta microservicios, PostgreSQL primary/standby con Pgpool, RabbitMQ, Redis, Prometheus, Grafana y cAdvisor.
 
 Archivo principal:
 
@@ -67,7 +67,10 @@ Credenciales:
 | `kitchen-service` | `8084` | Cocina |
 | `delivery-service` | `8085` | Entregas |
 | `notification-service` | `8086` | Notificaciones |
-| `fastorder-db` | `5440` | PostgreSQL |
+| `fastorder-db` | `5440` | Pgpool / endpoint unico PostgreSQL |
+| `fastorder-db-0` | interno | PostgreSQL primario |
+| `fastorder-db-1` | interno | PostgreSQL replica |
+| `db-recovery` | interno | Watcher de recuperacion de PostgreSQL/Pgpool y microservicios |
 | `rabbitmq` | `5672` | Broker |
 | `redis` | `6379` | Rate limiting del gateway |
 | `prometheus` | `9090` | Metricas |
@@ -84,6 +87,31 @@ curl http://localhost:8084/actuator/health
 curl http://localhost:8085/actuator/health
 curl http://localhost:8086/actuator/health
 ```
+
+Verificar el endpoint de base de datos:
+
+```bash
+docker compose exec fastorder-db psql -h fastorder-db -U fastorder_user -d fastorder_db -c "select 1;"
+```
+
+Verificar roles de los nodos PostgreSQL:
+
+```bash
+docker compose exec fastorder-db-0 psql -U fastorder_user -d fastorder_db -c "select pg_is_in_recovery();"
+docker compose exec fastorder-db-1 psql -U fastorder_user -d fastorder_db -c "select pg_is_in_recovery();"
+```
+
+`false` indica primario activo y `true` indica standby.
+
+Prueba manual de failover de base de datos:
+
+```bash
+docker kill fastorder-db-0
+docker compose ps fastorder-db fastorder-db-0 fastorder-db-1
+docker compose exec fastorder-db-1 psql -U fastorder_user -d fastorder_db -c "select pg_is_in_recovery();"
+```
+
+Despues de la promocion, Pgpool mantiene el endpoint `fastorder-db:5432`. El nodo que queda con `pg_is_in_recovery() = false` es el primario activo. El contenedor `db-recovery` observa los nodos de BD, Pgpool y microservicios desde Docker; si un contenedor queda apagado por `docker kill`, lo vuelve a encender, y si Pgpool queda `unhealthy`, lo reinicia para recuperar el endpoint unico.
 
 ## Rutas principales por gateway
 
@@ -118,6 +146,10 @@ SPRING_RABBITMQ_HOST=rabbitmq
 SPRING_RABBITMQ_PORT=5672
 SPRING_RABBITMQ_USERNAME=guest
 SPRING_RABBITMQ_PASSWORD=guest
+SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_ATTEMPTS=12
+SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_INITIAL_INTERVAL=2000
+SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MULTIPLIER=1.5
+SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_INTERVAL=15000
 ```
 
 La consola web permite revisar colas, consumidores y mensajes pendientes:

@@ -4,7 +4,7 @@
 
 El archivo principal de orquestacion local es [docker-compose.yml](../docker-compose.yml). Levanta el entorno completo de FastOrder HA:
 
-- PostgreSQL general.
+- PostgreSQL primary/standby con Pgpool como endpoint unico.
 - microservicios Spring Boot.
 - API Gateway.
 - RabbitMQ con Management y metricas Prometheus.
@@ -13,17 +13,24 @@ El archivo principal de orquestacion local es [docker-compose.yml](../docker-com
 - Grafana.
 - cAdvisor.
 - red compartida `fastorder-network`.
-- volumen persistente para PostgreSQL.
+- volumenes persistentes para PostgreSQL primario y standby.
 
 ## Servicios definidos
 
 ### Base de datos
 
-| Servicio | Base | Puerto local | Script |
+| Servicio | Funcion | Puerto local | Script |
 |---|---|---:|---|
-| `fastorder-db` | `fastorder_db` | `5440` | `database/fastorder-init.sql` |
+| `fastorder-db` | Pgpool / endpoint unico | `5440` | N/A |
+| `fastorder-db-0` | PostgreSQL primario con repmgr | interno | `database/fastorder-init.sql` |
+| `fastorder-db-1` | PostgreSQL standby con repmgr | interno | replica desde primario |
+| `db-recovery` | Watcher de recuperacion de BD y Pgpool | interno | N/A |
 
-Todos los microservicios usan esta misma base fisica y separan datos por tablas de dominio.
+Todos los microservicios usan el endpoint `fastorder-db:5432`. Pgpool se encarga de enrutar hacia el nodo PostgreSQL primario activo y de monitorear la replica. El balanceo de lecturas queda desactivado para evitar lecturas inconsistentes durante la demo. Pgpool queda configurado con `PGPOOL_NUM_INIT_CHILDREN=120`, `PGPOOL_MAX_POOL=1` y `PGPOOL_FAILOVER_ON_BACKEND_ERROR=yes`; ademas, los pools Hikari de los microservicios se limitan desde Docker Compose para evitar saturar las conexiones de PostgreSQL durante pruebas de carga.
+
+Cuando el primario cae, repmgr promueve el standby. Al volver el nodo caido, este puede reincorporarse como standby. Por eso, despues de una prueba de caos, el primario activo puede ser `fastorder-db-1` y `fastorder-db-0` puede quedar como replica.
+
+`db-recovery` ejecuta Docker CLI dentro de un contenedor y monta `/var/run/docker.sock`. Su funcion es observar la capa de BD y los microservicios principales; si algun contenedor queda apagado por una prueba con `docker kill`, lo arranca con `docker start`. Si Pgpool queda `unhealthy` despues del failover, reinicia `fastorder-db` para recuperar el endpoint unico.
 
 ### Infraestructura
 
@@ -80,6 +87,17 @@ El flujo de pedidos usa RabbitMQ de forma asincrona con:
 - `default-requeue-rejected=false` para evitar ciclos infinitos;
 - DLQ por cola con sufijo `.dlq`;
 - publisher confirms en `order-service` para marcar eventos outbox como procesados solo cuando RabbitMQ confirma el publish.
+
+Para soportar failover de PostgreSQL durante una prueba de caos, los consumidores se ejecutan con reintentos mas largos desde Docker Compose:
+
+```text
+SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_ATTEMPTS=12
+SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_INITIAL_INTERVAL=2000
+SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MULTIPLIER=1.5
+SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_INTERVAL=15000
+```
+
+Esto evita que un corte transitorio de base de datos mande mensajes validos a DLQ mientras repmgr promueve la replica y Pgpool cambia el primario activo.
 
 Si ya existian colas creadas antes de esta configuracion, RabbitMQ puede rechazar el arranque por cambio de argumentos de cola. En ambiente local se resuelve eliminando las colas desde Management o recreando el entorno con:
 
@@ -147,9 +165,12 @@ amqp://rabbitmq:5672
 PostgreSQL:
 
 ```text
-POSTGRES_DB=fastorder_db
-POSTGRES_USER=fastorder_user
-POSTGRES_PASSWORD=fastorder123
+POSTGRESQL_DATABASE=fastorder_db
+POSTGRESQL_USERNAME=fastorder_user
+POSTGRESQL_PASSWORD=fastorder123
+POSTGRESQL_POSTGRES_PASSWORD=fastorder123
+REPMGR_USERNAME=repmgr
+REPMGR_PASSWORD=repmgr123
 ```
 
 Spring Boot:
@@ -197,10 +218,11 @@ API_RATE_LIMIT_WINDOW_SECONDS=60
 PostgreSQL usa:
 
 ```text
-fastorder_db_data
+fastorder_db_0_data
+fastorder_db_1_data
 ```
 
-`database/fastorder-init.sql` se ejecuta cuando el volumen se crea por primera vez.
+`database/fastorder-init.sql` se ejecuta en el nodo primario cuando el volumen se crea por primera vez. La replica standby sincroniza los datos desde el primario mediante repmgr.
 
 ## Comandos utiles
 

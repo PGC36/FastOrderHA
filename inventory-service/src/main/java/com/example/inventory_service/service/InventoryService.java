@@ -34,7 +34,38 @@ public class InventoryService {
     }
 
     @Transactional
+    public boolean reserveStockForOrder(Long orderId, StockUpdateRequest request) {
+        if (inventoryRepository.saleExists(orderId)) {
+            return true;
+        }
+
+        int insertedRows = inventoryRepository.registerReservationIfNew(
+                orderId,
+                request.getProductId(),
+                request.getQuantity());
+        if (insertedRows == 0) {
+            return true;
+        }
+
+        int updatedRows = inventoryRepository.reserveIfAvailable(request.getProductId(), request.getQuantity());
+        if (updatedRows == 1) {
+            return true;
+        }
+
+        inventoryRepository.deleteReservation(orderId);
+        if (!inventoryRepository.existsByProductId(request.getProductId())) {
+            throw new ProductNotFoundException("El producto solicitado no existe");
+        }
+
+        return false;
+    }
+
+    @Transactional
     public void releaseStock(StockUpdateRequest request) {
+        if (request.getOrderId() != null && inventoryRepository.deleteReservation(request.getOrderId()) == 0) {
+            return;
+        }
+
         int updatedRows = inventoryRepository.releaseReserved(request.getProductId(), request.getQuantity());
         if (updatedRows == 0) {
             throw new ProductNotFoundException("El producto solicitado no existe");
@@ -43,6 +74,15 @@ public class InventoryService {
 
     @Transactional
     public boolean confirmSale(Long orderId, StockUpdateRequest request) {
+        if (inventoryRepository.saleExists(orderId)) {
+            inventoryRepository.deleteReservation(orderId);
+            return false;
+        }
+
+        if (!inventoryRepository.reservationExists(orderId)) {
+            return false;
+        }
+
         int insertedRows = inventoryRepository.registerSaleIfNew(
                 orderId,
                 request.getProductId(),
@@ -56,6 +96,7 @@ public class InventoryService {
             throw new ProductNotFoundException("No existe reserva suficiente para confirmar la venta");
         }
 
+        inventoryRepository.deleteReservation(orderId);
         return true;
     }
 }

@@ -7,7 +7,7 @@ FastOrder HA es un sistema de pedidos para restaurante construido con microservi
 El proyecto ya cuenta con:
 
 - API Gateway como entrada HTTP centralizada.
-- Base PostgreSQL general `fastorder_db` para todos los dominios.
+- Base PostgreSQL general `fastorder_db` para todos los dominios, con primary/standby y Pgpool.
 - Flujo de pedidos con patron Saga asincrono usando RabbitMQ.
 - Workers por servicio para procesar eventos en paralelo.
 - Idempotencia en creacion de ordenes.
@@ -24,6 +24,8 @@ El proyecto ya cuenta con:
 - [Deployment](./deployment.md)
 - [Base de datos](./database.md)
 - [Pruebas de carga con k6](./load-testing-k6.md)
+- [Pruebas realizadas](./pruebas-realizadas.md)
+- [Guia de caos en base de datos](./guia-pruebas-caos-bd.md)
 - [API Gateway](./api/api-gateway.md)
 - [Endpoints](./api/endpoints.md)
 

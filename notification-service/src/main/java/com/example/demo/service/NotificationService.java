@@ -19,28 +19,33 @@ import java.time.LocalDateTime;
 public class NotificationService {
 
     private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
+    private static final String PENDING_STATUS = "PENDING";
+    private static final String PROCESSED_STATUS = "PROCESSED";
+
     private final NotificationRepository notificationRepository;
     private final NotificationEventPublisher notificationEventPublisher;
 
     public NotificationResponse create(CreateNotificationRequest request) {
+        var existingNotification = notificationRepository.findByOrderId(request.orderId());
+        if (existingNotification.isPresent()) {
+            Notification notification = existingNotification.get();
+            if (!PROCESSED_STATUS.equals(notification.getStatus())) {
+                publishNotification(notification);
+            }
+            return toResponse(notification);
+        }
+
         Notification notification = Notification.builder()
                 .orderId(request.orderId())
                 .channel(request.channel())
                 .recipient(request.recipient())
                 .message(request.message())
-                .status("PENDING")
+                .status(PENDING_STATUS)
                 .createdAt(LocalDateTime.now())
                 .build();
 
         Notification saved = notificationRepository.save(notification);
-        notificationEventPublisher.publishNotificationCreated(new NotificationCreatedEvent(
-                saved.getId(),
-                saved.getOrderId(),
-                saved.getChannel(),
-                saved.getRecipient(),
-                saved.getStatus(),
-                saved.getCreatedAt()
-        ));
+        publishNotification(saved);
         log.info("Notification created successfully. id={}, orderId={}, channel={}",
                 saved.getId(), saved.getOrderId(), saved.getChannel());
         return toResponse(saved);
@@ -51,6 +56,17 @@ public class NotificationService {
                 .orElseThrow(() -> new NotificationNotFoundException(id));
         log.info("Notification fetched successfully. id={}", id);
         return toResponse(notification);
+    }
+
+    private void publishNotification(Notification notification) {
+        notificationEventPublisher.publishNotificationCreated(new NotificationCreatedEvent(
+                notification.getId(),
+                notification.getOrderId(),
+                notification.getChannel(),
+                notification.getRecipient(),
+                notification.getStatus(),
+                notification.getCreatedAt()
+        ));
     }
 
     private NotificationResponse toResponse(Notification notification) {

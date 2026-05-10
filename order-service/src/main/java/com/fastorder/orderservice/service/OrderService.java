@@ -178,7 +178,14 @@ public class OrderService {
     @Transactional
     public void cancelOrderById(Long orderId, String reason) {
         orderRepository.findById(orderId)
-                .ifPresent(order -> cancelOrder(order, reason));
+                .ifPresent(order -> {
+                    if (COMPLETED_STATUS.equals(order.getStatus())) {
+                        logger.warn("Cancelacion ignorada para pedido ya completado orderId={}, reason={}",
+                                orderId, reason);
+                        return;
+                    }
+                    cancelOrder(order, reason);
+                });
     }
 
     @Transactional
@@ -195,7 +202,14 @@ public class OrderService {
     @Transactional
     public void markDeliveryRetryPendingById(Long orderId, String reason) {
         orderRepository.findById(orderId)
-                .ifPresent(order -> markDeliveryRetryPending(order, reason));
+                .ifPresent(order -> {
+                    if (COMPLETED_STATUS.equals(order.getStatus())) {
+                        logger.warn("Fallo de delivery ignorado para pedido ya completado orderId={}, reason={}",
+                                orderId, reason);
+                        return;
+                    }
+                    markDeliveryRetryPending(order, reason);
+                });
     }
 
     private void markOrderStatus(Order order, String status, String reason) {
@@ -209,10 +223,17 @@ public class OrderService {
         order.setStatus(DELIVERY_RETRY_PENDING_STATUS);
         order.setDeliveryRetryCount(order.getDeliveryRetryCount() == null ? 1 : order.getDeliveryRetryCount() + 1);
         order.setDeliveryLastRetryAt(LocalDateTime.now());
-        order.setDeliveryFailureReason(reason);
+        order.setDeliveryFailureReason(shortReason(reason));
         orderRepository.save(order);
         logger.warn("Pedido pendiente de reintento de delivery orderId={}, attempts={}, reason={}",
                 order.getId(), order.getDeliveryRetryCount(), reason);
+    }
+
+    private String shortReason(String reason) {
+        if (reason == null) {
+            return null;
+        }
+        return reason.length() <= 255 ? reason : reason.substring(0, 255);
     }
 
     private String buildOrderCreatedPayload(Order order) {

@@ -4,6 +4,7 @@ import lombok.Data;
 
 @Data
 public class StockUpdateRequest {
+    private Long orderId;
     private Long productId;
     private Integer quantity;
 }

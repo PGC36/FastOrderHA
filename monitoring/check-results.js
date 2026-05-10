@@ -1,9 +1,11 @@
 const { execFileSync } = require("node:child_process");
 
 const DB_CONTAINER = process.env.DB_CONTAINER || "fastorder-db";
+const DB_HOST = process.env.DB_HOST || "127.0.0.1";
 const RABBIT_CONTAINER = process.env.RABBIT_CONTAINER || "fastorder-rabbitmq";
 const DB_USER = process.env.DB_USER || "fastorder_user";
 const DB_NAME = process.env.DB_NAME || "fastorder_db";
+const DB_PASSWORD = process.env.DB_PASSWORD || "fastorder123";
 const WATCH = process.argv.includes("--watch");
 const INTERVAL_SECONDS = Number(process.env.INTERVAL_SECONDS || 10);
 
@@ -11,14 +13,19 @@ function run(command, args) {
   return execFileSync(command, args, {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
+    env: { ...process.env, PGPASSWORD: DB_PASSWORD },
   }).trim();
 }
 
 function psql(sql) {
   return run("docker", [
     "exec",
+    "-e",
+    `PGPASSWORD=${DB_PASSWORD}`,
     DB_CONTAINER,
     "psql",
+    "-h",
+    DB_HOST,
     "-U",
     DB_USER,
     "-d",
@@ -150,7 +157,7 @@ function printReport() {
   }
 
   const pendingOrders = Object.entries(statuses)
-    .filter(([status]) => !["COMPLETED", "CANCELLED", "ABANDONED"].includes(status))
+    .filter(([status]) => !["COMPLETED", "CANCELLED", "ABANDONED", "DELIVERY_ABANDONED"].includes(status))
     .reduce((sum, [, count]) => sum + count, 0);
   const reserved = inventory.reduce((sum, item) => sum + item.reserved, 0);
   const activeQueueMessages = activeQueues.reduce((sum, queue) => sum + queue.ready + queue.unacked, 0);

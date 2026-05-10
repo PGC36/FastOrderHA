@@ -43,6 +43,7 @@ public class InventoryDeliveryCompletedConsumer {
             }
 
             StockUpdateRequest request = new StockUpdateRequest();
+            request.setOrderId(orderId);
             request.setProductId(productId);
             request.setQuantity(quantity);
 

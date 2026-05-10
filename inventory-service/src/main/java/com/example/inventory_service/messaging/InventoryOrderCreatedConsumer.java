@@ -61,10 +61,11 @@ public class InventoryOrderCreatedConsumer {
             }
 
             StockUpdateRequest request = new StockUpdateRequest();
+            request.setOrderId(orderId);
             request.setProductId(productId);
             request.setQuantity(quantity);
 
-            boolean reserved = inventoryService.reserveStock(request);
+            boolean reserved = inventoryService.reserveStockForOrder(orderId, request);
             if (reserved) {
                 publish(reservedRoutingKey, Map.of(
                         "orderId", orderId,

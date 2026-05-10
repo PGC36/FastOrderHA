@@ -63,8 +63,7 @@ public class KitchenInventoryReservedConsumer {
             createRequest.setOrderId(orderId);
             KitchenOrderResponse kitchenOrder = kitchenOrderService.createKitchenOrder(createRequest);
 
-            updateStatus(kitchenOrder.getId(), KitchenOrderStatus.PREPARING);
-            updateStatus(kitchenOrder.getId(), KitchenOrderStatus.READY);
+            kitchenOrder = moveToReady(kitchenOrder);
 
             publish(readyRoutingKey, Map.of(
                     "orderId", orderId,
@@ -76,35 +75,36 @@ public class KitchenInventoryReservedConsumer {
             logger.info("Orden de cocina lista por evento orderId={}, kitchenOrderId={}",
                     orderId, kitchenOrder.getId());
         } catch (Exception exception) {
-            logger.error("Error procesando inventory.reserved en kitchen-service: {}", payload, exception);
-            publishFailure(payload, exception.getMessage());
+            logger.warn("Error tecnico procesando inventory.reserved; Rabbit reintentara el mensaje: {}", payload,
+                    exception);
+            throw new IllegalStateException("Error tecnico procesando inventory.reserved", exception);
         }
     }
 
-    private void updateStatus(Long kitchenOrderId, KitchenOrderStatus status) {
+    private KitchenOrderResponse moveToReady(KitchenOrderResponse kitchenOrder) {
+        if (kitchenOrder.getStatus() == KitchenOrderStatus.READY) {
+            return kitchenOrder;
+        }
+
+        if (kitchenOrder.getStatus() == KitchenOrderStatus.PENDING) {
+            kitchenOrder = updateStatus(kitchenOrder.getId(), KitchenOrderStatus.PREPARING);
+        }
+
+        if (kitchenOrder.getStatus() == KitchenOrderStatus.PREPARING) {
+            return updateStatus(kitchenOrder.getId(), KitchenOrderStatus.READY);
+        }
+
+        throw new IllegalStateException("Estado de cocina no reintentable: " + kitchenOrder.getStatus());
+    }
+
+    private KitchenOrderResponse updateStatus(Long kitchenOrderId, KitchenOrderStatus status) {
         UpdateKitchenStatusRequest request = new UpdateKitchenStatusRequest();
         request.setStatus(status);
-        kitchenOrderService.updateStatus(kitchenOrderId, request);
+        return kitchenOrderService.updateStatus(kitchenOrderId, request);
     }
 
     private void publish(String routingKey, Map<String, ?> event) {
         rabbitTemplate.convertAndSend(kitchenExchange, routingKey, event);
-    }
-
-    private void publishFailure(String payload, String reason) {
-        try {
-            JsonNode event = objectMapper.readTree(payload);
-            Long orderId = readLong(event, "orderId");
-            if (orderId != null) {
-                publish(failedRoutingKey, Map.of(
-                        "orderId", orderId,
-                        "reason", reason == null ? "Kitchen fallo" : reason,
-                        "status", "KITCHEN_FAILED"));
-            }
-        } catch (Exception ignored) {
-            logger.error("No se pudo publicar kitchen.failed para payload={}", payload);
-            throw new IllegalStateException("No se pudo publicar kitchen.failed", ignored);
-        }
     }
 
     private Long readLong(JsonNode root, String fieldName) {

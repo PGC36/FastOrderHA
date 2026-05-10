@@ -68,7 +68,7 @@ public class OrderDeliveryRetryService {
             int attempts = currentAttempts + 1;
             order.setDeliveryRetryCount(attempts);
             order.setDeliveryLastRetryAt(LocalDateTime.now());
-            order.setDeliveryFailureReason(exception.getMessage());
+            order.setDeliveryFailureReason(shortReason(exception.getMessage()));
 
             if (attempts >= maxAttempts) {
                 abandonDelivery(order, exception.getMessage());
@@ -83,11 +83,25 @@ public class OrderDeliveryRetryService {
     }
 
     private void abandonDelivery(Order order, String reason) {
+        try {
+            orderWorkflowClient.releaseInventory(order);
+        } catch (RuntimeException exception) {
+            logger.warn("No se pudo liberar inventario al abandonar delivery orderId={}, reason={}",
+                    order.getId(), exception.getMessage());
+        }
+
         order.setStatus(DELIVERY_ABANDONED_STATUS);
         order.setDeliveryLastRetryAt(LocalDateTime.now());
-        order.setDeliveryFailureReason(reason);
+        order.setDeliveryFailureReason(shortReason(reason));
         orderRepository.save(order);
         logger.error("Delivery abandonado definitivamente orderId={}, attempts={}, reason={}",
                 order.getId(), order.getDeliveryRetryCount(), reason);
+    }
+
+    private String shortReason(String reason) {
+        if (reason == null) {
+            return null;
+        }
+        return reason.length() <= 255 ? reason : reason.substring(0, 255);
     }
 }

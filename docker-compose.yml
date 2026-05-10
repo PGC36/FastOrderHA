@@ -1,19 +1,130 @@
 services:
-  fastorder-db:
-    image: postgres:16
-    container_name: fastorder-db
+  fastorder-db-0:
+    image: docker.io/bitnamilegacy/postgresql-repmgr:17.6.0-debian-12-r2
+    container_name: fastorder-db-0
     environment:
-      POSTGRES_DB: fastorder_db
-      POSTGRES_USER: fastorder_user
-      POSTGRES_PASSWORD: fastorder123
-    ports:
-      - "5440:5432"
+      POSTGRESQL_POSTGRES_PASSWORD: fastorder123
+      POSTGRESQL_USERNAME: fastorder_user
+      POSTGRESQL_PASSWORD: fastorder123
+      POSTGRESQL_DATABASE: fastorder_db
+      POSTGRESQL_MAX_CONNECTIONS: 200
+      POSTGRESQL_NUM_SYNCHRONOUS_REPLICAS: 1
+      REPMGR_PRIMARY_HOST: fastorder-db-0
+      REPMGR_PARTNER_NODES: fastorder-db-0,fastorder-db-1
+      REPMGR_NODE_ID: 1000
+      REPMGR_NODE_NAME: fastorder-db-0
+      REPMGR_NODE_NETWORK_NAME: fastorder-db-0
+      REPMGR_USERNAME: repmgr
+      REPMGR_PASSWORD: repmgr123
     volumes:
-      - fastorder_db_data:/var/lib/postgresql/data
+      - fastorder_db_0_data:/bitnami/postgresql
       - ./database/fastorder-init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - fastorder-network
-    restart: unless-stopped
+    restart: always
+
+  fastorder-db-1:
+    image: docker.io/bitnamilegacy/postgresql-repmgr:17.6.0-debian-12-r2
+    container_name: fastorder-db-1
+    environment:
+      POSTGRESQL_POSTGRES_PASSWORD: fastorder123
+      POSTGRESQL_USERNAME: fastorder_user
+      POSTGRESQL_PASSWORD: fastorder123
+      POSTGRESQL_DATABASE: fastorder_db
+      POSTGRESQL_MAX_CONNECTIONS: 200
+      POSTGRESQL_NUM_SYNCHRONOUS_REPLICAS: 1
+      REPMGR_PRIMARY_HOST: fastorder-db-0
+      REPMGR_PARTNER_NODES: fastorder-db-0,fastorder-db-1
+      REPMGR_NODE_ID: 1001
+      REPMGR_NODE_NAME: fastorder-db-1
+      REPMGR_NODE_NETWORK_NAME: fastorder-db-1
+      REPMGR_USERNAME: repmgr
+      REPMGR_PASSWORD: repmgr123
+    volumes:
+      - fastorder_db_1_data:/bitnami/postgresql
+    depends_on:
+      - fastorder-db-0
+    networks:
+      - fastorder-network
+    restart: always
+
+  fastorder-db:
+    image: docker.io/bitnamilegacy/pgpool:4.6.3-debian-12-r0
+    container_name: fastorder-db
+    ports:
+      - "5440:5432"
+    environment:
+      PGPOOL_BACKEND_NODES: 0:fastorder-db-0:5432,1:fastorder-db-1:5432
+      PGPOOL_SR_CHECK_USER: repmgr
+      PGPOOL_SR_CHECK_PASSWORD: repmgr123
+      PGPOOL_POSTGRES_USERNAME: postgres
+      PGPOOL_POSTGRES_PASSWORD: fastorder123
+      PGPOOL_ADMIN_USERNAME: admin
+      PGPOOL_ADMIN_PASSWORD: pgpooladmin123
+      PGPOOL_ENABLE_LOAD_BALANCING: "no"
+      PGPOOL_FAILOVER_ON_BACKEND_ERROR: "yes"
+      PGPOOL_NUM_INIT_CHILDREN: "120"
+      PGPOOL_MAX_POOL: "1"
+      PGPOOL_POSTGRES_CUSTOM_USERS: fastorder_user
+      PGPOOL_POSTGRES_CUSTOM_PASSWORDS: fastorder123
+    depends_on:
+      - fastorder-db-0
+      - fastorder-db-1
+    healthcheck:
+      test: ["CMD", "/opt/bitnami/scripts/pgpool/healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fastorder-network
+    restart: always
+
+  db-recovery:
+    image: docker:27-cli
+    container_name: fastorder-db-recovery
+    command: >
+      sh -c 'while true; do
+        for container in fastorder-db fastorder-db-0 fastorder-db-1 fastorder-api-gateway fastorder-menu-service fastorder-inventory-service fastorder-order-service fastorder-kitchen-service fastorder-delivery-service fastorder-notification-service; do
+          status=$$(docker inspect -f "{{.State.Status}}" "$$container" 2>/dev/null || echo missing);
+          health=$$(docker inspect -f "{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}" "$$container" 2>/dev/null || echo none);
+          if [ "$$status" != "running" ]; then
+            echo "Recovering $$container because status=$$status";
+            docker start "$$container" || true;
+          elif [ "$$container" = "fastorder-db" ] && [ "$$health" = "unhealthy" ]; then
+            echo "Recovering $$container because health=$$health";
+            docker restart "$$container" || true;
+          fi;
+        done;
+        sleep 10;
+      done'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - fastorder-db
+      - fastorder-db-0
+      - fastorder-db-1
+    networks:
+      - fastorder-network
+    restart: always
+
+  dlq-recovery:
+    image: node:24-alpine
+    container_name: fastorder-dlq-recovery
+    working_dir: /app
+    command: ["node", "requeue-dlq.js", "--watch"]
+    environment:
+      RABBIT_URL: http://rabbitmq:15672/api
+      RABBIT_USER: guest
+      RABBIT_PASSWORD: guest
+      INTERVAL_SECONDS: "15"
+      BATCH_SIZE: "100"
+    volumes:
+      - ./monitoring/requeue-dlq.js:/app/requeue-dlq.js:ro
+    depends_on:
+      - rabbitmq
+    networks:
+      - fastorder-network
+    restart: always
 
   redis:
     image: redis:7
@@ -92,10 +203,16 @@ services:
       DB_NAME: fastorder_db
       DB_USER: fastorder_user
       DB_PASSWORD: fastorder123
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: guest
       SPRING_RABBITMQ_PASSWORD: guest
+      SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_ATTEMPTS: 12
+      SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_INITIAL_INTERVAL: 2000
+      SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MULTIPLIER: 1.5
+      SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_INTERVAL: 15000
     depends_on:
       - fastorder-db
       - rabbitmq
@@ -116,6 +233,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://fastorder-db:5432/fastorder_db
       SPRING_DATASOURCE_USERNAME: fastorder_user
       SPRING_DATASOURCE_PASSWORD: fastorder123
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 10
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 2
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: guest
@@ -141,10 +260,16 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://fastorder-db:5432/fastorder_db
       SPRING_DATASOURCE_USERNAME: fastorder_user
       SPRING_DATASOURCE_PASSWORD: fastorder123
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 15
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 3
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: guest
       SPRING_RABBITMQ_PASSWORD: guest
+      SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_ATTEMPTS: 12
+      SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_INITIAL_INTERVAL: 2000
+      SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MULTIPLIER: 1.5
+      SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_INTERVAL: 15000
       INVENTORY_SERVICE_URL: http://inventory-service:8083/inventory
       KITCHEN_SERVICE_URL: http://kitchen-service:8084/kitchen/orders
       DELIVERY_SERVICE_URL: http://delivery-service:8085/deliveries
@@ -167,10 +292,16 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://fastorder-db:5432/fastorder_db
       SPRING_DATASOURCE_USERNAME: fastorder_user
       SPRING_DATASOURCE_PASSWORD: fastorder123
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 10
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 2
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: guest
       SPRING_RABBITMQ_PASSWORD: guest
+      SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_ATTEMPTS: 12
+      SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_INITIAL_INTERVAL: 2000
+      SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MULTIPLIER: 1.5
+      SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_INTERVAL: 15000
       ORDER_SERVICE_URL: http://order-service:8082/orders
     networks:
       - fastorder-network
@@ -189,10 +320,16 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://fastorder-db:5432/fastorder_db
       SPRING_DATASOURCE_USERNAME: fastorder_user
       SPRING_DATASOURCE_PASSWORD: fastorder123
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 10
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 2
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: guest
       SPRING_RABBITMQ_PASSWORD: guest
+      SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_ATTEMPTS: 12
+      SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_INITIAL_INTERVAL: 2000
+      SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MULTIPLIER: 1.5
+      SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_INTERVAL: 15000
       ORDER_SERVICE_URL: http://order-service:8082/orders
     networks:
       - fastorder-network
@@ -211,10 +348,16 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://fastorder-db:5432/fastorder_db
       SPRING_DATASOURCE_USERNAME: fastorder_user
       SPRING_DATASOURCE_PASSWORD: fastorder123
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: guest
       SPRING_RABBITMQ_PASSWORD: guest
+      SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_ATTEMPTS: 12
+      SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_INITIAL_INTERVAL: 2000
+      SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MULTIPLIER: 1.5
+      SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_INTERVAL: 15000
     networks:
       - fastorder-network
     restart: unless-stopped
@@ -270,6 +413,7 @@ networks:
     driver: bridge
 
 volumes:
-  fastorder_db_data:
+  fastorder_db_0_data:
+  fastorder_db_1_data:
   prometheus_data:
   grafana_data:

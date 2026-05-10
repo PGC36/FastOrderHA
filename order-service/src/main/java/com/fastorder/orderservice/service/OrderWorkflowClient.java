@@ -71,6 +71,7 @@ public class OrderWorkflowClient {
             restClient.post()
                     .uri(inventoryBaseUrl + "/release")
                     .body(Map.of(
+                            "orderId", order.getId(),
                             "productId", order.getProductId(),
                             "quantity", order.getQuantity()))
                     .retrieve()
@@ -109,12 +110,33 @@ public class OrderWorkflowClient {
     }
 
     public void createAndCompleteDelivery(Order order, CreateOrderRequest request) {
-        Long deliveryId = createDelivery(order, request);
-        completeDelivery(order, deliveryId);
+        Map<String, Object> delivery = createDeliveryResponse(order, request);
+        Long deliveryId = readId(delivery, "delivery-service");
+        completeDeliveryIfNeeded(order, deliveryId, delivery);
     }
 
     public void createAndCompleteDelivery(Order order) {
-        Long deliveryId = createDelivery(order, null);
+        Map<String, Object> delivery = createDeliveryResponse(order, null);
+        Long deliveryId = readId(delivery, "delivery-service");
+        completeDeliveryIfNeeded(order, deliveryId, delivery);
+    }
+
+    private Map<String, Object> createDeliveryResponse(Order order, CreateOrderRequest request) {
+        String deliveryAddress = request == null
+                ? valueOrDefault(order.getDeliveryAddress(), DEFAULT_DELIVERY_ADDRESS)
+                : valueOrDefault(request.getDeliveryAddress(), DEFAULT_DELIVERY_ADDRESS);
+        return post(deliveryBaseUrl, Map.of(
+                "orderId", order.getId(),
+                "deliveryAddress", deliveryAddress),
+                "delivery-service");
+    }
+
+    private void completeDeliveryIfNeeded(Order order, Long deliveryId, Map<String, Object> delivery) {
+        if (isDeliveryAlreadyCompleted(delivery)) {
+            logger.info("Entrega ya estaba completada deliveryId={}, orderId={}", deliveryId, order.getId());
+            return;
+        }
+
         completeDelivery(order, deliveryId);
     }
 
@@ -221,6 +243,10 @@ public class OrderWorkflowClient {
             throw new InventoryUnavailableException(serviceName + " no devolvio id");
         }
         return id.longValue();
+    }
+
+    private boolean isDeliveryAlreadyCompleted(Map<String, Object> delivery) {
+        return delivery != null && "DELIVERED".equals(String.valueOf(delivery.get("status")));
     }
 
     private String valueOrDefault(String value, String defaultValue) {

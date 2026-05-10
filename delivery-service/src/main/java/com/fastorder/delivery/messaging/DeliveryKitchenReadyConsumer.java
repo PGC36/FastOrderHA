@@ -2,8 +2,8 @@ package com.fastorder.delivery.messaging;
 
 import com.fastorder.delivery.dto.request.AssignDriverRequest;
 import com.fastorder.delivery.dto.request.CreateDeliveryRequest;
-import com.fastorder.delivery.dto.request.FailDeliveryRequest;
 import com.fastorder.delivery.dto.response.DeliveryResponse;
+import com.fastorder.delivery.enums.DeliveryStatus;
 import com.fastorder.delivery.service.DeliveryOrderService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -77,10 +77,7 @@ public class DeliveryKitchenReadyConsumer {
             createRequest.setDeliveryAddress(readText(event, "deliveryAddress", "Direccion pendiente"));
 
             DeliveryResponse delivery = deliveryOrderService.createDelivery(createRequest);
-            assign(delivery.getId());
-            deliveryOrderService.markPickedUp(delivery.getId());
-            deliveryOrderService.markInTransit(delivery.getId());
-            delivery = deliveryOrderService.markDelivered(delivery.getId());
+            delivery = moveToDelivered(delivery);
 
             rabbitTemplate.convertAndSend(deliveryExchange, completedRoutingKey, Map.of(
                     "orderId", orderId,
@@ -97,31 +94,35 @@ public class DeliveryKitchenReadyConsumer {
 
             logger.info("Delivery completado por evento orderId={}, deliveryId={}", orderId, delivery.getId());
         } catch (Exception exception) {
-            logger.error("Error procesando kitchen.ready en delivery-service: {}", payload, exception);
-            publishFailure(payload, exception.getMessage());
+            logger.warn("Error tecnico procesando kitchen.ready; Rabbit reintentara el mensaje: {}", payload,
+                    exception);
+            throw new IllegalStateException("Error tecnico procesando kitchen.ready", exception);
         }
+    }
+
+    private DeliveryResponse moveToDelivered(DeliveryResponse delivery) {
+        while (delivery.getStatus() != DeliveryStatus.DELIVERED) {
+            delivery = switch (delivery.getStatus()) {
+                case PENDING -> {
+                    assign(delivery.getId());
+                    yield deliveryOrderService.getDeliveryById(delivery.getId());
+                }
+                case ASSIGNED -> deliveryOrderService.markPickedUp(delivery.getId());
+                case PICKED_UP -> deliveryOrderService.markInTransit(delivery.getId());
+                case IN_TRANSIT -> deliveryOrderService.markDelivered(delivery.getId());
+                case FAILED, CANCELLED -> throw new IllegalStateException(
+                        "Estado de delivery no reintentable: " + delivery.getStatus());
+                case DELIVERED -> delivery;
+            };
+        }
+
+        return delivery;
     }
 
     private void assign(Long deliveryId) {
         AssignDriverRequest request = new AssignDriverRequest();
         request.setDriverId(SYSTEM_DRIVER_ID);
         deliveryOrderService.assignDriver(deliveryId, request);
-    }
-
-    private void publishFailure(String payload, String reason) {
-        try {
-            JsonNode event = objectMapper.readTree(payload);
-            Long orderId = readLong(event, "orderId");
-            if (orderId != null) {
-                rabbitTemplate.convertAndSend(deliveryExchange, failedRoutingKey, Map.of(
-                        "orderId", orderId,
-                        "reason", reason == null ? "Delivery fallo" : reason,
-                        "status", "DELIVERY_FAILED"));
-            }
-        } catch (Exception ignored) {
-            logger.error("No se pudo publicar delivery.failed para payload={}", payload);
-            throw new IllegalStateException("No se pudo publicar delivery.failed", ignored);
-        }
     }
 
     private Long readLong(JsonNode root, String fieldName) {

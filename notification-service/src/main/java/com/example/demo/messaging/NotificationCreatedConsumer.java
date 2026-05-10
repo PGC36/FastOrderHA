@@ -77,6 +77,16 @@ public class NotificationCreatedConsumer {
             message = "Notificacion generada para la orden " + orderId;
         }
 
+        var existingNotification = notificationRepository.findByOrderId(orderId);
+        if (existingNotification.isPresent()) {
+            Notification notification = existingNotification.get();
+            notification.setStatus("PROCESSED");
+            notificationRepository.save(notification);
+            log.info("Notificacion existente procesada correctamente. id={}, orderId={}",
+                    notification.getId(), notification.getOrderId());
+            return;
+        }
+
         Notification saved = notificationRepository.save(Notification.builder()
                 .orderId(orderId)
                 .channel(channel)

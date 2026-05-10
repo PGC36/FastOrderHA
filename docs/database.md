@@ -2,24 +2,30 @@
 
 ## Resumen
 
-FastOrder HA usa una base de datos PostgreSQL general para todos los microservicios:
+FastOrder HA usa una base de datos PostgreSQL general para todos los microservicios, desplegada como un cluster primary/standby dentro de Docker Compose:
 
 - Base: `fastorder_db`
 - Usuario: `fastorder_user`
 - Password: `fastorder123`
-- Contenedor: `fastorder-db`
-- Puerto local: `5440`
+- Endpoint de aplicacion: `fastorder-db` (Pgpool)
+- Nodo primario: `fastorder-db-0`
+- Nodo replica: `fastorder-db-1`
+- Puerto local: `5440` hacia Pgpool
 - Script principal: `database/fastorder-init.sql`
 
-Antes el proyecto tenia una base separada por servicio (`menu_db`, `inventory_db`, `order_db`, `kitchen_db`, `delivery_db` y `notification_db`). Ahora todos los servicios comparten la misma base fisica y mantienen tablas separadas por dominio.
+Antes el proyecto tenia una base separada por servicio (`menu_db`, `inventory_db`, `order_db`, `kitchen_db`, `delivery_db` y `notification_db`). Ahora todos los servicios comparten la misma base logica y mantienen tablas separadas por dominio.
 
 ## Configuracion en Docker Compose
 
-`docker-compose.yml` levanta un solo contenedor PostgreSQL:
+`docker-compose.yml` levanta un endpoint unico con Pgpool y dos nodos PostgreSQL con repmgr:
 
-| Servicio | Base | Puerto local | Usuario | Password | Script |
+| Servicio | Funcion | Puerto local | Usuario | Password | Script |
 |---|---|---:|---|---|---|
-| `fastorder-db` | `fastorder_db` | `5440` | `fastorder_user` | `fastorder123` | `database/fastorder-init.sql` |
+| `fastorder-db` | Pgpool / endpoint unico | `5440` | `fastorder_user` | `fastorder123` | N/A |
+| `fastorder-db-0` | PostgreSQL primario | interno | `fastorder_user` | `fastorder123` | `database/fastorder-init.sql` |
+| `fastorder-db-1` | PostgreSQL replica standby | interno | `fastorder_user` | `fastorder123` | replica desde primario |
+
+La replicacion usa `bitnamilegacy/postgresql-repmgr` y Pgpool usa checks de streaming replication con el usuario `repmgr`. El balanceo de lecturas esta desactivado para que las operaciones de la aplicacion usen siempre el primario activo y la replica quede como standby de recuperacion. Los nodos PostgreSQL se configuran con `POSTGRESQL_MAX_CONNECTIONS=200`, mientras Pgpool y los pools Hikari quedan limitados para no agotar conexiones durante pruebas de 50k peticiones.
 
 ## Convencion de conexion
 
@@ -34,6 +40,8 @@ jdbc:postgresql://localhost:5440/fastorder_db
 ```text
 jdbc:postgresql://fastorder-db:5432/fastorder_db
 ```
+
+Los microservicios no se conectan directamente al primario ni a la replica; siempre usan Pgpool mediante el host `fastorder-db`.
 
 ## Tablas incluidas
 

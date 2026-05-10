@@ -11,6 +11,7 @@ La arquitectura actual prioriza:
 - procesamiento asincrono por colas durables.
 - workers paralelos por servicio.
 - rate limiting centralizado con Redis en el API Gateway.
+- replicacion PostgreSQL primary/standby con Pgpool como endpoint unico.
 - observabilidad con Prometheus, Grafana, cAdvisor y metricas de RabbitMQ.
 
 ## Componentes
@@ -24,7 +25,10 @@ La arquitectura actual prioriza:
 | `kitchen-service` | Preparacion de ordenes | `8084` |
 | `delivery-service` | Entrega y reintentos de despacho | `8085` |
 | `notification-service` | Persistencia de notificaciones | `8086` |
-| `fastorder-db` | PostgreSQL general | `5440` |
+| `fastorder-db` | Pgpool, endpoint unico hacia PostgreSQL HA | `5440` |
+| `fastorder-db-0` | PostgreSQL primario con repmgr | interno |
+| `fastorder-db-1` | PostgreSQL replica standby con repmgr | interno |
+| `db-recovery` | Watcher Docker para recuperar PostgreSQL, Pgpool y microservicios | interno |
 | `rabbitmq` | Broker de eventos | `5672`, `15672`, `15692` |
 | `redis` | Rate limiting del API Gateway | `6379` |
 | `prometheus` | Recoleccion de metricas | `9090` |
@@ -101,7 +105,16 @@ La columna unica `inventory_sales.order_id` evita descontar dos veces si RabbitM
 
 ## Base de datos
 
-Todos los servicios usan `fastorder_db` y tablas separadas por dominio:
+Todos los servicios usan `fastorder_db` y tablas separadas por dominio. La conexion de aplicacion apunta siempre a `fastorder-db:5432`, que es Pgpool. Pgpool enruta hacia el nodo primario para escrituras y monitorea los nodos PostgreSQL administrados con repmgr:
+
+- `fastorder-db-0`
+- `fastorder-db-1`
+
+Esto permite demostrar replicacion de base de datos dentro de Docker sin cambiar las URLs JDBC de los microservicios.
+
+Si el primario cae, repmgr promueve la replica disponible. Pgpool conserva el endpoint de aplicacion `fastorder-db:5432`, por lo que los servicios no necesitan cambiar su cadena de conexion. El contenedor `db-recovery` vive dentro del despliegue Docker y reinicia automaticamente nodos PostgreSQL apagados, microservicios apagados o Pgpool cuando queda `unhealthy` despues de un failover.
+
+Tablas principales:
 
 - `productos`
 - `inventory`

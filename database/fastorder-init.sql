@@ -46,6 +46,17 @@ CREATE TABLE IF NOT EXISTS inventory_sales (
 CREATE INDEX IF NOT EXISTS idx_inventory_sales_product_id
 ON inventory_sales(product_id);
 
+CREATE TABLE IF NOT EXISTS inventory_reservations (
+    id BIGSERIAL PRIMARY KEY,
+    order_id BIGINT NOT NULL UNIQUE,
+    product_id BIGINT NOT NULL,
+    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_inventory_reservations_product_id
+ON inventory_reservations(product_id);
+
 CREATE TABLE IF NOT EXISTS orders (
     id SERIAL PRIMARY KEY,
     idempotency_key VARCHAR(150) UNIQUE NOT NULL,
@@ -158,6 +169,9 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 
 CREATE INDEX IF NOT EXISTS idx_notifications_order_id
+    ON notifications (order_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_notifications_order_id
     ON notifications (order_id);
 
 CREATE INDEX IF NOT EXISTS idx_notifications_created_at
