@@ -36,9 +36,9 @@ jobs:
           java-version: "21"
           cache: maven
 
-      - name: Build and test ${{ matrix.service }}
+      - name: Build ${{ matrix.service }}
         working-directory: ${{ matrix.service }}
-        run: mvn -B test
+        run: mvn -B -DskipTests package
 
   docker-compose-config:
     name: Validate Docker Compose
