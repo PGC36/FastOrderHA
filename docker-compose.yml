@@ -107,6 +107,28 @@ services:
       - fastorder-network
     restart: always
 
+  postgres-backup:
+    image: postgres:17-alpine
+    container_name: fastorder-postgres-backup
+    environment:
+      PGHOST: fastorder-db
+      PGPORT: "5432"
+      PGDATABASE: fastorder_db
+      PGUSER: fastorder_user
+      PGPASSWORD: fastorder123
+      BACKUP_DIR: /backups
+      BACKUP_INTERVAL_SECONDS: "300"
+      BACKUP_RETENTION_COUNT: "10"
+    volumes:
+      - ./database/backup/backup.sh:/scripts/backup.sh:ro
+      - ./backups/postgres:/backups
+    command: ["sh", "/scripts/backup.sh"]
+    depends_on:
+      - fastorder-db
+    networks:
+      - fastorder-network
+    restart: unless-stopped
+
   dlq-recovery:
     image: node:24-alpine
     container_name: fastorder-dlq-recovery

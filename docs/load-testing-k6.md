@@ -284,9 +284,9 @@ Para ver el drenaje asincrono en vivo:
 node .\monitoring\check-results.js --watch
 ```
 
-## Resultado de referencia
+## Resultado de referencia historico
 
-Prueba completa registrada antes de replicas de base de datos y backups con stock suficiente:
+Prueba completa registrada durante la evolucion del proyecto con stock suficiente:
 
 | Metrica | Resultado |
 |---|---:|
@@ -359,9 +359,8 @@ Paneles importantes:
 
 El sistema cumple la prueba minima de 50,000 peticiones de escritura sin errores HTTP y sin perdida de ordenes. La parte que mas tarda no es aceptar la orden, sino procesar toda la saga hasta `COMPLETED`.
 
-Para mejorar el tiempo total de cierre de ordenes, los siguientes pasos serian:
+Para mejorar aun mas el tiempo total de cierre de ordenes, los siguientes pasos opcionales serian:
 
 - tuning de base de datos y RabbitMQ bajo carga real.
-- backups automaticos de PostgreSQL.
 
 Redis ya esta integrado en el API Gateway para rate limiting. El limite por defecto permite esta prueba de 50,000 peticiones; si se baja `API_RATE_LIMIT_CAPACITY`, k6 puede recibir respuestas `429` por exceso de trafico.

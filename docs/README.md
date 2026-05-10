@@ -1,6 +1,6 @@
 # FastOrderHA
 
-FastOrder HA es un sistema de pedidos para restaurante construido con microservicios Spring Boot, Docker Compose, PostgreSQL, RabbitMQ, Prometheus y Grafana.
+FastOrder HA es un sistema de pedidos para restaurante construido con microservicios Spring Boot, Docker Compose, PostgreSQL HA, RabbitMQ, Redis, Prometheus, Grafana, k6 y backups automaticos.
 
 ## Estado actual
 
@@ -8,6 +8,7 @@ El proyecto ya cuenta con:
 
 - API Gateway como entrada HTTP centralizada.
 - Base PostgreSQL general `fastorder_db` para todos los dominios, con primary/standby y Pgpool.
+- Redis para rate limiting con degradacion `fail-open`.
 - Flujo de pedidos con patron Saga asincrono usando RabbitMQ.
 - Workers por servicio para procesar eventos en paralelo.
 - Idempotencia en creacion de ordenes.
@@ -15,7 +16,8 @@ El proyecto ya cuenta con:
 - Reintentos de delivery sin devolver inventario cuando la comida ya fue preparada.
 - Notificaciones consumidas desde `notification.created.queue`.
 - Observabilidad con Prometheus, Grafana, cAdvisor y metricas de RabbitMQ.
-- Pruebas k6 para carga minima de 50k, carga sostenida y picos.
+- Backups automaticos de PostgreSQL con restauracion manual validada.
+- Pruebas k6 para carga minima de 50k, carga sostenida, picos y caos.
 
 ## Documentos principales
 
@@ -23,6 +25,7 @@ El proyecto ya cuenta con:
 - [Docker Compose](./docker-compose.md)
 - [Deployment](./deployment.md)
 - [Base de datos](./database.md)
+- [Backups](./backups.md)
 - [Pruebas de carga con k6](./load-testing-k6.md)
 - [Pruebas realizadas](./pruebas-realizadas.md)
 - [Guia de caos en base de datos](./guia-pruebas-caos-bd.md)

@@ -165,15 +165,23 @@ Se agregaron scripts k6 para:
 - carga concurrente sostenida.
 - picos de escritura.
 - picos de lectura.
+- carga resiliente con reintentos e idempotencia durante caos.
 
-La prueba final antes de replicas y backups proceso 50,000 ordenes con error HTTP 0 y termino con 50,000 ordenes en `COMPLETED`. Tambien se valido inventario insuficiente: el sistema vendio solo el stock disponible, cancelo el resto y termino con `reserved = 0`.
+Las pruebas actuales validaron 50,000 pedidos, inventario insuficiente, caida de microservicios, caida del primary de PostgreSQL, recuperacion automatica y una prueba extrema con dos caidas de BD y cinco servicios caidos en momentos distintos. El resultado final esperado es `Status: DONE`, `outbox pending = 0`, RabbitMQ sin colas pendientes, inventario sin reservas colgadas y 50,000 ordenes en `COMPLETED` cuando hay stock suficiente.
 
 Mas detalle en [load-testing-k6.md](./load-testing-k6.md).
+
+## Backups
+
+PostgreSQL cuenta con backups automaticos mediante `postgres-backup`, que ejecuta `pg_dump` cada 5 minutos y conserva los ultimos 10 archivos en `backups/postgres`. La restauracion es manual y controlada para evitar sobrescribir datos validos por accidente.
+
+La restauracion fue validada borrando datos de `notifications` y recuperandolos desde un backup `.sql` hasta volver a un estado consistente.
 
 ## Archivos relacionados
 
 - [docker-compose.yml](../docker-compose.yml)
 - [database.md](./database.md)
+- [backups.md](./backups.md)
 - [deployment.md](./deployment.md)
 - [load-testing-k6.md](./load-testing-k6.md)
 - [monitoring/k6/README.md](../monitoring/k6/README.md)

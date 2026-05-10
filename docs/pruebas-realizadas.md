@@ -1124,6 +1124,58 @@ Status: DONE
 
 Esta prueba confirma que el sistema puede aceptar 50k pedidos aun con caidas repetidas de la base de datos y caidas escalonadas de los cinco microservicios principales. La consistencia final se mantiene: no hubo sobreventa, no quedaron reservas colgadas, no hubo duplicidad de idempotency keys y no quedaron eventos pendientes.
 
+## 19. Prueba de backup y restauracion manual
+
+### Escenario
+
+Se valido la estrategia de backup automatico y restauracion manual controlada.
+
+Para simular perdida de datos se uso un backup generado automaticamente y luego se borro la tabla `notifications`.
+
+Estado inicial:
+
+```text
+notifications=50000
+orders=50000
+```
+
+Backup usado:
+
+```text
+fastorder_20260510042221.sql
+```
+
+Daño simulado:
+
+```powershell
+docker exec -e PGPASSWORD=fastorder123 fastorder-db psql -h 127.0.0.1 -U fastorder_user -d fastorder_db -c "truncate table notifications restart identity;"
+```
+
+### Restauracion
+
+Para restaurar sin escrituras concurrentes se pausaron temporalmente los servicios de aplicacion y `db-recovery`. Luego se restauro con un contenedor temporal de PostgreSQL:
+
+```powershell
+docker run --rm --network fastorderha_fastorder-network -v ${PWD}/backups/postgres:/backups:ro -e PGPASSWORD=fastorder123 postgres:17-alpine psql -h fastorder-db -U fastorder_user -d fastorder_db -f /backups/fastorder_20260510042221.sql
+```
+
+### Resultado final
+
+```text
+Orders: COMPLETED: 50000
+Orders total: 50000
+Idempotency keys unique: 50000
+Outbox processed: 50000
+Outbox pending: 0
+Inventory: quantity=0, reserved=0, sold=50000
+Inventory sales: 50000
+Notifications: 50000
+Rabbit queues: empty
+Status: DONE
+```
+
+La prueba confirma que la restauracion manual recupera datos borrados y deja el sistema nuevamente consistente.
+
 ## Estado actual validado
 
 El sistema ya demostro:
@@ -1142,6 +1194,8 @@ El sistema ya demostro:
 - recuperacion automatica de microservicios con `db-recovery`.
 - prueba de caos final con 50k, caida de BD y caida de `inventory-service`/`delivery-service`.
 - prueba extrema con 50k, dos caidas de BD y caida escalonada de `order-service`, `inventory-service`, `kitchen-service`, `delivery-service` y `notification-service`.
+- backup automatico con `pg_dump`.
+- restauracion manual validada despues de borrar datos de `notifications`.
 - recuperacion automatica de intentos HTTP durante failover con `order-write-resilient-test.js`.
 - reconciliacion automatica de reservas de inventario despues de fallos transitorios.
 - reconciliacion automatica de notificaciones despues de failover.
@@ -1149,6 +1203,5 @@ El sistema ya demostro:
 
 ## Pendiente
 
-- Backups automaticos de PostgreSQL.
-- Evidencias visuales finales para el informe: k6, Grafana, RabbitMQ, Docker Compose, logs de failover y `check-results.js`.
+- Evidencias visuales finales para el informe: k6, Grafana, RabbitMQ, Docker Compose, logs de failover, logs de backup y `check-results.js`.
 

@@ -228,3 +228,4 @@ Como ahora todas las tablas viven en `fastorder_db`, es posible agregar foreign 
 
 - [docker-compose.yml](../docker-compose.yml)
 - [fastorder-init.sql](../database/fastorder-init.sql)
+- [backups.md](./backups.md)

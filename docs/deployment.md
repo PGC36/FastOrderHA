@@ -2,7 +2,7 @@
 
 ## Resumen
 
-FastOrder HA se despliega localmente con Docker Compose. El despliegue actual levanta microservicios, PostgreSQL primary/standby con Pgpool, RabbitMQ, Redis, Prometheus, Grafana y cAdvisor.
+FastOrder HA se despliega localmente con Docker Compose. El despliegue actual levanta microservicios, PostgreSQL primary/standby con Pgpool, RabbitMQ, Redis, Prometheus, Grafana, cAdvisor y backups automaticos.
 
 Archivo principal:
 
@@ -71,6 +71,7 @@ Credenciales:
 | `fastorder-db-0` | interno | PostgreSQL primario |
 | `fastorder-db-1` | interno | PostgreSQL replica |
 | `db-recovery` | interno | Watcher de recuperacion de PostgreSQL/Pgpool y microservicios |
+| `postgres-backup` | interno | Backups automaticos de PostgreSQL |
 | `rabbitmq` | `5672` | Broker |
 | `redis` | `6379` | Rate limiting del gateway |
 | `prometheus` | `9090` | Metricas |
@@ -122,8 +123,9 @@ Despues de la promocion, Pgpool mantiene el endpoint `fastorder-db:5432`. El nod
 - `GET /api/orders/{id}`
 - `GET /api/inventory/check`
 - `GET /api/kitchen/orders`
-- `GET /api/delivery`
-- `GET /api/notifications`
+- `GET /api/delivery/{id}`
+- `GET /api/delivery/by-order/{orderId}`
+- `GET /api/notifications/{id}`
 
 ## Rate limiting con Redis
 
@@ -180,6 +182,28 @@ El dashboard principal muestra:
 - colas RabbitMQ.
 - mensajes Ready y Unacked.
 
+## Backups
+
+El servicio `postgres-backup` ejecuta `pg_dump` automaticamente cada 5 minutos y conserva los ultimos 10 backups en:
+
+```text
+backups/postgres/
+```
+
+Ver backups:
+
+```powershell
+Get-ChildItem .\backups\postgres
+```
+
+Ver logs:
+
+```powershell
+docker logs -f fastorder-postgres-backup
+```
+
+La restauracion es manual y esta documentada en [backups.md](./backups.md).
+
 ## Pruebas de rendimiento
 
 Los scripts k6 estan en:
@@ -218,5 +242,6 @@ Advertencia: `down -v` elimina la base de datos local.
 
 - [docker-compose.md](./docker-compose.md)
 - [database.md](./database.md)
+- [backups.md](./backups.md)
 - [arquitectura.md](./arquitectura.md)
 - [load-testing-k6.md](./load-testing-k6.md)

@@ -12,6 +12,7 @@ El archivo principal de orquestacion local es [docker-compose.yml](../docker-com
 - Prometheus.
 - Grafana.
 - cAdvisor.
+- backups automaticos de PostgreSQL con `pg_dump`.
 - red compartida `fastorder-network`.
 - volumenes persistentes para PostgreSQL primario y standby.
 
@@ -25,6 +26,7 @@ El archivo principal de orquestacion local es [docker-compose.yml](../docker-com
 | `fastorder-db-0` | PostgreSQL primario con repmgr | interno | `database/fastorder-init.sql` |
 | `fastorder-db-1` | PostgreSQL standby con repmgr | interno | replica desde primario |
 | `db-recovery` | Watcher de recuperacion de BD y Pgpool | interno | N/A |
+| `postgres-backup` | Backups automaticos con `pg_dump` | interno | `database/backup/backup.sh` |
 
 Todos los microservicios usan el endpoint `fastorder-db:5432`. Pgpool se encarga de enrutar hacia el nodo PostgreSQL primario activo y de monitorear la replica. El balanceo de lecturas queda desactivado para evitar lecturas inconsistentes durante la demo. Pgpool queda configurado con `PGPOOL_NUM_INIT_CHILDREN=120`, `PGPOOL_MAX_POOL=1` y `PGPOOL_FAILOVER_ON_BACKEND_ERROR=yes`; ademas, los pools Hikari de los microservicios se limitan desde Docker Compose para evitar saturar las conexiones de PostgreSQL durante pruebas de carga.
 
@@ -43,6 +45,30 @@ Cuando el primario cae, repmgr promueve el standby. Al volver el nodo caido, est
 | `prometheus` | Recoleccion de metricas | `9090` |
 | `grafana` | Dashboards | `3000` |
 | `cadvisor` | CPU y memoria de contenedores | `8087` |
+
+### Backups
+
+`postgres-backup` usa la imagen `postgres:17-alpine` para ejecutar `pg_dump` contra el endpoint `fastorder-db`.
+
+Variables principales:
+
+```text
+PGHOST=fastorder-db
+PGPORT=5432
+PGDATABASE=fastorder_db
+PGUSER=fastorder_user
+PGPASSWORD=fastorder123
+BACKUP_INTERVAL_SECONDS=300
+BACKUP_RETENTION_COUNT=10
+```
+
+Los archivos se guardan en:
+
+```text
+backups/postgres/
+```
+
+La restauracion es manual y esta documentada en [backups.md](./backups.md).
 
 ### Servicios de aplicacion
 
@@ -222,6 +248,14 @@ fastorder_db_0_data
 fastorder_db_1_data
 ```
 
+Los backups `.sql` se guardan en la carpeta local:
+
+```text
+backups/postgres/
+```
+
+Estos archivos no se versionan en Git.
+
 `database/fastorder-init.sql` se ejecuta en el nodo primario cuando el volumen se crea por primera vez. La replica standby sincroniza los datos desde el primario mediante repmgr.
 
 ## Comandos utiles
@@ -267,4 +301,5 @@ Advertencia: `docker compose down -v` elimina los datos persistidos de PostgreSQ
 - [docker-compose.yml](../docker-compose.yml)
 - [deployment.md](./deployment.md)
 - [database.md](./database.md)
+- [backups.md](./backups.md)
 - [arquitectura.md](./arquitectura.md)
