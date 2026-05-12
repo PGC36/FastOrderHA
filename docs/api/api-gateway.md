@@ -33,8 +33,10 @@ El gateway no implementa logica de negocio de pedidos. Su funcion es proteger la
 | `order-service-paths` | `/api/orders/**` | `http://order-service:8082` | Implementado |
 | `inventory-service` | `/api/inventory/**` | `http://inventory-service:8083` | Implementado |
 | `kitchen-service` | `/api/kitchen/**` | `http://kitchen-service:8084` | Implementado |
-| `delivery-service` | `/api/delivery/**` | `http://delivery-service:8085` | Implementado |
-| `notification-service` | `/api/notifications/**` | `http://notification-service:8086` | Implementado |
+| `delivery-service-root` | `/api/delivery` | `http://delivery-service:8085` | Implementado |
+| `delivery-service-paths` | `/api/delivery/**` | `http://delivery-service:8085` | Implementado |
+| `notification-service-root` | `/api/notifications` | `http://notification-service:8086` | Implementado |
+| `notification-service-paths` | `/api/notifications/**` | `http://notification-service:8086` | Implementado |
 
 ## Rate limiting
 
@@ -59,6 +61,10 @@ Cuando el cliente supera el limite, el gateway responde `429 Too Many Requests`.
 
 Si Redis se reinicia, `API_RATE_LIMIT_FAIL_OPEN=true` permite que el gateway siga operando y agrega `X-RateLimit-Redis: unavailable`. Los timeouts de Redis se mantienen bajos para que esa degradacion ocurra rapido.
 
+Si Redis no esta disponible y `API_RATE_LIMIT_FAIL_OPEN=false`, el gateway responde `503` con error `redis_unavailable`.
+
+El rate limiting no se aplica a rutas que comienzan con `/actuator`, para no bloquear endpoints operativos del gateway.
+
 ## Redireccion hacia order-service
 
 El gateway tiene dos rutas para `order-service`:
@@ -76,6 +82,19 @@ Ejemplos:
 | `POST /api/orders` | `POST /orders` |
 | `GET /api/orders/1` | `GET /orders/1` |
 | `GET /api/orders/health-check` | `GET /orders/health-check` |
+
+## Redireccion hacia delivery-service
+
+`delivery-service` no usa `StripPrefix`. El gateway reescribe la ruta externa hacia el prefijo real `/deliveries` del microservicio:
+
+| Peticion al gateway | Peticion enviada a delivery-service |
+| --- | --- |
+| `GET /api/delivery` | `GET /deliveries` |
+| `POST /api/delivery` | `POST /deliveries` |
+| `GET /api/delivery/1` | `GET /deliveries/1` |
+| `PATCH /api/delivery/1/deliver` | `PATCH /deliveries/1/deliver` |
+
+Esto se implementa con filtros `RewritePath`.
 
 ## Endpoints de Actuator
 

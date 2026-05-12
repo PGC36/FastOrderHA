@@ -4,6 +4,8 @@
 
 FastOrder HA no implementa autenticacion de usuarios en el alcance actual del proyecto.
 
+Tampoco implementa autorizacion por roles ni proteccion por token en el API Gateway o en los microservicios.
+
 La seguridad de entrada se enfoca en:
 
 - API Gateway como punto unico de acceso.
@@ -25,6 +27,23 @@ Invoke-RestMethod http://localhost:8080/api/menu/productos
 
 El gateway si puede responder `429 Too Many Requests` si se baja la capacidad del rate limiter para una prueba especifica.
 
+Si Redis no esta disponible:
+
+- con `API_RATE_LIMIT_FAIL_OPEN=true`, el gateway deja pasar la solicitud y agrega `X-RateLimit-Redis: unavailable`;
+- con `API_RATE_LIMIT_FAIL_OPEN=false`, responde `503` con error `redis_unavailable`.
+
+Los endpoints `/actuator/**` del gateway no pasan por el rate limiter para no bloquear endpoints operativos.
+
+## Lo que si existe
+
+La proteccion actual del sistema se basa en controles operativos, no en identidad de usuario:
+
+- enrutamiento centralizado por `api-gateway`;
+- rate limiting por IP con Redis;
+- aislamiento de microservicios dentro de Docker Compose;
+- credenciales tecnicas para PostgreSQL, RabbitMQ y Grafana solo para entorno local;
+- observabilidad con Actuator, Prometheus y Grafana.
+
 ## Mejora futura
 
 Para una version productiva se recomienda agregar:
@@ -34,3 +53,4 @@ Para una version productiva se recomienda agregar:
 - Proteccion de endpoints administrativos.
 - Trazabilidad por usuario.
 - Limites de tasa por usuario autenticado y por IP.
+- Secretos fuera de archivos de configuracion locales.

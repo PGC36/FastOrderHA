@@ -12,6 +12,7 @@ La arquitectura actual prioriza:
 - workers paralelos por servicio.
 - rate limiting centralizado con Redis en el API Gateway.
 - replicacion PostgreSQL primary/standby con Pgpool como endpoint unico.
+- recuperacion automatica de colas DLQ y backups programados de PostgreSQL.
 - observabilidad con Prometheus, Grafana, cAdvisor y metricas de RabbitMQ.
 
 ## Componentes
@@ -29,6 +30,8 @@ La arquitectura actual prioriza:
 | `fastorder-db-0` | PostgreSQL primario con repmgr | interno |
 | `fastorder-db-1` | PostgreSQL replica standby con repmgr | interno |
 | `db-recovery` | Watcher Docker para recuperar PostgreSQL, Pgpool y microservicios | interno |
+| `postgres-backup` | Backups automaticos de PostgreSQL con `pg_dump` | interno |
+| `dlq-recovery` | Reinyeccion automatica de mensajes desde DLQ hacia colas activas | interno |
 | `rabbitmq` | Broker de eventos | `5672`, `15672`, `15692` |
 | `redis` | Rate limiting del API Gateway | `6379` |
 | `prometheus` | Recoleccion de metricas | `9090` |
@@ -48,6 +51,7 @@ FASTORDERHA/
 |-- notification-service/
 |-- database/
 |-- monitoring/
+|-- backups/
 |-- docs/
 `-- docker-compose.yml
 ```
@@ -64,7 +68,7 @@ El pedido se crea rapido y luego avanza por eventos:
 6. Si hay stock, publica `inventory.reserved`.
 7. `kitchen-service` consume `inventory.reserved`, prepara la orden y publica `kitchen.ready`.
 8. `delivery-service` consume `kitchen.ready`, procesa la entrega y publica `delivery.completed` o `delivery.failed`.
-9. `order-service` consume eventos de delivery para marcar `COMPLETED`, reintentar o abandonar.
+9. `order-service` consume eventos de delivery para marcar `COMPLETED`, dejar la orden en `DELIVERY_RETRY_PENDING` o moverla a `DELIVERY_ABANDONED` cuando se agotan reintentos.
 10. `inventory-service` consume `delivery.completed` y convierte la reserva en venta: baja `quantity`, baja `reserved` y sube `sold`.
 11. `notification-service` consume `notification.created.queue` y guarda la notificacion.
 
@@ -98,14 +102,19 @@ La columna unica `inventory_sales.order_id` evita descontar dos veces si RabbitM
 | Estado | Significado |
 |---|---|
 | `PENDING` | Orden creada y esperando flujo asincrono |
+| `IN_KITCHEN` | Cocina recibio la orden y ya inicio preparacion |
 | `CANCELLED` | Orden cancelada antes de prepararse, con compensacion de stock cuando aplica |
 | `READY_FOR_DELIVERY` | Cocina termino y la orden queda lista para despacho |
+| `IN_DELIVERY` | Delivery ya tomo la orden y esta en proceso de entrega |
+| `DELIVERY_RETRY_PENDING` | Delivery fallo de forma transitoria y la orden queda pendiente de nuevo intento |
 | `COMPLETED` | Delivery completo y orden cerrada correctamente |
-| `ABANDONED` | Delivery fallo luego de agotar reintentos; no se devuelve inventario porque la comida ya fue preparada |
+| `DELIVERY_ABANDONED` | Delivery fallo luego de agotar reintentos; no se devuelve inventario porque la comida ya fue preparada |
 
 ## Base de datos
 
-Todos los servicios usan `fastorder_db` y tablas separadas por dominio. La conexion de aplicacion apunta siempre a `fastorder-db:5432`, que es Pgpool. Pgpool enruta hacia el nodo primario para escrituras y monitorea los nodos PostgreSQL administrados con repmgr:
+Antes el proyecto tenia bases separadas por servicio como `menu_db`, `inventory_db`, `order_db`, `kitchen_db`, `delivery_db` y `notification_db`. La arquitectura actual consolida todo en una sola base logica llamada `fastorder_db`, con tablas separadas por dominio para cada microservicio.
+
+Todos los servicios usan `fastorder_db` y la conexion de aplicacion apunta siempre a `fastorder-db:5432`, que es Pgpool. Pgpool enruta hacia el nodo primario para escrituras y monitorea los nodos PostgreSQL administrados con repmgr:
 
 - `fastorder-db-0`
 - `fastorder-db-1`
@@ -113,6 +122,11 @@ Todos los servicios usan `fastorder_db` y tablas separadas por dominio. La conex
 Esto permite demostrar replicacion de base de datos dentro de Docker sin cambiar las URLs JDBC de los microservicios.
 
 Si el primario cae, repmgr promueve la replica disponible. Pgpool conserva el endpoint de aplicacion `fastorder-db:5432`, por lo que los servicios no necesitan cambiar su cadena de conexion. El contenedor `db-recovery` vive dentro del despliegue Docker y reinicia automaticamente nodos PostgreSQL apagados, microservicios apagados o Pgpool cuando queda `unhealthy` despues de un failover.
+
+Ademas del cluster HA, el despliegue incluye dos apoyos operativos alrededor de la base y la mensajeria:
+
+- `postgres-backup` ejecuta `pg_dump` cada 5 minutos y conserva los ultimos 10 respaldos en `backups/postgres`.
+- `dlq-recovery` revisa periodicamente las colas DLQ y reinyecta mensajes para facilitar recuperacion automatica ante fallos transitorios.
 
 Tablas principales:
 

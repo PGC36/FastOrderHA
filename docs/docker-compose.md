@@ -13,6 +13,7 @@ El archivo principal de orquestacion local es [docker-compose.yml](../docker-com
 - Grafana.
 - cAdvisor.
 - backups automaticos de PostgreSQL con `pg_dump`.
+- recuperacion automatica de mensajes desde DLQ.
 - red compartida `fastorder-network`.
 - volumenes persistentes para PostgreSQL primario y standby.
 
@@ -27,12 +28,15 @@ El archivo principal de orquestacion local es [docker-compose.yml](../docker-com
 | `fastorder-db-1` | PostgreSQL standby con repmgr | interno | replica desde primario |
 | `db-recovery` | Watcher de recuperacion de BD y Pgpool | interno | N/A |
 | `postgres-backup` | Backups automaticos con `pg_dump` | interno | `database/backup/backup.sh` |
+| `dlq-recovery` | Reinyeccion automatica desde DLQ | interno | `monitoring/requeue-dlq.js` |
 
 Todos los microservicios usan el endpoint `fastorder-db:5432`. Pgpool se encarga de enrutar hacia el nodo PostgreSQL primario activo y de monitorear la replica. El balanceo de lecturas queda desactivado para evitar lecturas inconsistentes durante la demo. Pgpool queda configurado con `PGPOOL_NUM_INIT_CHILDREN=120`, `PGPOOL_MAX_POOL=1` y `PGPOOL_FAILOVER_ON_BACKEND_ERROR=yes`; ademas, los pools Hikari de los microservicios se limitan desde Docker Compose para evitar saturar las conexiones de PostgreSQL durante pruebas de carga.
 
 Cuando el primario cae, repmgr promueve el standby. Al volver el nodo caido, este puede reincorporarse como standby. Por eso, despues de una prueba de caos, el primario activo puede ser `fastorder-db-1` y `fastorder-db-0` puede quedar como replica.
 
 `db-recovery` ejecuta Docker CLI dentro de un contenedor y monta `/var/run/docker.sock`. Su funcion es observar la capa de BD y los microservicios principales; si algun contenedor queda apagado por una prueba con `docker kill`, lo arranca con `docker start`. Si Pgpool queda `unhealthy` despues del failover, reinicia `fastorder-db` para recuperar el endpoint unico.
+
+`dlq-recovery` usa la imagen `node:24-alpine` y ejecuta `monitoring/requeue-dlq.js --watch`. Consulta RabbitMQ Management API cada 15 segundos y reinyecta mensajes desde DLQ en lotes de hasta 100 elementos para ayudar a la recuperacion automatica ante fallos transitorios.
 
 ### Infraestructura
 
@@ -153,6 +157,8 @@ API_RATE_LIMIT_WINDOW_SECONDS=60
 
 El limite esta configurado alto para permitir la prueba de 50,000 peticiones. Para demostrar rechazo por exceso de trafico, se puede bajar `API_RATE_LIMIT_CAPACITY` temporalmente y recrear el gateway.
 
+Si Redis queda temporalmente no disponible, `API_RATE_LIMIT_FAIL_OPEN=true` permite que el gateway siga aceptando trafico y agregue la cabecera `X-RateLimit-Redis: unavailable`.
+
 ## Observabilidad
 
 Prometheus recolecta:
@@ -221,10 +227,10 @@ Workers RabbitMQ:
 SPRING_RABBITMQ_LISTENER_SIMPLE_PREFETCH=20
 SPRING_RABBITMQ_LISTENER_SIMPLE_CONCURRENCY=8
 SPRING_RABBITMQ_LISTENER_SIMPLE_MAX_CONCURRENCY=16
-SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_ATTEMPTS=3
-SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_INITIAL_INTERVAL=1000
-SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MULTIPLIER=2
-SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_INTERVAL=10000
+SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_ATTEMPTS=12
+SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_INITIAL_INTERVAL=2000
+SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MULTIPLIER=1.5
+SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_INTERVAL=15000
 ORDER_PROCESSING_MODE=event
 ```
 
