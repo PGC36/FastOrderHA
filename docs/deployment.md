@@ -2,7 +2,7 @@
 
 ## Resumen
 
-FastOrder HA se despliega localmente con Docker Compose. El despliegue actual levanta microservicios, PostgreSQL primary/standby con Pgpool, RabbitMQ, Redis, Prometheus, Grafana, cAdvisor y backups automaticos.
+FastOrder HA se despliega localmente con Docker Compose. El despliegue actual levanta microservicios, PostgreSQL primary/standby con Pgpool, RabbitMQ, Redis, Prometheus, Grafana, cAdvisor, backups automaticos y recuperacion operativa para contenedores y DLQ.
 
 Archivo principal:
 
@@ -72,6 +72,7 @@ Credenciales:
 | `fastorder-db-1` | interno | PostgreSQL replica |
 | `db-recovery` | interno | Watcher de recuperacion de PostgreSQL/Pgpool y microservicios |
 | `postgres-backup` | interno | Backups automaticos de PostgreSQL |
+| `dlq-recovery` | interno | Reinyeccion automatica de mensajes desde DLQ |
 | `rabbitmq` | `5672` | Broker |
 | `redis` | `6379` | Rate limiting del gateway |
 | `prometheus` | `9090` | Metricas |
@@ -82,6 +83,7 @@ Credenciales:
 
 ```bash
 curl http://localhost:8080/actuator/health
+curl http://localhost:8081/actuator/health
 curl http://localhost:8082/actuator/health
 curl http://localhost:8083/actuator/health
 curl http://localhost:8084/actuator/health
@@ -104,6 +106,8 @@ docker compose exec fastorder-db-1 psql -U fastorder_user -d fastorder_db -c "se
 
 `false` indica primario activo y `true` indica standby.
 
+Antes de una prueba manual de failover, conviene identificar cual nodo esta activo porque despues de una promocion previa el primario puede ser `fastorder-db-0` o `fastorder-db-1`.
+
 Prueba manual de failover de base de datos:
 
 ```bash
@@ -113,6 +117,8 @@ docker compose exec fastorder-db-1 psql -U fastorder_user -d fastorder_db -c "se
 ```
 
 Despues de la promocion, Pgpool mantiene el endpoint `fastorder-db:5432`. El nodo que queda con `pg_is_in_recovery() = false` es el primario activo. El contenedor `db-recovery` observa los nodos de BD, Pgpool y microservicios desde Docker; si un contenedor queda apagado por `docker kill`, lo vuelve a encender, y si Pgpool queda `unhealthy`, lo reinicia para recuperar el endpoint unico.
+
+Tambien existe `dlq-recovery`, que observa RabbitMQ Management API y reinyecta mensajes desde colas DLQ para facilitar recuperacion automatica ante fallos transitorios en consumidores.
 
 ## Rutas principales por gateway
 
@@ -137,7 +143,7 @@ API_RATE_LIMIT_WINDOW_SECONDS=60
 API_RATE_LIMIT_FAIL_OPEN=true
 ```
 
-Las respuestas del gateway incluyen encabezados `X-RateLimit-Limit`, `X-RateLimit-Remaining` y `X-RateLimit-Window-Seconds`. Si Redis se reinicia, el gateway mantiene el trafico con degradacion controlada por `fail-open`; los timeouts de Redis estan configurados en `500ms` para que la degradacion sea rapida.
+Las respuestas del gateway incluyen encabezados `X-RateLimit-Limit`, `X-RateLimit-Remaining` y `X-RateLimit-Window-Seconds`. Si Redis se reinicia, el gateway mantiene el trafico con degradacion controlada por `fail-open`; los timeouts de Redis estan configurados en `500ms` para que la degradacion sea rapida. En esa condicion el gateway agrega `X-RateLimit-Redis: unavailable`.
 
 ## RabbitMQ
 
@@ -158,6 +164,12 @@ La consola web permite revisar colas, consumidores y mensajes pendientes:
 
 ```text
 http://localhost:15672
+```
+
+Las metricas Prometheus de RabbitMQ quedan expuestas en:
+
+```text
+http://localhost:15692/metrics
 ```
 
 ## Observabilidad

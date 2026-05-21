@@ -21,6 +21,10 @@ Los microservicios tambien exponen puertos locales para depuracion, pero en la d
 |---|---|---|
 | `GET` | `/api/menu/productos` | Lista productos |
 | `GET` | `/api/menu/productos/disponibles` | Lista productos disponibles |
+| `GET` | `/api/menu/productos/{id}` | Consulta un producto por ID |
+| `GET` | `/api/menu/productos/categoria/{categoria}` | Lista productos por categoria |
+| `POST` | `/api/menu/productos` | Crea un producto |
+| `PATCH` | `/api/menu/productos/{id}/disponibilidad` | Cambia disponibilidad de un producto |
 
 ## Inventario
 
@@ -34,9 +38,11 @@ Los microservicios tambien exponen puertos locales para depuracion, pero en la d
 
 | Metodo | Endpoint gateway | Descripcion |
 |---|---|---|
+| `GET` | `/api/orders/health-check` | Health funcional simple de order-service |
 | `POST` | `/api/orders` | Crea una orden |
 | `GET` | `/api/orders` | Lista ordenes |
 | `GET` | `/api/orders/{id}` | Consulta una orden por ID |
+| `PATCH` | `/api/orders/{id}/status` | Actualiza estado de una orden |
 
 Ejemplo:
 
@@ -63,6 +69,9 @@ Body:
 | Metodo | Endpoint gateway | Descripcion |
 |---|---|---|
 | `GET` | `/api/kitchen/orders` | Lista ordenes de cocina |
+| `GET` | `/api/kitchen/orders/{id}` | Consulta una orden de cocina |
+| `POST` | `/api/kitchen/orders` | Crea una orden de cocina manualmente |
+| `PATCH` | `/api/kitchen/orders/{id}/status` | Actualiza estado de cocina |
 
 ## Delivery
 
@@ -77,6 +86,8 @@ Body:
 | `PATCH` | `/api/delivery/{id}/deliver` | Marca entregada |
 | `PATCH` | `/api/delivery/{id}/fail` | Marca fallida |
 | `PATCH` | `/api/delivery/{id}/cancel` | Cancela entrega |
+
+Nota: el gateway reescribe `/api/delivery...` hacia `/deliveries...` en `delivery-service`.
 
 ## Notificaciones
 
@@ -93,6 +104,8 @@ Cada servicio Spring Boot expone:
 |---|---|
 | `/actuator/health` | Estado del servicio |
 | `/actuator/prometheus` | Metricas para Prometheus |
+
+Nota: estas rutas se consultan por puerto directo del servicio. No forman parte del catalogo funcional del gateway.
 
 Puertos directos:
 

@@ -50,7 +50,7 @@ El script general crea todas las tablas que antes estaban repartidas por scripts
 | Dominio | Tablas |
 |---|---|
 | Menu | `productos` |
-| Inventario | `inventory`, `inventory_sales` |
+| Inventario | `inventory`, `inventory_sales`, `inventory_reservations` |
 | Pedidos | `orders`, `outbox_events` |
 | Cocina | `kitchen_orders` |
 | Entregas | `delivery_orders`, `delivery_status_history` |
@@ -113,6 +113,24 @@ Flujo esperado:
 - al cancelar/fallar: `reserved -= quantity`
 - al completar delivery: `quantity -= quantity`, `reserved -= quantity`, `sold += quantity`
 
+### Tabla `inventory_reservations`
+
+Registra reservas activas por `order_id` mientras la orden sigue en proceso. Esto permite liberar o reconciliar reservas pendientes sin depender solo del valor agregado en `inventory.reserved`.
+
+| Columna | Tipo | Restricciones | Descripcion |
+|---|---|---|---|
+| `id` | `BIGSERIAL` | Primary key | Identificador interno |
+| `order_id` | `BIGINT` | `UNIQUE`, `NOT NULL` | Pedido con reserva activa |
+| `product_id` | `BIGINT` | `NOT NULL` | Producto reservado |
+| `quantity` | `INTEGER` | `NOT NULL`, `CHECK (quantity > 0)` | Cantidad reservada |
+| `created_at` | `TIMESTAMP` | `NOT NULL`, `DEFAULT CURRENT_TIMESTAMP` | Fecha de creacion |
+
+Uso esperado:
+
+- al reservar inventario, se inserta una fila por pedido;
+- al cancelar la orden, completar delivery o reconciliar inconsistencias, la fila se elimina;
+- `inventory-service` usa esta tabla para detectar reservas colgadas y corregirlas.
+
 ## Pedidos
 
 ### Tabla `orders`
@@ -133,10 +151,13 @@ Flujo esperado:
 Estados principales usados por la Saga:
 
 - `PENDING`
+- `IN_KITCHEN`
 - `CANCELLED`
 - `READY_FOR_DELIVERY`
+- `IN_DELIVERY`
+- `DELIVERY_RETRY_PENDING`
 - `COMPLETED`
-- `ABANDONED`
+- `DELIVERY_ABANDONED`
 
 ### Tabla `outbox_events`
 
@@ -151,6 +172,10 @@ Estados principales usados por la Saga:
 | `created_at` | `TIMESTAMP` | `DEFAULT NOW()` | Fecha de creacion |
 
 `outbox_events` permite que `order-service` confirme la escritura de la orden y despues publique el evento hacia RabbitMQ de forma desacoplada.
+
+Indice relevante:
+
+- `idx_outbox_processed` para buscar eventos pendientes de publicar.
 
 ## Cocina
 
@@ -181,9 +206,23 @@ Estados permitidos: `PENDING`, `PREPARING`, `READY`, `CANCELLED`.
 | `delivery_address` | `VARCHAR(500)` | `NOT NULL` | Direccion de entrega |
 | `created_at` | `TIMESTAMP` | `NOT NULL`, `DEFAULT NOW()` | Fecha de creacion |
 | `updated_at` | `TIMESTAMP` | `NOT NULL`, `DEFAULT NOW()` | Fecha de actualizacion |
+| `assigned_at` | `TIMESTAMP` | nullable | Momento de asignacion |
+| `picked_up_at` | `TIMESTAMP` | nullable | Momento de recogida |
+| `in_transit_at` | `TIMESTAMP` | nullable | Inicio del traslado |
+| `delivered_at` | `TIMESTAMP` | nullable | Entrega completada |
+| `failed_at` | `TIMESTAMP` | nullable | Momento del fallo |
+| `cancelled_at` | `TIMESTAMP` | nullable | Momento de cancelacion |
+| `cancel_reason` | `VARCHAR(255)` | nullable | Motivo de cancelacion |
+| `failure_reason` | `VARCHAR(255)` | nullable | Motivo del fallo |
 | `version` | `BIGINT` | `NOT NULL`, `DEFAULT 0` | Control de concurrencia optimista |
 
 Estados permitidos: `PENDING`, `ASSIGNED`, `PICKED_UP`, `IN_TRANSIT`, `DELIVERED`, `FAILED`, `CANCELLED`.
+
+Indices relevantes:
+
+- `idx_delivery_orders_status`
+- `idx_delivery_orders_assigned_driver_id`
+- `idx_delivery_orders_created_at`
 
 ### Tabla `delivery_status_history`
 
@@ -211,13 +250,21 @@ Estados permitidos: `PENDING`, `ASSIGNED`, `PICKED_UP`, `IN_TRANSIT`, `DELIVERED
 | `status` | `VARCHAR(30)` | `NOT NULL`, `DEFAULT 'PENDING'` | Estado de la notificacion |
 | `created_at` | `TIMESTAMP` | `NOT NULL`, `DEFAULT CURRENT_TIMESTAMP` | Fecha de creacion |
 
+Restricciones e indices relevantes:
+
+- `uk_notifications_order_id` deja `order_id` como unico para evitar notificaciones duplicadas por la misma orden.
+- `idx_notifications_order_id`
+- `idx_notifications_created_at`
+
 ## Relaciones
 
-Como ahora todas las tablas viven en `fastorder_db`, es posible agregar foreign keys entre dominios en el futuro. Por ahora se mantienen las relaciones logicas existentes para evitar cambiar el comportamiento de los microservicios:
+Como ahora todas las tablas viven en `fastorder_db`, es posible agregar foreign keys entre dominios en el futuro. Por ahora casi todas las relaciones se mantienen como referencias logicas para evitar cambiar el comportamiento de los microservicios. La excepcion actual es `delivery_status_history.delivery_order_id`, que si tiene foreign key real hacia `delivery_orders(id)`.
 
 - `inventory.product_id` apunta logicamente a `productos.id`
 - `inventory_sales.product_id` apunta logicamente a `productos.id`
 - `inventory_sales.order_id` apunta logicamente a `orders.id`
+- `inventory_reservations.product_id` apunta logicamente a `productos.id`
+- `inventory_reservations.order_id` apunta logicamente a `orders.id`
 - `orders.product_id` apunta logicamente a `productos.id`
 - `kitchen_orders.order_id` apunta logicamente a `orders.id`
 - `delivery_orders.order_id` apunta logicamente a `orders.id`
