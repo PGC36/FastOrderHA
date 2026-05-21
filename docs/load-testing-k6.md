@@ -15,22 +15,43 @@ Validar los requisitos de rendimiento del proyecto:
 
 Tambien se validan pruebas de caos matando contenedores de microservicios y nodos de PostgreSQL durante la carga.
 
+## Plan de pruebas finales
+
+Aunque la prueba final se ejecutara en la siguiente entrega, el plan queda definido para validar rendimiento, concurrencia, tolerancia a fallos y consistencia final del sistema.
+
+| Punto solicitado | Plan |
+|---|---|
+| Herramienta de prueba | `k6` para carga HTTP. La validacion final se hace con `monitoring/check-results.js`. |
+| Escenario de al menos 50,000 peticiones | Ejecutar `k6 run .\monitoring\k6\order-write-test.js`, que envia `50,000` peticiones `POST /api/orders` al API Gateway. |
+| Escenario de concurrencia sobre la operacion critica | La operacion critica es la creacion de pedidos. Se usan `200` VUs en la prueba normal de escritura y carga sostenida con `sustained-write-test.js`. |
+| Escenario de caida de contenedor o pod | Ejecutar `order-write-resilient-test.js` y, en otra terminal, matar servicios criticos con `docker kill`. Para caos automatizado de BD se usa `run-50k-db-chaos.js`. |
+| Metricas que se capturaran | Throughput, duracion total de k6, latencia promedio, p90, p95, p99, tasa de errores HTTP, checks exitosos, reintentos recuperados, intentos por pedido, CPU/memoria por contenedor, estado de colas RabbitMQ, outbox pendiente/procesado, ordenes por estado, inventario `quantity/reserved/sold`, ventas y notificaciones. |
+| Resultado esperado | Para inventario exacto de 50,000: `50,000` ordenes `COMPLETED`, `0` outbox pendiente, RabbitMQ sin mensajes, `reserved=0`, `sold=50000`, `inventory_sales=50000`, `notifications=50000`, `Orders total = Idempotency keys unique` y `Status: DONE`. Ante caidas transitorias, el script resiliente debe recuperar las solicitudes con la misma `idempotencyKey` sin duplicar pedidos ni sobre vender inventario. |
+
+Comandos principales del plan:
+
+```powershell
+k6 run .\monitoring\k6\order-write-test.js
+node .\monitoring\k6\run-50k-db-chaos.js
+node .\monitoring\check-results.js
+```
+
 ## Scripts disponibles
 
 | Script | Tipo | Descripcion |
 |---|---|---|
 | `monitoring/k6/order-write-test.js` | Escritura 50k | Crea ordenes reales por `POST /api/orders` |
 | `monitoring/k6/order-write-resilient-test.js` | Escritura resiliente | Crea ordenes con reintentos por pedido usando la misma `idempotencyKey` |
+| `monitoring/k6/run-50k-db-chaos.js` | Caos BD 50k | Limpia datos, ejecuta la prueba resiliente, mata el primary de PostgreSQL y espera `Status: DONE` |
 | `monitoring/k6/sustained-write-test.js` | Escritura sostenida | Mantiene una tasa constante de ordenes |
-| `monitoring/k6/spike-write-test.js` | Pico de escritura | Lanza un pico fuerte de ordenes por pocos segundos |
-| `monitoring/k6/read-stress.js` | Lectura | Consulta endpoints del gateway |
-| `monitoring/k6/one-second-spike.js` | Pico de lectura | Intenta un pico extremo de lecturas |
 
 ## Prueba 50k de escritura
 
 ```powershell
 k6 run .\monitoring\k6\order-write-test.js
 ```
+
+El script usa por defecto `http://[::1]:8080` para que el comando directo apunte al API Gateway en Windows aun si otro servicio local responde en `127.0.0.1:8080`.
 
 ## Preparar una prueba limpia
 
@@ -264,12 +285,6 @@ docker logs fastorder-db-recovery --since 15m
 
 ```powershell
 k6 run .\monitoring\k6\sustained-write-test.js
-```
-
-## Pico de escritura
-
-```powershell
-k6 run .\monitoring\k6\spike-write-test.js
 ```
 
 ## Ver resultado de negocio

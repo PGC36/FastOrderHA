@@ -1,0 +1,40 @@
+orders_cancelled,0
+outbox_pending,0
+sales_total,75000
+delivery_total,75000
+outbox_total,75000
+kitchen_total,75000
+orders_completed,75000
+notifications_total,75000
+orders_total,75000
+unique_idempotency,75000
+1,0,0,75000
+POLL_ELAPSED_SECONDS=117.48
+--- Rabbit queues ---
+Timeout: 60.0 seconds ...
+Listing queues for vhost / ...
+name	messages_ready	messages_unacknowledged
+order.inventory-rejected.queue.dlq	0	0
+inventory.events.queue.dlq	0	0
+kitchen.inventory-reserved.queue.dlq	0	0
+inventory.delivery-completed.queue.dlq	0	0
+notification.created.queue.dlq	0	0
+order.inventory-rejected.queue	0	0
+inventory.order-created.queue.dlq	0	0
+kitchen.inventory-reserved.queue	0	0
+notification.created.queue	0	0
+inventory.events.queue	0	0
+delivery.events.queue	0	0
+order.kitchen-failed.queue	0	0
+kitchen.events.queue	0	0
+order.kitchen-failed.queue.dlq	0	0
+delivery.kitchen-ready.queue.dlq	0	0
+order.delivery-completed.queue.dlq	0	0
+order.delivery-failed.queue.dlq	0	0
+inventory.order-created.queue	0	0
+kitchen.events.queue.dlq	0	0
+order.delivery-completed.queue	0	0
+order.delivery-failed.queue	0	0
+delivery.events.queue.dlq	0	0
+inventory.delivery-completed.queue	0	0
+delivery.kitchen-ready.queue	0	0

@@ -1,9 +1,7 @@
 package com.fastorder.delivery.messaging;
 
-import com.fastorder.delivery.dto.request.AssignDriverRequest;
 import com.fastorder.delivery.dto.request.CreateDeliveryRequest;
-import com.fastorder.delivery.dto.response.DeliveryResponse;
-import com.fastorder.delivery.enums.DeliveryStatus;
+import com.fastorder.delivery.model.DeliveryOrder;
 import com.fastorder.delivery.service.DeliveryOrderService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -76,8 +74,7 @@ public class DeliveryKitchenReadyConsumer {
             createRequest.setOrderId(orderId);
             createRequest.setDeliveryAddress(readText(event, "deliveryAddress", "Direccion pendiente"));
 
-            DeliveryResponse delivery = deliveryOrderService.createDelivery(createRequest);
-            delivery = moveToDelivered(delivery);
+            DeliveryOrder delivery = deliveryOrderService.createCompletedSystemDelivery(createRequest, SYSTEM_DRIVER_ID);
 
             rabbitTemplate.convertAndSend(deliveryExchange, completedRoutingKey, Map.of(
                     "orderId", orderId,
@@ -98,31 +95,6 @@ public class DeliveryKitchenReadyConsumer {
                     exception);
             throw new IllegalStateException("Error tecnico procesando kitchen.ready", exception);
         }
-    }
-
-    private DeliveryResponse moveToDelivered(DeliveryResponse delivery) {
-        while (delivery.getStatus() != DeliveryStatus.DELIVERED) {
-            delivery = switch (delivery.getStatus()) {
-                case PENDING -> {
-                    assign(delivery.getId());
-                    yield deliveryOrderService.getDeliveryById(delivery.getId());
-                }
-                case ASSIGNED -> deliveryOrderService.markPickedUp(delivery.getId());
-                case PICKED_UP -> deliveryOrderService.markInTransit(delivery.getId());
-                case IN_TRANSIT -> deliveryOrderService.markDelivered(delivery.getId());
-                case FAILED, CANCELLED -> throw new IllegalStateException(
-                        "Estado de delivery no reintentable: " + delivery.getStatus());
-                case DELIVERED -> delivery;
-            };
-        }
-
-        return delivery;
-    }
-
-    private void assign(Long deliveryId) {
-        AssignDriverRequest request = new AssignDriverRequest();
-        request.setDriverId(SYSTEM_DRIVER_ID);
-        deliveryOrderService.assignDriver(deliveryId, request);
     }
 
     private Long readLong(JsonNode root, String fieldName) {

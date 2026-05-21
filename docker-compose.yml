@@ -7,7 +7,7 @@ services:
       POSTGRESQL_USERNAME: fastorder_user
       POSTGRESQL_PASSWORD: fastorder123
       POSTGRESQL_DATABASE: fastorder_db
-      POSTGRESQL_MAX_CONNECTIONS: 200
+      POSTGRESQL_MAX_CONNECTIONS: 300
       POSTGRESQL_NUM_SYNCHRONOUS_REPLICAS: 1
       REPMGR_PRIMARY_HOST: fastorder-db-0
       REPMGR_PARTNER_NODES: fastorder-db-0,fastorder-db-1
@@ -31,7 +31,7 @@ services:
       POSTGRESQL_USERNAME: fastorder_user
       POSTGRESQL_PASSWORD: fastorder123
       POSTGRESQL_DATABASE: fastorder_db
-      POSTGRESQL_MAX_CONNECTIONS: 200
+      POSTGRESQL_MAX_CONNECTIONS: 300
       POSTGRESQL_NUM_SYNCHRONOUS_REPLICAS: 1
       REPMGR_PRIMARY_HOST: fastorder-db-0
       REPMGR_PARTNER_NODES: fastorder-db-0,fastorder-db-1
@@ -63,7 +63,7 @@ services:
       PGPOOL_ADMIN_PASSWORD: pgpooladmin123
       PGPOOL_ENABLE_LOAD_BALANCING: "no"
       PGPOOL_FAILOVER_ON_BACKEND_ERROR: "yes"
-      PGPOOL_NUM_INIT_CHILDREN: "120"
+      PGPOOL_NUM_INIT_CHILDREN: "180"
       PGPOOL_MAX_POOL: "1"
       PGPOOL_POSTGRES_CUSTOM_USERS: fastorder_user
       PGPOOL_POSTGRES_CUSTOM_PASSWORDS: fastorder123
@@ -129,6 +129,39 @@ services:
       - fastorder-network
     restart: unless-stopped
 
+  postgres-exporter-db-0:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: fastorder-postgres-exporter-db-0
+    environment:
+      DATA_SOURCE_NAME: postgresql://postgres:fastorder123@fastorder-db-0:5432/fastorder_db?sslmode=disable
+    depends_on:
+      - fastorder-db-0
+    networks:
+      - fastorder-network
+    restart: unless-stopped
+
+  postgres-exporter-db-1:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: fastorder-postgres-exporter-db-1
+    environment:
+      DATA_SOURCE_NAME: postgresql://postgres:fastorder123@fastorder-db-1:5432/fastorder_db?sslmode=disable
+    depends_on:
+      - fastorder-db-1
+    networks:
+      - fastorder-network
+    restart: unless-stopped
+
+  postgres-exporter-pgpool:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: fastorder-postgres-exporter-pgpool
+    environment:
+      DATA_SOURCE_NAME: postgresql://postgres:fastorder123@fastorder-db:5432/fastorder_db?sslmode=disable
+    depends_on:
+      - fastorder-db
+    networks:
+      - fastorder-network
+    restart: unless-stopped
+
   dlq-recovery:
     image: node:24-alpine
     container_name: fastorder-dlq-recovery
@@ -184,6 +217,21 @@ services:
     privileged: true
     devices:
       - /dev/kmsg:/dev/kmsg
+    networks:
+      - fastorder-network
+    restart: unless-stopped
+
+  docker-stats-exporter:
+    image: node:24-alpine
+    container_name: fastorder-docker-stats-exporter
+    working_dir: /app
+    command: ["node", "docker-stats-exporter.js"]
+    environment:
+      PORT: "9104"
+      CONTAINER_FILTER: "^fastorder-(api-gateway|menu-service|inventory-service|order-service|kitchen-service|delivery-service|notification-service)$"
+    volumes:
+      - ./monitoring/docker-stats-exporter.js:/app/docker-stats-exporter.js:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - fastorder-network
     restart: unless-stopped
@@ -255,12 +303,18 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://fastorder-db:5432/fastorder_db
       SPRING_DATASOURCE_USERNAME: fastorder_user
       SPRING_DATASOURCE_PASSWORD: fastorder123
-      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 10
-      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 2
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 25
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 5
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: guest
       SPRING_RABBITMQ_PASSWORD: guest
+      SPRING_RABBITMQ_LISTENER_SIMPLE_PREFETCH: 50
+      SPRING_RABBITMQ_LISTENER_SIMPLE_CONCURRENCY: 16
+      SPRING_RABBITMQ_LISTENER_SIMPLE_MAX_CONCURRENCY: 32
+      INVENTORY_ORDER_CREATED_CONSUMERS: 16
+      INVENTORY_DELIVERY_COMPLETED_CONSUMERS: 16
+      LOGGING_LEVEL_COM_EXAMPLE_INVENTORY_SERVICE: WARN
     networks:
       - fastorder-network
     restart: unless-stopped
@@ -282,21 +336,28 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://fastorder-db:5432/fastorder_db
       SPRING_DATASOURCE_USERNAME: fastorder_user
       SPRING_DATASOURCE_PASSWORD: fastorder123
-      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 15
-      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 3
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 35
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 8
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: guest
       SPRING_RABBITMQ_PASSWORD: guest
+      SPRING_RABBITMQ_LISTENER_SIMPLE_PREFETCH: 50
+      SPRING_RABBITMQ_LISTENER_SIMPLE_CONCURRENCY: 16
+      SPRING_RABBITMQ_LISTENER_SIMPLE_MAX_CONCURRENCY: 32
       SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_ATTEMPTS: 12
       SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_INITIAL_INTERVAL: 2000
       SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MULTIPLIER: 1.5
       SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_INTERVAL: 15000
+      ORDER_WORKFLOW_EVENT_CONSUMERS: 16
+      ORDER_OUTBOX_PUBLISHER_DELAY_MS: 50
+      ORDER_OUTBOX_PUBLISHER_BATCH_SIZE: 1000
       INVENTORY_SERVICE_URL: http://inventory-service:8083/inventory
       KITCHEN_SERVICE_URL: http://kitchen-service:8084/kitchen/orders
       DELIVERY_SERVICE_URL: http://delivery-service:8085/deliveries
       NOTIFICATION_SERVICE_URL: http://notification-service:8086/notifications
       ORDER_PROCESSING_MODE: event
+      LOGGING_LEVEL_COM_FASTORDER_ORDERSERVICE: WARN
     networks:
       - fastorder-network
     restart: unless-stopped
@@ -314,17 +375,22 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://fastorder-db:5432/fastorder_db
       SPRING_DATASOURCE_USERNAME: fastorder_user
       SPRING_DATASOURCE_PASSWORD: fastorder123
-      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 10
-      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 2
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 25
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 5
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: guest
       SPRING_RABBITMQ_PASSWORD: guest
+      SPRING_RABBITMQ_LISTENER_SIMPLE_PREFETCH: 50
+      SPRING_RABBITMQ_LISTENER_SIMPLE_CONCURRENCY: 16
+      SPRING_RABBITMQ_LISTENER_SIMPLE_MAX_CONCURRENCY: 32
       SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_ATTEMPTS: 12
       SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_INITIAL_INTERVAL: 2000
       SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MULTIPLIER: 1.5
       SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_INTERVAL: 15000
+      KITCHEN_INVENTORY_RESERVED_CONSUMERS: 16
       ORDER_SERVICE_URL: http://order-service:8082/orders
+      LOGGING_LEVEL_COM_FASTORDER_KITCHEN: WARN
     networks:
       - fastorder-network
     restart: unless-stopped
@@ -342,17 +408,22 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://fastorder-db:5432/fastorder_db
       SPRING_DATASOURCE_USERNAME: fastorder_user
       SPRING_DATASOURCE_PASSWORD: fastorder123
-      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 10
-      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 2
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 25
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 5
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: guest
       SPRING_RABBITMQ_PASSWORD: guest
+      SPRING_RABBITMQ_LISTENER_SIMPLE_PREFETCH: 50
+      SPRING_RABBITMQ_LISTENER_SIMPLE_CONCURRENCY: 16
+      SPRING_RABBITMQ_LISTENER_SIMPLE_MAX_CONCURRENCY: 32
       SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_ATTEMPTS: 12
       SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_INITIAL_INTERVAL: 2000
       SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MULTIPLIER: 1.5
       SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_INTERVAL: 15000
+      DELIVERY_KITCHEN_READY_CONSUMERS: 16
       ORDER_SERVICE_URL: http://order-service:8082/orders
+      LOGGING_LEVEL_COM_FASTORDER_DELIVERY: WARN
     networks:
       - fastorder-network
     restart: unless-stopped
@@ -370,16 +441,21 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://fastorder-db:5432/fastorder_db
       SPRING_DATASOURCE_USERNAME: fastorder_user
       SPRING_DATASOURCE_PASSWORD: fastorder123
-      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
-      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 15
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 3
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: guest
       SPRING_RABBITMQ_PASSWORD: guest
+      SPRING_RABBITMQ_LISTENER_SIMPLE_PREFETCH: 50
+      SPRING_RABBITMQ_LISTENER_SIMPLE_CONCURRENCY: 16
+      SPRING_RABBITMQ_LISTENER_SIMPLE_MAX_CONCURRENCY: 32
       SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_ATTEMPTS: 12
       SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_INITIAL_INTERVAL: 2000
       SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MULTIPLIER: 1.5
       SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_INTERVAL: 15000
+      NOTIFICATION_CREATED_CONSUMERS: 16
+      LOGGING_LEVEL_COM_EXAMPLE_DEMO: WARN
     networks:
       - fastorder-network
     restart: unless-stopped
@@ -400,7 +476,11 @@ services:
     depends_on:
       - api-gateway
       - cadvisor
+      - docker-stats-exporter
       - rabbitmq
+      - postgres-exporter-db-0
+      - postgres-exporter-db-1
+      - postgres-exporter-pgpool
       - menu-service
       - inventory-service
       - order-service

@@ -1,0 +1,37 @@
+RUN_ID=db-chaos-50k-20260512055956
+BASE_URL=http://[::1]:8080
+TOTAL_ORDERS=50000
+VUS=100
+START=2026-05-12T05:59:56.659Z
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: .\monitoring\k6\order-write-resilient-test.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 100 max VUs, 30m30s max duration (incl. graceful stop):
+              * create_orders_resilient: 50000 iterations shared among 100 VUs (maxDuration: 30m0s, gracefulStop: 30s)
+
+time="2026-05-11T23:59:59-06:00" level=info msg="RUN_ID=db-chaos-50k-20260512055956" source=console
+time="2026-05-11T23:59:59-06:00" level=info msg="BASE_URL=http://[::1]:8080" source=console
+time="2026-05-11T23:59:59-06:00" level=info msg="TOTAL_ORDERS=50000" source=console
+time="2026-05-11T23:59:59-06:00" level=info msg="VUS=100" source=console
+time="2026-05-11T23:59:59-06:00" level=info msg="MAX_DURATION=30m" source=console
+time="2026-05-11T23:59:59-06:00" level=info msg="MAX_ATTEMPTS=150" source=console
+time="2026-05-11T23:59:59-06:00" level=info msg="RETRY_DELAY_SECONDS=2" source=console
+time="2026-05-11T23:59:59-06:00" level=info msg="REQUEST_TIMEOUT=5s" source=console
+time="2026-05-11T23:59:59-06:00" level=info msg="ITERATION_DELAY_SECONDS=0.2" source=console
+time="2026-05-11T23:59:59-06:00" level=info msg="RESULT_PATH=monitoring/k6/last-resilient-result.txt" source=console
+time="2026-05-11T23:59:59-06:00" level=info msg="START=2026-05-12T05:59:59.902Z" source=console
+
+running (00m01.0s), 100/100 VUs, 400 complete and 0 interrupted iterations
+create_orders_resilient   [   1% ] 100 VUs  00m01.0s/30m0s  00400/50000 shared iters
+
+running (00m02.0s), 100/100 VUs, 879 complete and 0 interrupted iterations
+create_orders_resilient   [   2% ] 100 VUs  00m02.0s/30m0s  00879/50000 shared iters

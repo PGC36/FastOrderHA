@@ -41,6 +41,10 @@ server:
   port: 8082
 
 management:
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
   endpoints:
     web:
       exposure:
@@ -76,4 +80,5 @@ app:
     workflow-worker-max-size: ${ORDER_WORKFLOW_WORKER_MAX_SIZE:20}
     workflow-worker-queue-capacity: ${ORDER_WORKFLOW_WORKER_QUEUE_CAPACITY:1000}
     outbox-publisher-delay-ms: ${ORDER_OUTBOX_PUBLISHER_DELAY_MS:500}
+    outbox-publisher-batch-size: ${ORDER_OUTBOX_PUBLISHER_BATCH_SIZE:100}
     outbox-publisher-confirm-timeout-ms: ${ORDER_OUTBOX_PUBLISHER_CONFIRM_TIMEOUT_MS:5000}

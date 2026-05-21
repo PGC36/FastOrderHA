@@ -1,13 +1,17 @@
 import http from 'k6/http';
 import { check } from 'k6';
 import exec from 'k6/execution';
+import { textSummary } from 'https://jslib.k6.io/k6-summary/0.0.1/index.js';
 
 const rate = Number(__ENV.RATE || 250);
 const duration = __ENV.DURATION || '5m';
+const totalOrders = Number(__ENV.TOTAL_ORDERS || 75000);
 const preAllocatedVUs = Number(__ENV.PRE_ALLOCATED_VUS || 300);
 const maxVUs = Number(__ENV.MAX_VUS || 1000);
-const baseUrl = __ENV.BASE_URL || 'http://localhost:8080';
+const baseUrl = __ENV.BASE_URL || 'http://[::1]:8080';
 const runId = __ENV.RUN_ID || `local-${Date.now()}`;
+const resultPath = __ENV.RESULT_PATH || 'monitoring/k6/last-75k-sustained-result.txt';
+const startedAt = new Date().toISOString();
 
 export const options = {
   summaryTrendStats: ['avg', 'min', 'med', 'p(90)', 'p(95)', 'p(99)', 'max'],
@@ -28,8 +32,24 @@ export const options = {
   },
 };
 
+export function setup() {
+  console.log(`RUN_ID=${runId}`);
+  console.log(`BASE_URL=${baseUrl}`);
+  console.log(`TOTAL_ORDERS=${totalOrders}`);
+  console.log(`RATE=${rate}`);
+  console.log(`DURATION=${duration}`);
+  console.log(`PRE_ALLOCATED_VUS=${preAllocatedVUs}`);
+  console.log(`MAX_VUS=${maxVUs}`);
+  console.log(`RESULT_PATH=${resultPath}`);
+  console.log(`START=${startedAt}`);
+}
+
 export default function () {
   const iteration = exec.scenario.iterationInTest;
+  if (iteration >= totalOrders) {
+    return;
+  }
+
   const payload = JSON.stringify({
     productId: 1,
     quantity: 1,
@@ -59,4 +79,26 @@ export default function () {
       }
     },
   });
+}
+
+export function handleSummary(data) {
+  const endedAt = new Date().toISOString();
+  const header = [
+    `RUN_ID=${runId}`,
+    `BASE_URL=${baseUrl}`,
+    `TOTAL_ORDERS=${totalOrders}`,
+    `RATE=${rate}`,
+    `DURATION=${duration}`,
+    `PRE_ALLOCATED_VUS=${preAllocatedVUs}`,
+    `MAX_VUS=${maxVUs}`,
+    `START=${startedAt}`,
+    `END=${endedAt}`,
+    '',
+  ].join('\n');
+  const summary = textSummary(data, { indent: ' ', enableColors: false });
+
+  return {
+    stdout: textSummary(data, { indent: ' ', enableColors: true }),
+    [resultPath]: `${header}${summary}\n`,
+  };
 }

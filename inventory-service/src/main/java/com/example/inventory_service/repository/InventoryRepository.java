@@ -108,4 +108,21 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long> {
     int consumeReserved(
             @Param("productId") Long productId,
             @Param("quantity") Integer quantity);
+
+    @Modifying
+    @Query(value = """
+            update inventory i
+               set reserved = coalesce((
+                    select sum(r.quantity)
+                      from inventory_reservations r
+                     where r.product_id = i.product_id
+               ), 0),
+                   updated_at = CURRENT_TIMESTAMP
+             where reserved <> coalesce((
+                    select sum(r.quantity)
+                      from inventory_reservations r
+                     where r.product_id = i.product_id
+               ), 0)
+            """, nativeQuery = true)
+    int reconcileReservedCounters();
 }

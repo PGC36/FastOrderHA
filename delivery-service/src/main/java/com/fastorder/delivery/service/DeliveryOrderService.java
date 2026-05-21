@@ -50,6 +50,13 @@ public class DeliveryOrderService {
                 .orElseGet(() -> createNewDelivery(request));
     }
 
+    @Transactional
+    public DeliveryOrder createCompletedSystemDelivery(CreateDeliveryRequest request, Long driverId) {
+        return deliveryOrderRepository.findByOrderId(request.getOrderId())
+                .map(existing -> completeExistingSystemDelivery(existing, request, driverId))
+                .orElseGet(() -> createNewCompletedSystemDelivery(request, driverId));
+    }
+
     @Transactional(readOnly = true)
     public DeliveryResponse getDeliveryById(Long id) {
         DeliveryOrder deliveryOrder = findDeliveryById(id);
@@ -145,6 +152,66 @@ public class DeliveryOrderService {
 
             throw new DeliveryConflictException("Delivery already exists for orderId with different data");
         }
+    }
+
+    private DeliveryOrder createNewCompletedSystemDelivery(CreateDeliveryRequest request, Long driverId) {
+        LocalDateTime now = LocalDateTime.now();
+        DeliveryOrder deliveryOrder = DeliveryOrder.builder()
+                .orderId(request.getOrderId())
+                .deliveryAddress(request.getDeliveryAddress())
+                .status(DeliveryStatus.DELIVERED)
+                .assignedDriverId(driverId)
+                .assignedAt(now)
+                .pickedUpAt(now)
+                .inTransitAt(now)
+                .deliveredAt(now)
+                .build();
+
+        try {
+            DeliveryOrder saved = deliveryOrderRepository.save(deliveryOrder);
+            recordStatusHistory(saved, null, DeliveryStatus.DELIVERED, null, "system");
+            return saved;
+        } catch (DataIntegrityViolationException ex) {
+            DeliveryOrder existing = deliveryOrderRepository.findByOrderId(request.getOrderId())
+                    .orElseThrow(() -> ex);
+            return completeExistingSystemDelivery(existing, request, driverId);
+        }
+    }
+
+    private DeliveryOrder completeExistingSystemDelivery(
+            DeliveryOrder existing,
+            CreateDeliveryRequest request,
+            Long driverId
+    ) {
+        if (!sameDeliveryData(existing, request)) {
+            throw new DeliveryConflictException("Delivery already exists for orderId with different data");
+        }
+        if (existing.getStatus() == DeliveryStatus.DELIVERED) {
+            return existing;
+        }
+        if (existing.getStatus() == DeliveryStatus.FAILED || existing.getStatus() == DeliveryStatus.CANCELLED) {
+            throw new InvalidDeliveryStatusException(
+                    "Delivery terminal no puede completarse automaticamente: " + existing.getStatus());
+        }
+
+        DeliveryStatus previousStatus = existing.getStatus();
+        LocalDateTime now = LocalDateTime.now();
+        existing.setStatus(DeliveryStatus.DELIVERED);
+        existing.setAssignedDriverId(driverId);
+        if (existing.getAssignedAt() == null) {
+            existing.setAssignedAt(now);
+        }
+        if (existing.getPickedUpAt() == null) {
+            existing.setPickedUpAt(now);
+        }
+        if (existing.getInTransitAt() == null) {
+            existing.setInTransitAt(now);
+        }
+        existing.setDeliveredAt(now);
+
+        DeliveryOrder saved = deliveryOrderRepository.save(existing);
+        recordStatusHistory(saved, previousStatus, DeliveryStatus.DELIVERED, null, "system");
+        return saved;
     }
 
     private DeliveryResponse applyStatusChange(

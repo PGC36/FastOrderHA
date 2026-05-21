@@ -30,6 +30,11 @@ public class InventoryReconciliationService {
         for (CompletedReservationProjection reservation : terminalReservations) {
             reconcileTerminalReservation(reservation);
         }
+
+        int repairedProducts = inventoryRepository.reconcileReservedCounters();
+        if (repairedProducts > 0) {
+            logger.warn("Contadores de reservas reconciliados automaticamente para {} producto(s)", repairedProducts);
+        }
     }
 
     private void reconcileCompletedSale(CompletedReservationProjection reservation) {

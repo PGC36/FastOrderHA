@@ -1,91 +1,120 @@
 # Pruebas k6 de FastOrder HA
 
-Estos scripts generan evidencia para la seccion de rendimiento del proyecto. Las pruebas principales usan el API Gateway y ejecutan trafico real contra los microservicios.
+Estos scripts generan evidencia para rendimiento, concurrencia y resiliencia sobre la operacion critica:
 
-## Carga minima 50k de escritura
+```text
+POST /api/orders
+```
+
+## Scripts disponibles
+
+| Script | Uso |
+|---|---|
+| `order-write-test.js` | Prueba principal de escritura; por defecto envia 50,000 pedidos concurrentes. |
+| `order-write-resilient-test.js` | Prueba resiliente con reintentos e idempotencia para caidas transitorias. |
+| `run-50k-db-chaos.js` | Wrapper de caos: limpia datos, ejecuta la prueba resiliente, mata el primary de PostgreSQL y espera `Status: DONE`. |
+| `sustained-write-test.js` | Prueba sostenida con tasa constante de pedidos. |
+
+## Prueba principal 50k
 
 ```powershell
 k6 run .\monitoring\k6\order-write-test.js
 ```
 
-Este script envia `POST /api/orders` y crea ordenes reales. Por defecto corre contra `http://localhost:8080`, envia `50000` pedidos, usa `200` VUs y permite hasta `2m` para completar el envio. Para que todas las ordenes terminen `COMPLETED`, el inventario debe tener stock suficiente.
+Valores por defecto:
 
-Si necesitas cambiar algun valor sin editar el archivo:
+- `TOTAL_ORDERS=50000`
+- `VUS=200`
+- `BASE_URL=http://[::1]:8080`
+- `MAX_DURATION=2m`
+
+Ejemplo ajustado:
 
 ```powershell
 $env:TOTAL_ORDERS='10000'
 $env:VUS='100'
 $env:MAX_DURATION='1m'
-$env:BASE_URL='http://localhost:8080'
 k6 run .\monitoring\k6\order-write-test.js
 ```
 
-## Escritura concurrente sostenida
+## Prueba resiliente
+
+```powershell
+$env:TOTAL_ORDERS='50000'
+$env:VUS='100'
+$env:MAX_DURATION='30m'
+$env:MAX_ATTEMPTS='150'
+$env:RETRY_DELAY_SECONDS='2'
+$env:REQUEST_TIMEOUT='5s'
+$env:ITERATION_DELAY_SECONDS='0.2'
+$env:RUN_ID='resilient-' + (Get-Date -Format 'yyyyMMddHHmmss')
+k6 run .\monitoring\k6\order-write-resilient-test.js
+```
+
+Esta prueba reutiliza la misma `idempotencyKey` por pedido cuando hay errores transitorios, evitando duplicados.
+
+## Prueba 50k con caos de BD
+
+```powershell
+node .\monitoring\k6\run-50k-db-chaos.js
+```
+
+Prueba rapida sin tumbar la base:
+
+```powershell
+node .\monitoring\k6\run-50k-db-chaos.js --total-orders 10 --vus 2 --max-duration 1m --iteration-delay-seconds 0 --disable-chaos
+```
+
+Por defecto:
+
+- limpia datos de la prueba anterior.
+- prepara inventario para `50000` pedidos.
+- ejecuta `order-write-resilient-test.js`.
+- mata el primary de PostgreSQL en los segundos `5` y `140`.
+- espera hasta que `monitoring/check-results.js` muestre `Status: DONE`.
+
+## Prueba sostenida
 
 ```powershell
 k6 run .\monitoring\k6\sustained-write-test.js
 ```
 
-## Pico de escritura
+Ejemplo ajustado:
 
 ```powershell
-k6 run .\monitoring\k6\spike-write-test.js
+$env:TOTAL_ORDERS='75000'
+$env:RATE='250'
+$env:DURATION='5m'
+$env:PRE_ALLOCATED_VUS='300'
+$env:MAX_VUS='1000'
+k6 run .\monitoring\k6\sustained-write-test.js
 ```
 
-## Pico de lectura
-
-```powershell
-k6 run .\monitoring\k6\one-second-spike.js
-```
-
-## Lectura concurrente
-
-```powershell
-k6 run .\monitoring\k6\read-stress.js
-```
-
-## Metricas
-
-k6 reporta:
-
-- throughput.
-- latencia promedio.
-- p95.
-- p99.
-- tasa de error.
-- checks exitosos.
-
-Grafana reporta:
-
-- CPU y memoria por contenedor.
-- JVM CPU y memoria por servicio.
-- estado de colas RabbitMQ.
-- mensajes Ready y Unacked.
-- metricas HTTP de los servicios.
-
-Dashboard local:
-
-```text
-http://localhost:3000
-```
-
-## Ver resultado final de negocio
-
-Despues de correr k6, puedes ver el resumen de ordenes, inventario, outbox y colas RabbitMQ con:
+## Validar resultado final
 
 ```powershell
 node .\monitoring\check-results.js
 ```
 
-Para verlo refrescandose mientras los workers terminan de procesar:
-
-```powershell
-node .\monitoring\check-results.js --watch
-```
-
-El resultado esta completo cuando el script muestra:
+El resultado esta completo cuando muestra:
 
 - `Status: DONE`
 - `Outbox pending: 0`
 - `reserved=0`
 - `Rabbit queues: empty`
+
+## Logs generados
+
+- `monitoring/k6/last-50k-result.txt`
+- `monitoring/k6/last-resilient-result.txt`
+- `monitoring/k6/last-50k-db-chaos-result.txt`
+- `monitoring/k6/last-50k-db-chaos-events.txt`
+- `monitoring/k6/last-50k-db-chaos-final.txt`
+- `monitoring/k6/last-75k-sustained-result.txt`
+
+La prueba resiliente muestra metricas propias en la salida de k6:
+
+- `final_order_failed`
+- `recovered_orders`
+- `retry_attempts`
+- `attempts_per_order`

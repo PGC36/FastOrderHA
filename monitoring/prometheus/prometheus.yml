@@ -13,6 +13,11 @@ scrape_configs:
       - targets:
           - cadvisor:8080
 
+  - job_name: docker-stats
+    static_configs:
+      - targets:
+          - docker-stats-exporter:9104
+
   - job_name: rabbitmq
     static_configs:
       - targets:
@@ -23,6 +28,21 @@ scrape_configs:
     static_configs:
       - targets:
           - rabbitmq:15692
+
+  - job_name: postgres-primary
+    static_configs:
+      - targets:
+          - postgres-exporter-db-0:9187
+
+  - job_name: postgres-replica
+    static_configs:
+      - targets:
+          - postgres-exporter-db-1:9187
+
+  - job_name: pgpool
+    static_configs:
+      - targets:
+          - postgres-exporter-pgpool:9187
 
   - job_name: api-gateway
     metrics_path: /actuator/prometheus
