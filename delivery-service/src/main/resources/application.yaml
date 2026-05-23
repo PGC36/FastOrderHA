@@ -51,6 +51,10 @@ management:
     health:
       show-details: always
 
+logging:
+  level:
+    com.fastorder.delivery: WARN
+
 app:
   services:
     order-url: ${ORDER_SERVICE_URL:http://localhost:8082/orders}

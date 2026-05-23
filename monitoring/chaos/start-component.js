@@ -16,12 +16,11 @@ const ALIASES = {
   'delivery-service': 'fastorder-delivery-service',
   'notification': 'fastorder-notification-service',
   'notification-service': 'fastorder-notification-service',
-  'redis': 'fastorder-redis',
   'rabbitmq': 'fastorder-rabbitmq',
-  'pgpool': 'fastorder-db',
-  'db-pgpool': 'fastorder-db',
+  'db-proxy': 'fastorder-db',
   'db-0': 'fastorder-db-0',
   'db-1': 'fastorder-db-1',
+  'db-2': 'fastorder-db-2',
   'recovery': 'fastorder-db-recovery',
 };
 
@@ -31,7 +30,7 @@ Uso:
 
 Componentes:
   api, menu, inventory, order, kitchen, delivery, notification
-  redis, rabbitmq, pgpool, db-0, db-1, recovery
+  rabbitmq, db-proxy, db-0, db-1, db-2, recovery
 `;
 
 function docker(args, options = {}) {

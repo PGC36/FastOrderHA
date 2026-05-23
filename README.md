@@ -1,6 +1,6 @@
 # FastOrder HA
 
-FastOrder HA es una plataforma distribuida de pedidos para restaurante construida con microservicios Spring Boot, Docker Compose, PostgreSQL HA, RabbitMQ, Redis, Prometheus, Grafana y k6.
+FastOrder HA es una plataforma distribuida de pedidos para restaurante construida con microservicios Spring Boot, Docker Compose, PostgreSQL HA, RabbitMQ, Prometheus, Grafana y k6.
 
 El objetivo del proyecto es demostrar alta disponibilidad, tolerancia a fallos, consistencia de datos, observabilidad, backups y pruebas de carga/caos sobre una operacion critica: la creacion y procesamiento de pedidos.
 
@@ -10,14 +10,14 @@ El sistema ya cuenta con:
 
 - API Gateway como punto de entrada unico.
 - Seis microservicios de negocio: menu, pedidos, inventario, cocina, delivery y notificaciones.
-- PostgreSQL como base de datos principal con primary/standby, repmgr y Pgpool.
-- Redis integrado en el API Gateway para rate limiting.
+- PostgreSQL como base de datos principal con Patroni, etcd y HAProxy.
 - RabbitMQ para comunicacion asincrona entre servicios.
 - Saga de pedidos basada en eventos.
 - Outbox pattern en `order-service`.
 - Idempotencia en creacion de ordenes.
 - Reintentos ante errores transitorios.
-- Recuperacion automatica de contenedores mediante `db-recovery`.
+- Failover de base de datos coordinado por Patroni y etcd.
+- Recuperacion automatica de contenedores de BD mediante `db-recovery`.
 - Monitoreo con Prometheus, Grafana, cAdvisor y metricas de RabbitMQ.
 - Backups automaticos con `pg_dump` y restauracion manual documentada.
 - Pruebas k6 de 50,000 peticiones, carga sostenida, picos y caos.
@@ -28,12 +28,12 @@ El sistema ya cuenta con:
 Cliente / k6 / Postman
         |
         v
-API Gateway + Redis rate limiting
+API Gateway
         |
         v
 Microservicios Spring Boot
         |
-        +--> PostgreSQL HA: Pgpool + primary/standby
+        +--> PostgreSQL HA: Patroni + etcd + HAProxy
         |
         +--> RabbitMQ: eventos de la Saga
         |
@@ -44,16 +44,15 @@ Servicios principales:
 
 | Servicio | Responsabilidad | Puerto local |
 |---|---|---:|
-| `api-gateway` | Entrada HTTP y rate limiting | `8080` |
+| `api-gateway` | Entrada HTTP | `8080` |
 | `menu-service` | Catalogo de productos | `8081` |
 | `order-service` | Ordenes, idempotencia y outbox | `8082` |
 | `inventory-service` | Reserva, venta y compensacion de inventario | `8083` |
 | `kitchen-service` | Preparacion de ordenes | `8084` |
 | `delivery-service` | Flujo de entrega | `8085` |
 | `notification-service` | Registro de notificaciones | `8086` |
-| `fastorder-db` | Pgpool hacia PostgreSQL HA | `5440` |
+| `fastorder-db` | HAProxy hacia PostgreSQL HA | `5440` |
 | `rabbitmq` | Broker de eventos | `5672`, `15672` |
-| `redis` | Rate limiting | `6379` |
 | `prometheus` | Metricas | `9090` |
 | `grafana` | Dashboards | `3000` |
 | `cadvisor` | Metricas de contenedores | `8087` |
@@ -93,6 +92,21 @@ cd C:\ProyectoBDII\FastOrderHA
 docker compose up -d
 ```
 
+Tambien pueden usar la version separada por responsabilidad:
+
+```powershell
+docker compose -f .\docker-compose.infra-db.yml -f .\docker-compose.infra-mq.yml up -d
+docker compose -f .\docker-compose.app.yml up -d
+docker compose -f .\docker-compose.observability.yml up -d
+```
+
+Archivos recomendados:
+
+- `docker-compose.infra-db.yml`: PostgreSQL HA con Patroni, etcd, HAProxy, `db-recovery`, backups y exporters de BD.
+- `docker-compose.infra-mq.yml`: RabbitMQ y recuperacion de DLQ.
+- `docker-compose.app.yml`: API Gateway y microservicios.
+- `docker-compose.observability.yml`: Prometheus, Grafana, cAdvisor y exporter de Docker.
+
 Ver contenedores:
 
 ```powershell
@@ -114,7 +128,7 @@ node .\monitoring\check-results.js
 | Prometheus | `http://localhost:9090` | N/A |
 | Grafana | `http://localhost:3000` | `admin / admin` |
 | cAdvisor | `http://localhost:8087` | N/A |
-| PostgreSQL via Pgpool | `localhost:5440` | `fastorder_user / fastorder123` |
+| PostgreSQL via HAProxy | `localhost:5440` | `fastorder_user / fastorder123` |
 
 ## Endpoints principales
 
@@ -170,12 +184,11 @@ El sistema protege las reglas de negocio con:
 La solucion tolera:
 
 - Caida de microservicios.
-- Caida de Pgpool.
+- Caida del proxy HA de base de datos.
 - Caida del nodo primary de PostgreSQL.
-- Reinicio de Redis sin colapsar la plataforma, porque el rate limiter esta configurado como fail-open.
 - Caida temporal de consumers de eventos.
 
-`db-recovery` vive dentro del despliegue Docker y reinicia automaticamente servicios, Pgpool y nodos PostgreSQL cuando detecta contenedores apagados o Pgpool `unhealthy`.
+La promocion del lider la coordina Patroni. `db-recovery` queda como apoyo operativo para volver a levantar contenedores de BD caidos durante pruebas de caos o `docker kill`.
 
 ## Backups
 
@@ -298,7 +311,6 @@ El sistema cumple los requisitos tecnicos principales de la entrega:
 
 - Alta disponibilidad en capa de aplicacion.
 - Replicacion y failover de base de datos.
-- Redis como componente obligatorio.
 - Mensajeria asincrona.
 - Consistencia eventual.
 - Observabilidad.

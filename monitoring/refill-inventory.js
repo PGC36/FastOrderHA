@@ -19,7 +19,7 @@ Opciones:
   --set               Fija quantity exactamente a la cantidad indicada. Default.
   --add               Suma la cantidad indicada al quantity actual.
   --reset-counters    Tambien pone reserved=0 y sold=0.
-  --container <name>  Contenedor pgpool/postgres. Default: fastorder-db
+  --container <name>  Contenedor proxy/postgres. Default: fastorder-db
 `;
 
 function argValue(args, name, fallback) {

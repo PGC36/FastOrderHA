@@ -89,6 +89,8 @@ CREATE TABLE IF NOT EXISTS outbox_events (
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_product_id ON orders(product_id);
 CREATE INDEX IF NOT EXISTS idx_outbox_processed ON outbox_events(processed);
+CREATE INDEX IF NOT EXISTS idx_outbox_processed_created_at
+ON outbox_events(processed, created_at);
 
 CREATE TABLE IF NOT EXISTS kitchen_orders (
     id BIGSERIAL PRIMARY KEY,

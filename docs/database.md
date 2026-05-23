@@ -2,30 +2,31 @@
 
 ## Resumen
 
-FastOrder HA usa una base de datos PostgreSQL general para todos los microservicios, desplegada como un cluster primary/standby dentro de Docker Compose:
+FastOrder HA usa una base PostgreSQL general llamada `fastorder_db` para todos los microservicios. La capa HA ahora corre con `Patroni + etcd + HAProxy`:
 
 - Base: `fastorder_db`
-- Usuario: `fastorder_user`
-- Password: `fastorder123`
-- Endpoint de aplicacion: `fastorder-db` (Pgpool)
-- Nodo primario: `fastorder-db-0`
-- Nodo replica: `fastorder-db-1`
-- Puerto local: `5440` hacia Pgpool
+- Usuario de aplicacion: `fastorder_user`
+- Password de aplicacion: `fastorder123`
+- Endpoint unico para la app: `fastorder-db`
+- Nodo Patroni 1: `fastorder-db-0`
+- Nodo Patroni 2: `fastorder-db-1`
+- Nodo Patroni 3: `fastorder-db-2`
+- Puerto local: `5440`
 - Script principal: `database/fastorder-init.sql`
 
-Antes el proyecto tenia una base separada por servicio (`menu_db`, `inventory_db`, `order_db`, `kitchen_db`, `delivery_db` y `notification_db`). Ahora todos los servicios comparten la misma base logica y mantienen tablas separadas por dominio.
+Todos los microservicios siguen usando el mismo host interno `fastorder-db:5432`. `HAProxy` enruta al lider actual y `Patroni` coordina el failover usando `etcd`.
 
-## Configuracion en Docker Compose
+## Componentes del cluster
 
-`docker-compose.yml` levanta un endpoint unico con Pgpool y dos nodos PostgreSQL con repmgr:
-
-| Servicio | Funcion | Puerto local | Usuario | Password | Script |
-|---|---|---:|---|---|---|
-| `fastorder-db` | Pgpool / endpoint unico | `5440` | `fastorder_user` | `fastorder123` | N/A |
-| `fastorder-db-0` | PostgreSQL primario | interno | `fastorder_user` | `fastorder123` | `database/fastorder-init.sql` |
-| `fastorder-db-1` | PostgreSQL replica standby | interno | `fastorder_user` | `fastorder123` | replica desde primario |
-
-La replicacion usa `bitnamilegacy/postgresql-repmgr` y Pgpool usa checks de streaming replication con el usuario `repmgr`. El balanceo de lecturas esta desactivado para que las operaciones de la aplicacion usen siempre el primario activo y la replica quede como standby de recuperacion. Los nodos PostgreSQL se configuran con `POSTGRESQL_MAX_CONNECTIONS=200`, mientras Pgpool y los pools Hikari quedan limitados para no agotar conexiones durante pruebas de 50k peticiones.
+| Servicio | Funcion | Puerto local |
+|---|---|---:|
+| `fastorder-db` | `HAProxy` hacia el lider PostgreSQL | `5440` |
+| `fastorder-db-0` | Nodo PostgreSQL administrado por Patroni | interno |
+| `fastorder-db-1` | Nodo PostgreSQL administrado por Patroni | interno |
+| `fastorder-db-2` | Nodo PostgreSQL administrado por Patroni | interno |
+| `etcd-0` | Coordinacion del cluster | interno |
+| `etcd-1` | Coordinacion del cluster | interno |
+| `etcd-2` | Coordinacion del cluster | interno |
 
 ## Convencion de conexion
 
@@ -41,11 +42,31 @@ jdbc:postgresql://localhost:5440/fastorder_db
 jdbc:postgresql://fastorder-db:5432/fastorder_db
 ```
 
-Los microservicios no se conectan directamente al primario ni a la replica; siempre usan Pgpool mediante el host `fastorder-db`.
+La aplicacion nunca se conecta directo a `fastorder-db-0`, `fastorder-db-1` o `fastorder-db-2`.
+
+## Failover
+
+Flujo esperado:
+
+1. `Patroni` elige un lider entre los tres nodos.
+2. `HAProxy` expone siempre `fastorder-db:5432`.
+3. Si el lider cae, `Patroni` promueve una replica sana.
+4. `HAProxy` empieza a enviar trafico al nuevo lider.
+La app mantiene la misma URL JDBC durante todo el proceso. Puede existir una ventana corta de errores mientras se completa la promocion, por eso los consumidores y las pruebas resilientes usan reintentos.
+
+Como apoyo operativo, `db-recovery` puede volver a levantar un nodo caido si fue apagado manualmente durante una prueba.
+
+## Permisos y bootstrap
+
+El bootstrap crea la base y ejecuta `database/fastorder-init.sql` con `fastorder_user`, no con `postgres`. Eso deja ownership y permisos consistentes para que la app y las pruebas SQL usen el mismo usuario.
+
+Permisos aplicados:
+
+- `fastorder_user` es owner del esquema `public`.
+- `fastorder_user` tiene permisos sobre tablas y secuencias existentes.
+- los objetos futuros tambien heredan permisos mediante default privileges.
 
 ## Tablas incluidas
-
-El script general crea todas las tablas que antes estaban repartidas por scripts de servicio.
 
 | Dominio | Tablas |
 |---|---|
@@ -56,209 +77,9 @@ El script general crea todas las tablas que antes estaban repartidas por scripts
 | Entregas | `delivery_orders`, `delivery_status_history` |
 | Notificaciones | `notifications` |
 
-## Menu
-
-### Tabla `productos`
-
-| Columna | Tipo | Restricciones | Descripcion |
-|---|---|---|---|
-| `id` | `BIGSERIAL` | Primary key | Identificador del producto |
-| `nombre` | `VARCHAR(120)` | `NOT NULL` | Nombre del producto |
-| `descripcion` | `VARCHAR(500)` | nullable | Descripcion del producto |
-| `categoria` | `VARCHAR(80)` | `NOT NULL` | Categoria del producto |
-| `disponible` | `BOOLEAN` | `NOT NULL`, `DEFAULT TRUE` | Disponibilidad para venta |
-| `activo` | `BOOLEAN` | `NOT NULL`, `DEFAULT TRUE` | Estado logico del producto |
-| `created_at` | `TIMESTAMP` | `NOT NULL`, `DEFAULT CURRENT_TIMESTAMP` | Fecha de creacion |
-| `updated_at` | `TIMESTAMP` | `NOT NULL`, `DEFAULT CURRENT_TIMESTAMP` | Fecha de actualizacion |
-
-Dato inicial:
-
-- inserta `Pollo Frito` si no existe conflicto.
-
-## Inventario
-
-### Tabla `inventory`
-
-| Columna | Tipo | Restricciones | Descripcion |
-|---|---|---|---|
-| `id` | `BIGSERIAL` | Primary key | Identificador interno |
-| `product_id` | `BIGINT` | `UNIQUE`, `NOT NULL` | Referencia logica al producto |
-| `quantity` | `INTEGER` | `NOT NULL`, `DEFAULT 0` | Stock disponible |
-| `reserved` | `INTEGER` | `NOT NULL`, `DEFAULT 0` | Stock reservado |
-| `sold` | `INTEGER` | `NOT NULL`, `DEFAULT 0` | Stock confirmado como vendido |
-| `created_at` | `TIMESTAMP` | `DEFAULT CURRENT_TIMESTAMP` | Fecha de creacion |
-| `updated_at` | `TIMESTAMP` | `DEFAULT CURRENT_TIMESTAMP` | Fecha de actualizacion |
-
-Dato inicial:
-
-- inserta `product_id = 1` con `quantity = 60000` y `reserved = 0`, suficiente para la prueba de carga de 50k pedidos.
-
-### Tabla `inventory_sales`
-
-Registra las ventas confirmadas cuando llega `delivery.completed`. La columna `order_id` es unica para que un redelivery del evento no descuente inventario dos veces.
-
-Nota: no existe un microservicio de pagos en el alcance actual. `inventory_sales` representa la venta confirmada por negocio cuando la orden ya fue entregada.
-
-| Columna | Tipo | Restricciones | Descripcion |
-|---|---|---|---|
-| `id` | `BIGSERIAL` | Primary key | Identificador interno |
-| `order_id` | `BIGINT` | `UNIQUE`, `NOT NULL` | Pedido confirmado como venta |
-| `product_id` | `BIGINT` | `NOT NULL` | Producto vendido |
-| `quantity` | `INTEGER` | `NOT NULL`, `CHECK (quantity > 0)` | Cantidad vendida |
-| `created_at` | `TIMESTAMP` | `NOT NULL`, `DEFAULT CURRENT_TIMESTAMP` | Fecha de confirmacion |
-
-Flujo esperado:
-
-- al reservar: `reserved += quantity`
-- al cancelar/fallar: `reserved -= quantity`
-- al completar delivery: `quantity -= quantity`, `reserved -= quantity`, `sold += quantity`
-
-### Tabla `inventory_reservations`
-
-Registra reservas activas por `order_id` mientras la orden sigue en proceso. Esto permite liberar o reconciliar reservas pendientes sin depender solo del valor agregado en `inventory.reserved`.
-
-| Columna | Tipo | Restricciones | Descripcion |
-|---|---|---|---|
-| `id` | `BIGSERIAL` | Primary key | Identificador interno |
-| `order_id` | `BIGINT` | `UNIQUE`, `NOT NULL` | Pedido con reserva activa |
-| `product_id` | `BIGINT` | `NOT NULL` | Producto reservado |
-| `quantity` | `INTEGER` | `NOT NULL`, `CHECK (quantity > 0)` | Cantidad reservada |
-| `created_at` | `TIMESTAMP` | `NOT NULL`, `DEFAULT CURRENT_TIMESTAMP` | Fecha de creacion |
-
-Uso esperado:
-
-- al reservar inventario, se inserta una fila por pedido;
-- al cancelar la orden, completar delivery o reconciliar inconsistencias, la fila se elimina;
-- `inventory-service` usa esta tabla para detectar reservas colgadas y corregirlas.
-
-## Pedidos
-
-### Tabla `orders`
-
-| Columna | Tipo | Restricciones | Descripcion |
-|---|---|---|---|
-| `id` | `SERIAL` | Primary key | Identificador del pedido |
-| `idempotency_key` | `VARCHAR(150)` | `UNIQUE`, `NOT NULL` | Clave de idempotencia |
-| `product_id` | `INT` | `NOT NULL` | Referencia logica al producto |
-| `quantity` | `INT` | `NOT NULL`, `CHECK (quantity > 0)` | Cantidad solicitada |
-| `status` | `VARCHAR(50)` | `NOT NULL` | Estado actual del pedido |
-| `delivery_address` | `VARCHAR(500)` | nullable | Direccion usada por delivery |
-| `delivery_retry_count` | `INT` | `NOT NULL`, `DEFAULT 0` | Reintentos acumulados de delivery |
-| `delivery_last_retry_at` | `TIMESTAMP` | nullable | Ultimo reintento de delivery |
-| `delivery_failure_reason` | `VARCHAR(255)` | nullable | Ultima causa de fallo de delivery |
-| `created_at` | `TIMESTAMP` | `DEFAULT NOW()` | Fecha de creacion |
-
-Estados principales usados por la Saga:
-
-- `PENDING`
-- `IN_KITCHEN`
-- `CANCELLED`
-- `READY_FOR_DELIVERY`
-- `IN_DELIVERY`
-- `DELIVERY_RETRY_PENDING`
-- `COMPLETED`
-- `DELIVERY_ABANDONED`
-
-### Tabla `outbox_events`
-
-| Columna | Tipo | Restricciones | Descripcion |
-|---|---|---|---|
-| `id` | `SERIAL` | Primary key | Identificador del evento |
-| `aggregate_type` | `VARCHAR(100)` | `NOT NULL` | Tipo de agregado |
-| `aggregate_id` | `INT` | `NOT NULL` | ID del agregado relacionado |
-| `event_type` | `VARCHAR(100)` | `NOT NULL` | Tipo de evento |
-| `payload` | `TEXT` | `NOT NULL` | Contenido del evento |
-| `processed` | `BOOLEAN` | `DEFAULT FALSE` | Indicador de procesamiento |
-| `created_at` | `TIMESTAMP` | `DEFAULT NOW()` | Fecha de creacion |
-
-`outbox_events` permite que `order-service` confirme la escritura de la orden y despues publique el evento hacia RabbitMQ de forma desacoplada.
-
-Indice relevante:
-
-- `idx_outbox_processed` para buscar eventos pendientes de publicar.
-
-## Cocina
-
-### Tabla `kitchen_orders`
-
-| Columna | Tipo | Restricciones | Descripcion |
-|---|---|---|---|
-| `id` | `BIGSERIAL` | Primary key | Identificador interno |
-| `order_id` | `BIGINT` | `UNIQUE`, `NOT NULL` | Referencia logica al pedido |
-| `status` | `VARCHAR(50)` | `NOT NULL`, `CHECK (...)` | Estado de cocina |
-| `created_at` | `TIMESTAMP` | `NOT NULL`, `DEFAULT NOW()` | Fecha de creacion |
-| `updated_at` | `TIMESTAMP` | `NOT NULL`, `DEFAULT NOW()` | Fecha de actualizacion |
-| `started_at` | `TIMESTAMP` | nullable | Inicio de preparacion |
-| `ready_at` | `TIMESTAMP` | nullable | Momento en que queda lista |
-
-Estados permitidos: `PENDING`, `PREPARING`, `READY`, `CANCELLED`.
-
-## Entregas
-
-### Tabla `delivery_orders`
-
-| Columna | Tipo | Restricciones | Descripcion |
-|---|---|---|---|
-| `id` | `BIGSERIAL` | Primary key | Identificador de la entrega |
-| `order_id` | `BIGINT` | `UNIQUE`, `NOT NULL` | Referencia logica al pedido |
-| `status` | `VARCHAR(50)` | `NOT NULL`, `CHECK (...)` | Estado actual de la entrega |
-| `assigned_driver_id` | `BIGINT` | nullable | Repartidor asignado |
-| `delivery_address` | `VARCHAR(500)` | `NOT NULL` | Direccion de entrega |
-| `created_at` | `TIMESTAMP` | `NOT NULL`, `DEFAULT NOW()` | Fecha de creacion |
-| `updated_at` | `TIMESTAMP` | `NOT NULL`, `DEFAULT NOW()` | Fecha de actualizacion |
-| `assigned_at` | `TIMESTAMP` | nullable | Momento de asignacion |
-| `picked_up_at` | `TIMESTAMP` | nullable | Momento de recogida |
-| `in_transit_at` | `TIMESTAMP` | nullable | Inicio del traslado |
-| `delivered_at` | `TIMESTAMP` | nullable | Entrega completada |
-| `failed_at` | `TIMESTAMP` | nullable | Momento del fallo |
-| `cancelled_at` | `TIMESTAMP` | nullable | Momento de cancelacion |
-| `cancel_reason` | `VARCHAR(255)` | nullable | Motivo de cancelacion |
-| `failure_reason` | `VARCHAR(255)` | nullable | Motivo del fallo |
-| `version` | `BIGINT` | `NOT NULL`, `DEFAULT 0` | Control de concurrencia optimista |
-
-Estados permitidos: `PENDING`, `ASSIGNED`, `PICKED_UP`, `IN_TRANSIT`, `DELIVERED`, `FAILED`, `CANCELLED`.
-
-Indices relevantes:
-
-- `idx_delivery_orders_status`
-- `idx_delivery_orders_assigned_driver_id`
-- `idx_delivery_orders_created_at`
-
-### Tabla `delivery_status_history`
-
-| Columna | Tipo | Restricciones | Descripcion |
-|---|---|---|---|
-| `id` | `BIGSERIAL` | Primary key | Identificador del registro |
-| `delivery_order_id` | `BIGINT` | `NOT NULL`, foreign key | Entrega asociada |
-| `previous_status` | `VARCHAR(50)` | nullable | Estado anterior |
-| `new_status` | `VARCHAR(50)` | `NOT NULL` | Nuevo estado |
-| `reason` | `VARCHAR(255)` | nullable | Motivo del cambio |
-| `changed_by` | `VARCHAR(100)` | nullable | Actor que hizo el cambio |
-| `changed_at` | `TIMESTAMP` | `NOT NULL`, `DEFAULT NOW()` | Fecha del cambio |
-
-## Notificaciones
-
-### Tabla `notifications`
-
-| Columna | Tipo | Restricciones | Descripcion |
-|---|---|---|---|
-| `id` | `BIGSERIAL` | Primary key | Identificador de la notificacion |
-| `order_id` | `BIGINT` | `NOT NULL` | Referencia logica al pedido |
-| `channel` | `VARCHAR(30)` | `NOT NULL` | Canal de envio |
-| `recipient` | `VARCHAR(150)` | `NOT NULL` | Destinatario |
-| `message` | `TEXT` | `NOT NULL` | Contenido del mensaje |
-| `status` | `VARCHAR(30)` | `NOT NULL`, `DEFAULT 'PENDING'` | Estado de la notificacion |
-| `created_at` | `TIMESTAMP` | `NOT NULL`, `DEFAULT CURRENT_TIMESTAMP` | Fecha de creacion |
-
-Restricciones e indices relevantes:
-
-- `uk_notifications_order_id` deja `order_id` como unico para evitar notificaciones duplicadas por la misma orden.
-- `idx_notifications_order_id`
-- `idx_notifications_created_at`
-
 ## Relaciones
 
-Como ahora todas las tablas viven en `fastorder_db`, es posible agregar foreign keys entre dominios en el futuro. Por ahora casi todas las relaciones se mantienen como referencias logicas para evitar cambiar el comportamiento de los microservicios. La excepcion actual es `delivery_status_history.delivery_order_id`, que si tiene foreign key real hacia `delivery_orders(id)`.
+Todas las tablas viven en `fastorder_db`. La mayoria de relaciones se mantienen como referencias logicas para no acoplar mas los microservicios. La excepcion actual es `delivery_status_history.delivery_order_id`, que si usa foreign key real hacia `delivery_orders(id)`.
 
 - `inventory.product_id` apunta logicamente a `productos.id`
 - `inventory_sales.product_id` apunta logicamente a `productos.id`
@@ -273,6 +94,7 @@ Como ahora todas las tablas viven en `fastorder_db`, es posible agregar foreign 
 
 ## Archivos relacionados
 
+- [docker-compose.infra-db.yml](../docker-compose.infra-db.yml)
 - [docker-compose.yml](../docker-compose.yml)
 - [fastorder-init.sql](../database/fastorder-init.sql)
 - [backups.md](./backups.md)

@@ -2,6 +2,7 @@ package com.fastorder.orderservice.service;
 
 import com.fastorder.orderservice.entity.OutboxEvent;
 import com.fastorder.orderservice.repository.OutboxEventRepository;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
@@ -51,9 +52,18 @@ public class OutboxEventPublisher {
     public void publishPendingEvents() {
         List<OutboxEvent> events = outboxEventRepository.findByProcessedFalseOrderByCreatedAtAsc(
                 PageRequest.of(0, batchSize));
-        int published = 0;
+        List<PendingPublication> pendingPublications = new ArrayList<>(events.size());
+
         for (OutboxEvent event : events) {
-            if (publish(event)) {
+            PendingPublication publication = send(event);
+            if (publication != null) {
+                pendingPublications.add(publication);
+            }
+        }
+
+        int published = 0;
+        for (PendingPublication publication : pendingPublications) {
+            if (awaitConfirmation(publication)) {
                 published++;
             }
         }
@@ -62,16 +72,28 @@ public class OutboxEventPublisher {
             outboxEventRepository.saveAll(events.stream()
                     .filter(OutboxEvent::getProcessed)
                     .toList());
-            logger.info("Lote outbox publicado count={}, requestedBatch={}", published, events.size());
+            logger.debug("Lote outbox publicado count={}, requestedBatch={}", published, events.size());
         }
     }
 
-    private boolean publish(OutboxEvent event) {
+    private PendingPublication send(OutboxEvent event) {
         try {
             CorrelationData correlationData = new CorrelationData(
                     "outbox-" + event.getId() + "-" + UUID.randomUUID());
             rabbitTemplate.convertAndSend(exchange, routingKey, event.getPayload(), correlationData);
-            CorrelationData.Confirm confirm = correlationData.getFuture()
+            return new PendingPublication(event, correlationData);
+        } catch (RuntimeException exception) {
+            logger.error("No se pudo publicar evento outbox eventId={}", event.getId(), exception);
+            return null;
+        }
+    }
+
+    private boolean awaitConfirmation(PendingPublication publication) {
+        OutboxEvent event = publication.event();
+
+        try {
+            CorrelationData.Confirm confirm = publication.correlationData()
+                    .getFuture()
                     .get(publisherConfirmTimeoutMs, TimeUnit.MILLISECONDS);
 
             if (!confirm.isAck()) {
@@ -80,7 +102,7 @@ public class OutboxEventPublisher {
                 return false;
             }
 
-            ReturnedMessage returned = correlationData.getReturned();
+            ReturnedMessage returned = publication.correlationData().getReturned();
             if (returned != null) {
                 logger.error(
                         "RabbitMQ devolvio evento outbox no enrutable eventId={}, exchange={}, routingKey={}, replyText={}",
@@ -99,9 +121,9 @@ public class OutboxEventPublisher {
             logger.error("Publicacion de outbox interrumpida eventId={}", event.getId(), exception);
         } catch (ExecutionException exception) {
             logger.error("RabbitMQ fallo confirmando outbox eventId={}", event.getId(), exception);
-        } catch (RuntimeException exception) {
-            logger.error("No se pudo publicar evento outbox eventId={}", event.getId(), exception);
         }
         return false;
     }
+
+    private record PendingPublication(OutboxEvent event, CorrelationData correlationData) {}
 }

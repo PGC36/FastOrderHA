@@ -16,12 +16,11 @@ const ALIASES = {
   'delivery-service': 'fastorder-delivery-service',
   'notification': 'fastorder-notification-service',
   'notification-service': 'fastorder-notification-service',
-  'redis': 'fastorder-redis',
   'rabbitmq': 'fastorder-rabbitmq',
-  'pgpool': 'fastorder-db',
-  'db-pgpool': 'fastorder-db',
+  'db-proxy': 'fastorder-db',
   'db-0': 'fastorder-db-0',
   'db-1': 'fastorder-db-1',
+  'db-2': 'fastorder-db-2',
   'db-primary': 'PRIMARY',
   'db-replica': 'REPLICA',
 };
@@ -32,7 +31,7 @@ Uso:
 
 Componentes:
   api, menu, inventory, order, kitchen, delivery, notification
-  redis, rabbitmq, pgpool, db-0, db-1, db-primary, db-replica
+  rabbitmq, db-proxy, db-0, db-1, db-2, db-primary, db-replica
 
 Opciones:
   --keep-down   Detiene fastorder-db-recovery antes de parar el componente.
@@ -80,11 +79,11 @@ function isPrimary(container) {
 }
 
 function resolveDbRole(role) {
-  const nodes = ['fastorder-db-0', 'fastorder-db-1'];
+  const nodes = ['fastorder-db-0', 'fastorder-db-1', 'fastorder-db-2'];
   const primary = nodes.find(isPrimary);
 
   if (!primary) {
-    throw new Error('No pude detectar la primaria. Verifica que fastorder-db-0 o fastorder-db-1 esten arriba.');
+    throw new Error('No pude detectar la primaria. Verifica que fastorder-db-0, fastorder-db-1 y fastorder-db-2 esten arriba.');
   }
 
   if (role === 'PRIMARY') {

@@ -378,4 +378,4 @@ Para mejorar aun mas el tiempo total de cierre de ordenes, los siguientes pasos 
 
 - tuning de base de datos y RabbitMQ bajo carga real.
 
-Redis ya esta integrado en el API Gateway para rate limiting. El limite por defecto permite esta prueba de 50,000 peticiones; si se baja `API_RATE_LIMIT_CAPACITY`, k6 puede recibir respuestas `429` por exceso de trafico.
+El API Gateway ya no usa Redis para rate limiting, asi que esta prueba no depende de ese componente.

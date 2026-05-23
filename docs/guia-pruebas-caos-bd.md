@@ -1,6 +1,6 @@
 # Guia de prueba de caos en base de datos
 
-Esta guia explica como repetir la prueba donde se matan nodos de PostgreSQL mientras entran pedidos por k6, usando reintentos automaticos con idempotencia. Tambien deja documentada la opcion manual.
+Esta guia explica como repetir la prueba donde se matan nodos de PostgreSQL mientras entran pedidos por k6, usando reintentos automaticos con idempotencia. La capa HA actual usa `Patroni + etcd + HAProxy`.
 
 ## Objetivo
 
@@ -55,11 +55,12 @@ Status: DONE
 
 ## 3. Identificar el nodo primario
 
-Consultar ambos nodos:
+Consultar los tres nodos:
 
 ```powershell
 docker exec -e PGPASSWORD=fastorder123 fastorder-db-0 psql -U fastorder_user -d fastorder_db -tAc "select pg_is_in_recovery();"
 docker exec -e PGPASSWORD=fastorder123 fastorder-db-1 psql -U fastorder_user -d fastorder_db -tAc "select pg_is_in_recovery();"
+docker exec -e PGPASSWORD=fastorder123 fastorder-db-2 psql -U fastorder_user -d fastorder_db -tAc "select pg_is_in_recovery();"
 ```
 
 Interpretacion:
@@ -170,7 +171,7 @@ docker kill fastorder-db-0
 
 ## 6. Esperar recuperacion automatica
 
-El contenedor `fastorder-db-recovery` debe recuperar el nodo caido y reiniciar Pgpool si queda `unhealthy`.
+El contenedor `fastorder-db-recovery` debe recuperar el nodo caido. Patroni elige un nuevo lider y `HAProxy` mantiene el endpoint `fastorder-db`.
 
 Ver estado:
 
@@ -188,7 +189,6 @@ Mensajes esperados:
 
 ```text
 Recovering fastorder-db-1 because status=exited
-Recovering fastorder-db because health=unhealthy
 ```
 
 ## 7. Revisar resultado despues del failover
@@ -265,7 +265,7 @@ Notifications = pedidos completados
 La explicacion recomendada:
 
 ```text
-Durante la caida del primario puede haber una ventana corta de errores HTTP porque Pgpool y repmgr estan haciendo failover.
+Durante la caida del primario puede haber una ventana corta de errores HTTP porque Patroni y HAProxy estan haciendo failover.
 
 El sistema no pierde ni duplica los pedidos que ya fueron aceptados. Para las peticiones que fallan durante esa ventana, el cliente reintenta con la misma llave de idempotencia.
 
@@ -279,7 +279,7 @@ Guardar capturas de:
 - salida de k6 de la primera corrida;
 - comando `docker kill` del primario;
 - logs de `fastorder-db-recovery`;
-- `docker ps` mostrando Pgpool healthy y ambos nodos arriba;
+- `docker ps` mostrando `fastorder-db` arriba y los nodos Patroni recuperados;
 - salida de `node .\monitoring\check-results.js` despues del failover;
 - salida de k6 del reintento;
 - salida final de `check-results.js` con `Status: DONE`.

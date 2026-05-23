@@ -54,6 +54,10 @@ management:
     health:
       show-details: always
 
+logging:
+  level:
+    com.example.demo: WARN
+
 app:
   rabbit:
     exchange: notification.exchange

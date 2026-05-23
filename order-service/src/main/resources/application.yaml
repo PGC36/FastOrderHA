@@ -57,7 +57,7 @@ management:
 
 logging:
   level:
-    com.fastorder.orderservice: INFO
+    com.fastorder.orderservice: WARN
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} %-5level order-service - %msg%n"
 

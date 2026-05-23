@@ -166,13 +166,14 @@ async function waitForGateway() {
 
 function resetTestData(totalOrders) {
   console.log("Limpiando datos y preparando inventario...");
+  const primary = getPrimaryDbContainer();
   run(
     "docker",
     [
       "exec",
       "-e",
       "PGPASSWORD=fastorder123",
-      "fastorder-db",
+      primary,
       "psql",
       "-h",
       "127.0.0.1",
@@ -188,11 +189,10 @@ function resetTestData(totalOrders) {
     { stdio: "inherit" }
   );
 
-  run("docker", ["exec", "fastorder-redis", "redis-cli", "FLUSHALL"]);
 }
 
 function getPrimaryDbContainer(chaosLog) {
-  for (const node of ["fastorder-db-0", "fastorder-db-1"]) {
+  for (const node of ["fastorder-db-0", "fastorder-db-1", "fastorder-db-2"]) {
     const result = run(
       "docker",
       [
@@ -201,6 +201,8 @@ function getPrimaryDbContainer(chaosLog) {
         "PGPASSWORD=fastorder123",
         node,
         "psql",
+        "-h",
+        "127.0.0.1",
         "-U",
         "fastorder_user",
         "-d",
@@ -221,7 +223,12 @@ function getPrimaryDbContainer(chaosLog) {
     }
   }
 
-  return null;
+  if (chaosLog) {
+    logLine(chaosLog, `${timestamp()} No primary detected`);
+    return null;
+  }
+
+  throw new Error("No pude detectar el nodo primario de PostgreSQL.");
 }
 
 function killPrimaryDb(chaosLog) {

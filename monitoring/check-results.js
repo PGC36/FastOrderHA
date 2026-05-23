@@ -1,6 +1,6 @@
 const { execFileSync } = require("node:child_process");
 
-const DB_CONTAINER = process.env.DB_CONTAINER || "fastorder-db";
+const DB_CONTAINER = process.env.DB_CONTAINER || "";
 const DB_HOST = process.env.DB_HOST || "127.0.0.1";
 const RABBIT_CONTAINER = process.env.RABBIT_CONTAINER || "fastorder-rabbitmq";
 const DB_USER = process.env.DB_USER || "fastorder_user";
@@ -8,6 +8,9 @@ const DB_NAME = process.env.DB_NAME || "fastorder_db";
 const DB_PASSWORD = process.env.DB_PASSWORD || "fastorder123";
 const WATCH = process.argv.includes("--watch");
 const INTERVAL_SECONDS = Number(process.env.INTERVAL_SECONDS || 10);
+const DB_NODES = ["fastorder-db-0", "fastorder-db-1", "fastorder-db-2"];
+
+let resolvedDbContainer = DB_CONTAINER;
 
 function run(command, args) {
   return execFileSync(command, args, {
@@ -17,12 +20,51 @@ function run(command, args) {
   }).trim();
 }
 
+function detectPrimaryDbContainer() {
+  for (const node of DB_NODES) {
+    try {
+      const result = run("docker", [
+        "exec",
+        "-e",
+        `PGPASSWORD=${DB_PASSWORD}`,
+        node,
+        "psql",
+        "-h",
+        "127.0.0.1",
+        "-U",
+        "postgres",
+        "-d",
+        "fastorder_db",
+        "-tAc",
+        "select case when pg_is_in_recovery() then 'replica' else 'primary' end",
+      ]);
+
+      if (result.trim() === "primary") {
+        return node;
+      }
+    } catch {
+      // Intentamos con el siguiente nodo.
+    }
+  }
+
+  throw new Error("No pude detectar el nodo primario de PostgreSQL.");
+}
+
+function getDbContainer() {
+  if (resolvedDbContainer) {
+    return resolvedDbContainer;
+  }
+
+  resolvedDbContainer = detectPrimaryDbContainer();
+  return resolvedDbContainer;
+}
+
 function psql(sql) {
   return run("docker", [
     "exec",
     "-e",
     `PGPASSWORD=${DB_PASSWORD}`,
-    DB_CONTAINER,
+    getDbContainer(),
     "psql",
     "-h",
     DB_HOST,
@@ -114,6 +156,7 @@ function formatStatus(statuses) {
 }
 
 function printReport() {
+  const container = getDbContainer();
   const statuses = getOrdersByStatus();
   const outbox = getOutbox();
   const inventory = getInventory();
@@ -129,6 +172,7 @@ function printReport() {
 
   console.clear();
   console.log(`FastOrder HA results - ${new Date().toLocaleString()}`);
+  console.log(`DB node: ${container}`);
   console.log("");
   console.log(`Orders: ${formatStatus(statuses)}`);
   console.log(`Orders total: ${totalOrders}`);

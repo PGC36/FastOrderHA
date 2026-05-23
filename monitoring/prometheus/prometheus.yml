@@ -38,11 +38,12 @@ scrape_configs:
     static_configs:
       - targets:
           - postgres-exporter-db-1:9187
+          - postgres-exporter-db-2:9187
 
-  - job_name: pgpool
+  - job_name: postgres-proxy
     static_configs:
       - targets:
-          - postgres-exporter-pgpool:9187
+          - postgres-exporter-db-proxy:9187
 
   - job_name: api-gateway
     metrics_path: /actuator/prometheus

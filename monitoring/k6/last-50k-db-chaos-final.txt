@@ -1,2 +1,27 @@
-RUN_ID=db-chaos-50k-20260512055956
-START=2026-05-12T05:59:56.660Z
+RUN_ID=db-chaos-50k-20260523060052
+START=2026-05-23T06:00:52.344Z
+===== POLL 2026-05-23T06:00:58.840Z elapsed=6.5s =====
+FastOrder HA results - 23/5/2026, 12:00:58 a. m.
+DB node: fastorder-db-2
+
+Orders: COMPLETED: 49791 | IN_KITCHEN: 1 | PENDING: 254026 | READY_FOR_DELIVERY: 2
+Orders total: 303820
+Idempotency keys unique: 303820
+
+Outbox processed: 65064
+Outbox pending: 238756
+
+Inventory:
+  product 1: quantity=250919, reserved=755, sold=49081
+Inventory sales: 49099
+Notifications: 49864
+
+Rabbit queues with messages:
+  kitchen.inventory-reserved.queue: ready=0, unacked=1
+  notification.created.queue: ready=0, unacked=1
+  inventory.order-created.queue: ready=14037, unacked=1600
+  order.delivery-completed.queue: ready=0, unacked=1
+  inventory.delivery-completed.queue: ready=0, unacked=752
+  delivery.kitchen-ready.queue: ready=0, unacked=1
+
+Status: PROCESSING

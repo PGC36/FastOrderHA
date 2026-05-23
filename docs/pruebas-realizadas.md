@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Este documento resume la evolucion de las pruebas ejecutadas sobre FastOrder HA, desde el flujo inicial con llamadas directas entre servicios hasta el flujo actual con workers, RabbitMQ, Redis, PostgreSQL primary/standby, Pgpool y recuperacion automatica.
+Este documento resume la evolucion de las pruebas ejecutadas sobre FastOrder HA, desde el flujo inicial con llamadas directas entre servicios hasta el flujo actual con workers, RabbitMQ, Redis, PostgreSQL HA con Patroni y recuperacion automatica.
 
 La idea es dejar evidencia tecnica de:
 
@@ -363,16 +363,17 @@ Se dejo Redis como rate limiting, no como cache de negocio, porque el flujo prin
 - Si hay demasiadas peticiones, el gateway puede responder `429 Too Many Requests`.
 - Si Redis se reinicia o falla, el gateway opera en modo `fail-open` para no tumbar la plataforma.
 
-## 9. PostgreSQL primary/standby con Pgpool
+## 9. PostgreSQL HA con Patroni
 
 ### Enfoque probado
 
 La base de datos paso de un solo PostgreSQL a:
 
 ```text
-fastorder-db-0: PostgreSQL/repmgr
-fastorder-db-1: PostgreSQL/repmgr
-fastorder-db: Pgpool como endpoint unico
+fastorder-db-0: Patroni/PostgreSQL
+fastorder-db-1: Patroni/PostgreSQL
+fastorder-db-2: Patroni/PostgreSQL
+fastorder-db: HAProxy como endpoint unico
 ```
 
 Los microservicios no apuntan directamente a un nodo. Siempre usan:
@@ -383,7 +384,7 @@ jdbc:postgresql://fastorder-db:5432/fastorder_db
 
 ### Ajuste de conexiones
 
-Durante la prueba de 50k, Pgpool se saturo con demasiadas conexiones potenciales. Se ajusto:
+Durante la prueba de 50k, el proxy de base de datos quedo sensible a demasiadas conexiones potenciales. Se ajusto:
 
 ```text
 POSTGRESQL_MAX_CONNECTIONS=200
@@ -395,7 +396,7 @@ Tambien se limitaron los pools Hikari de los microservicios.
 
 ### Resultado
 
-Despues del ajuste, el sistema completo proceso 50k pedidos y Pgpool respondio correctamente.
+Despues del ajuste, el sistema completo proceso 50k pedidos y el endpoint `fastorder-db` respondio correctamente.
 
 ## 10. Caos de base de datos sin carga
 
@@ -411,7 +412,7 @@ Luego se valido:
 
 ```text
 fastorder-db-0 se promovio a primario
-Pgpool mantuvo el endpoint fastorder-db
+HAProxy mantuvo el endpoint `fastorder-db`
 La app pudo crear y completar pedidos
 ```
 
@@ -477,7 +478,7 @@ http_req_failed: 41.42%
 p95: 3.02 s
 ```
 
-`db-recovery` recupero el nodo y reinicio Pgpool cuando quedo `unhealthy`:
+`db-recovery` recupero el nodo caido y el endpoint siguio disponible por medio de HAProxy:
 
 ```text
 Recovering fastorder-db-1 because status=exited
@@ -509,7 +510,7 @@ Rabbit queues: empty
 Status: DONE
 ```
 
-Conclusion: si el primario cae exactamente durante escrituras, puede existir una ventana corta de errores HTTP mientras Pgpool/repmgr recuperan. No hubo perdida ni duplicidad de los pedidos aceptados, y el reintento con la misma llave de idempotencia recupero las operaciones fallidas sin duplicarlas.
+Conclusion: si el lider cae exactamente durante escrituras, puede existir una ventana corta de errores HTTP mientras Patroni completa la promocion y HAProxy cambia al nuevo lider. No hubo perdida ni duplicidad de los pedidos aceptados, y el reintento con la misma llave de idempotencia recupero las operaciones fallidas sin duplicarlas.
 
 ### Revalidacion automatica con script resiliente
 
@@ -589,7 +590,7 @@ Throughput: 1630 req/s
 
 ```text
 fastorder-db-1 se promovio a primario
-Pgpool cambio al primario activo
+HAProxy apunto al lider activo
 RabbitMQ no dejo mensajes en DLQ
 Workers siguieron procesando despues del failover
 ```
@@ -643,7 +644,7 @@ Si detecta un nodo apagado, ejecuta:
 docker start <contenedor>
 ```
 
-Si detecta Pgpool `unhealthy`, ejecuta:
+Si detecta que el proxy `fastorder-db` deja de responder, ejecuta:
 
 ```text
 docker restart fastorder-db
@@ -675,7 +676,7 @@ Resultado:
 ```text
 Recovering fastorder-db-1 because status=exited
 Recovering fastorder-db because health=unhealthy
-Pgpool volvio a healthy
+El proxy `fastorder-db` volvio a responder
 ```
 
 Despues se creo un pedido real y termino:
@@ -683,7 +684,7 @@ Despues se creo un pedido real y termino:
 ```text
 Pedido: COMPLETED
 Inventario reserved=0
-Pgpool healthy
+Proxy `fastorder-db` operativo
 ```
 
 ## 14. Caos de microservicio critico
@@ -1188,7 +1189,7 @@ El sistema ya demostro:
 - inventario sin sobreventa.
 - idempotencia en pedidos.
 - Redis en rate limiting.
-- PostgreSQL con primary/standby.
+- PostgreSQL HA con tres nodos Patroni.
 - failover de BD.
 - recuperacion automatica de nodos de BD con `db-recovery`.
 - recuperacion automatica de microservicios con `db-recovery`.
@@ -1199,7 +1200,7 @@ El sistema ya demostro:
 - recuperacion automatica de intentos HTTP durante failover con `order-write-resilient-test.js`.
 - reconciliacion automatica de reservas de inventario despues de fallos transitorios.
 - reconciliacion automatica de notificaciones despues de failover.
-- Pgpool recuperado automaticamente cuando queda `unhealthy`.
+- Endpoint `fastorder-db` recuperado automaticamente cuando un contenedor de BD se cae.
 
 ## Pendiente
 
