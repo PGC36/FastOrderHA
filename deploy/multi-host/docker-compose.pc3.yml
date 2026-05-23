@@ -52,6 +52,17 @@ services:
       - "8008:8008"
     restart: unless-stopped
 
+  postgres-exporter-db-2:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: fastorder-postgres-exporter-db-2
+    environment:
+      DATA_SOURCE_NAME: postgresql://postgres:fastorder123@fastorder-db-2:5432/postgres?sslmode=disable
+    depends_on:
+      - fastorder-db-2
+    ports:
+      - "9187:9187"
+    restart: unless-stopped
+
 volumes:
   fastorder_etcd_2_data:
   fastorder_db_2_data:

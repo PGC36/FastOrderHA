@@ -24,3 +24,14 @@ services:
       - "5433:5433"
       - "7000:7000"
     restart: unless-stopped
+
+  postgres-exporter-db-proxy-2:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: fastorder-postgres-exporter-db-proxy-2
+    environment:
+      DATA_SOURCE_NAME: postgresql://postgres:fastorder123@fastorder-db-proxy-2:5432/postgres?sslmode=disable
+    depends_on:
+      - fastorder-db-proxy-2
+    ports:
+      - "9187:9187"
+    restart: unless-stopped

@@ -31,6 +31,7 @@ Estos archivos reparten la base HA en 4 PCs:
   - `5432` HAProxy RW
   - `5433` HAProxy RO
   - `7000` stats HAProxy
+  - `9187` postgres-exporter proxy 2
 
 ## Comandos
 
@@ -56,6 +57,12 @@ En `PC4`:
 
 ```powershell
 docker compose -f deploy/multi-host/docker-compose.pc4.yml up -d --build
+```
+
+Observabilidad multi-host en la PC donde tengan Prometheus/Grafana:
+
+```powershell
+docker compose -f deploy/multi-host/docker-compose.observability.yml up -d
 ```
 
 ## App y backups
@@ -92,6 +99,18 @@ Para probar lectura por proxy:
 ```powershell
 psql -h 192.168.0.5 -p 5433 -U fastorder_user -d fastorder_db -c "select now();"
 ```
+
+## Grafana y Prometheus
+
+- El archivo de Prometheus para multi-host es `monitoring/prometheus/prometheus.multi-host.yml`.
+- Ese archivo ya scrapea:
+  - `192.168.0.2:9187` nodo DB 0
+  - `192.168.0.5:9188` nodo DB 1
+  - `192.168.0.6:9187` nodo DB 2
+  - `192.168.0.5:9189` proxy 1
+  - `192.168.0.4:9187` proxy 2
+  - APIs de Patroni en `8008/8108`
+- El dashboard de Grafana quedó compatible tanto con el setup local anterior como con este multi-host.
 
 ## Nota sobre Keepalived
 
