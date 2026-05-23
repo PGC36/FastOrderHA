@@ -2,6 +2,11 @@ const { execFileSync } = require('node:child_process');
 
 const DEFAULT_PRODUCT_ID = 1;
 const DEFAULT_QUANTITY = 75000;
+const DB_PASSWORD = process.env.DB_PASSWORD || 'fastorder123';
+const DB_HOST = process.env.DB_HOST || '127.0.0.1';
+const DB_NAME = process.env.DB_NAME || 'fastorder_db';
+const DB_USER = process.env.DB_USER || 'postgres';
+const DB_NODES = ['fastorder-db-0', 'fastorder-db-1', 'fastorder-db-2'];
 
 const HELP = `
 Uso:
@@ -19,7 +24,7 @@ Opciones:
   --set               Fija quantity exactamente a la cantidad indicada. Default.
   --add               Suma la cantidad indicada al quantity actual.
   --reset-counters    Tambien pone reserved=0 y sold=0.
-  --container <name>  Contenedor proxy/postgres. Default: fastorder-db
+  --container <name>  Contenedor Postgres especifico. Si no se indica, detecta el primary.
 `;
 
 function argValue(args, name, fallback) {
@@ -47,17 +52,17 @@ function psql(container, sql) {
     [
       'exec',
       '-e',
-      'PGPASSWORD=fastorder123',
+      `PGPASSWORD=${DB_PASSWORD}`,
       container,
       'psql',
       '-h',
-      '127.0.0.1',
+      DB_HOST,
       '-p',
       '5432',
       '-U',
-      'postgres',
+      DB_USER,
       '-d',
-      'fastorder_db',
+      DB_NAME,
       '-v',
       'ON_ERROR_STOP=1',
       '-c',
@@ -65,6 +70,40 @@ function psql(container, sql) {
     ],
     { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
   );
+}
+
+function detectPrimaryDbContainer() {
+  for (const node of DB_NODES) {
+    try {
+      const output = execFileSync(
+        'docker',
+        [
+          'exec',
+          '-e',
+          `PGPASSWORD=${DB_PASSWORD}`,
+          node,
+          'psql',
+          '-h',
+          '127.0.0.1',
+          '-U',
+          'postgres',
+          '-d',
+          DB_NAME,
+          '-tAc',
+          "select case when pg_is_in_recovery() then 'replica' else 'primary' end",
+        ],
+        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
+      ).trim();
+
+      if (output === 'primary') {
+        return node;
+      }
+    } catch {
+      // Intentamos con el siguiente nodo.
+    }
+  }
+
+  throw new Error('No pude detectar el nodo primario de PostgreSQL.');
 }
 
 function main() {
@@ -78,7 +117,7 @@ function main() {
   const quantityArg = args.find((arg) => !arg.startsWith('--') && !['--product', '--container'].includes(args[args.indexOf(arg) - 1]));
   const quantity = numeric(quantityArg || DEFAULT_QUANTITY, 'cantidad');
   const productId = numeric(argValue(args, '--product', DEFAULT_PRODUCT_ID), 'product');
-  const container = argValue(args, '--container', 'fastorder-db');
+  const container = argValue(args, '--container', '') || detectPrimaryDbContainer();
   const addMode = args.includes('--add');
   const resetCounters = args.includes('--reset-counters');
 
@@ -99,6 +138,7 @@ function main() {
      where product_id = ${productId};
   `;
 
+  console.log(`DB node: ${container}`);
   console.log(`${addMode ? 'Sumando' : 'Fijando'} inventario: product_id=${productId}, cantidad=${quantity}`);
   if (resetCounters) {
     console.log('Tambien se reinician reserved y sold a 0.');

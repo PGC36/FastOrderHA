@@ -11,6 +11,11 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class InventoryService {
 
+    private static final int INVENTORY_OPERATION_REJECTED = 0;
+    private static final int INVENTORY_OPERATION_CONFIRMED = 1;
+    private static final int INVENTORY_OPERATION_ALREADY_APPLIED = 2;
+    private static final int INVENTORY_OPERATION_PRODUCT_NOT_FOUND = -1;
+
     private final InventoryRepository inventoryRepository;
 
     public boolean checkStock(Long productId, Integer quantity) {
@@ -35,29 +40,20 @@ public class InventoryService {
 
     @Transactional
     public boolean reserveStockForOrder(Long orderId, StockUpdateRequest request) {
-        if (inventoryRepository.saleExists(orderId)) {
-            return true;
-        }
-
-        int insertedRows = inventoryRepository.registerReservationIfNew(
+        int result = inventoryRepository.reserveStockForOrderOptimized(
                 orderId,
                 request.getProductId(),
                 request.getQuantity());
-        if (insertedRows == 0) {
+
+        if (result == INVENTORY_OPERATION_CONFIRMED || result == INVENTORY_OPERATION_ALREADY_APPLIED) {
             return true;
         }
 
-        int updatedRows = inventoryRepository.reserveIfAvailable(request.getProductId(), request.getQuantity());
-        if (updatedRows == 1) {
-            return true;
-        }
-
-        inventoryRepository.deleteReservation(orderId);
-        if (!inventoryRepository.existsByProductId(request.getProductId())) {
+        if (result == INVENTORY_OPERATION_PRODUCT_NOT_FOUND) {
             throw new ProductNotFoundException("El producto solicitado no existe");
         }
 
-        return false;
+        return result != INVENTORY_OPERATION_REJECTED;
     }
 
     @Transactional
@@ -74,29 +70,19 @@ public class InventoryService {
 
     @Transactional
     public boolean confirmSale(Long orderId, StockUpdateRequest request) {
-        if (inventoryRepository.saleExists(orderId)) {
-            inventoryRepository.deleteReservation(orderId);
-            return false;
-        }
-
-        if (!inventoryRepository.reservationExists(orderId)) {
-            return false;
-        }
-
-        int insertedRows = inventoryRepository.registerSaleIfNew(
+        int result = inventoryRepository.confirmSaleOptimized(
                 orderId,
                 request.getProductId(),
                 request.getQuantity());
-        if (insertedRows == 0) {
+
+        if (result == INVENTORY_OPERATION_CONFIRMED) {
+            return true;
+        }
+
+        if (result == INVENTORY_OPERATION_ALREADY_APPLIED || result == INVENTORY_OPERATION_REJECTED) {
             return false;
         }
 
-        int updatedRows = inventoryRepository.consumeReserved(request.getProductId(), request.getQuantity());
-        if (updatedRows == 0) {
-            throw new ProductNotFoundException("No existe reserva suficiente para confirmar la venta");
-        }
-
-        inventoryRepository.deleteReservation(orderId);
-        return true;
+        throw new ProductNotFoundException("No existe reserva suficiente para confirmar la venta");
     }
 }

@@ -1,32 +1,32 @@
-RUN_ID=local-1778637009040
+RUN_ID=k6-50k-20260523144442
 BASE_URL=http://[::1]:8080
 TOTAL_ORDERS=50000
 VUS=200
-MAX_DURATION=10m
+MAX_DURATION=20m
 MAX_ATTEMPTS=10
 RETRY_DELAY_SECONDS=2
 REQUEST_TIMEOUT=5s
-START=2026-05-13T01:50:09.040Z
-END=2026-05-13T01:50:09.041Z
+START=2026-05-23T20:45:12.034Z
+END=2026-05-23T20:45:12.034Z
      ✓ order eventually accepted
      ✓ order finished within retry budget
 
-     attempts_per_order.............: avg=1        min=1      med=1        p(90)=1        p(95)=1        p(99)=1        max=1      
-   ✓ checks.........................: 100.00% ✓ 100000      ✗ 0    
-     data_received..................: 27 MB   780 kB/s
-     data_sent......................: 16 MB   475 kB/s
-   ✓ final_order_failed.............: 0.00%   ✓ 0           ✗ 50000
-     http_req_blocked...............: avg=22.61µs  min=0s     med=0s       p(90)=0s       p(95)=0s       p(99)=1.05ms   max=9.69ms 
-     http_req_connecting............: avg=17.24µs  min=0s     med=0s       p(90)=0s       p(95)=0s       p(99)=1.03ms   max=7.32ms 
-   ✓ http_req_duration..............: avg=137.36ms min=1.96ms med=125.64ms p(90)=242.02ms p(95)=293.11ms p(99)=472.79ms max=1.25s  
-       { expected_response:true }...: avg=137.36ms min=1.96ms med=125.64ms p(90)=242.02ms p(95)=293.11ms p(99)=472.79ms max=1.25s  
-     http_req_failed................: 0.00%   ✓ 0           ✗ 50000
-     http_req_receiving.............: avg=213.99µs min=0s     med=0s       p(90)=560.5µs  p(95)=1.02ms   p(99)=2.39ms   max=61.38ms
-     http_req_sending...............: avg=19.39µs  min=0s     med=0s       p(90)=0s       p(95)=0s       p(99)=556.2µs  max=9.18ms 
-     http_req_tls_handshaking.......: avg=0s       min=0s     med=0s       p(90)=0s       p(95)=0s       p(99)=0s       max=0s     
-     http_req_waiting...............: avg=137.13ms min=1.96ms med=125.46ms p(90)=241.74ms p(95)=292.8ms  p(99)=472.63ms max=1.25s  
-     http_reqs......................: 50000   1450.659944/s
-     iteration_duration.............: avg=137.57ms min=2.66ms med=125.83ms p(90)=242.32ms p(95)=293.37ms p(99)=472.79ms max=1.26s  
-     iterations.....................: 50000   1450.659944/s
-     vus............................: 200     min=200       max=200
-     vus_max........................: 200     min=200       max=200
+     attempts_per_order.............: avg=1        min=1     med=1        p(90)=1        p(95)=1        p(99)=1        max=1       
+   ✓ checks.........................: 100.00% ✓ 100000     ✗ 0    
+     data_received..................: 27 MB   933 kB/s
+     data_sent......................: 17 MB   570 kB/s
+   ✓ final_order_failed.............: 0.00%   ✓ 0          ✗ 50000
+     http_req_blocked...............: avg=19.51µs  min=0s    med=0s       p(90)=0s       p(95)=0s       p(99)=817.45µs max=6.82ms  
+     http_req_connecting............: avg=15µs     min=0s    med=0s       p(90)=0s       p(95)=0s       p(99)=539.79µs max=5.95ms  
+   ✓ http_req_duration..............: avg=114.86ms min=4.5ms med=110.25ms p(90)=203.21ms p(95)=236.53ms p(99)=343.3ms  max=852.99ms
+       { expected_response:true }...: avg=114.86ms min=4.5ms med=110.25ms p(90)=203.21ms p(95)=236.53ms p(99)=343.3ms  max=852.99ms
+     http_req_failed................: 0.00%   ✓ 0          ✗ 50000
+     http_req_receiving.............: avg=175.35µs min=0s    med=0s       p(90)=552.4µs  p(95)=1.01ms   p(99)=2.03ms   max=16.17ms 
+     http_req_sending...............: avg=18.15µs  min=0s    med=0s       p(90)=0s       p(95)=0s       p(99)=551.5µs  max=3.39ms  
+     http_req_tls_handshaking.......: avg=0s       min=0s    med=0s       p(90)=0s       p(95)=0s       p(99)=0s       max=0s      
+     http_req_waiting...............: avg=114.67ms min=4.5ms med=110.07ms p(90)=202.96ms p(95)=236.19ms p(99)=343.3ms  max=852.58ms
+     http_reqs......................: 50000   1732.82559/s
+     iteration_duration.............: avg=115.06ms min=4.5ms med=110.43ms p(90)=203.33ms p(95)=236.59ms p(99)=343.61ms max=858.12ms
+     iterations.....................: 50000   1732.82559/s
+     vus............................: 200     min=200      max=200
+     vus_max........................: 200     min=200      max=200

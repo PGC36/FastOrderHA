@@ -45,6 +45,49 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long> {
             @Param("productId") Long productId,
             @Param("quantity") Integer quantity);
 
+    @Query(value = """
+            with existing_sale as (
+                select 1
+                  from inventory_sales
+                 where order_id = :orderId
+            ),
+            inserted_reservation as (
+                insert into inventory_reservations (order_id, product_id, quantity)
+                select :orderId, :productId, :quantity
+                 where not exists (select 1 from existing_sale)
+                on conflict (order_id) do nothing
+                returning order_id
+            ),
+            updated_inventory as (
+                update inventory
+                   set reserved = reserved + :quantity,
+                       updated_at = current_timestamp
+                 where product_id = :productId
+                   and exists (select 1 from inserted_reservation)
+                   and (quantity - reserved) >= :quantity
+                returning product_id
+            ),
+            cleanup_reservation as (
+                delete from inventory_reservations
+                 where order_id = :orderId
+                   and exists (select 1 from inserted_reservation)
+                   and not exists (select 1 from updated_inventory)
+                returning order_id
+            )
+            select case
+                when exists (select 1 from existing_sale) then 2
+                when exists (select 1 from updated_inventory) then 1
+                when exists (select 1 from inserted_reservation) then 0
+                when exists (select 1 from inventory_reservations where order_id = :orderId) then 2
+                when exists (select 1 from inventory where product_id = :productId) then 0
+                else -1
+            end
+            """, nativeQuery = true)
+    int reserveStockForOrderOptimized(
+            @Param("orderId") Long orderId,
+            @Param("productId") Long productId,
+            @Param("quantity") Integer quantity);
+
     @Modifying
     @Query(value = "delete from inventory_reservations where order_id = :orderId", nativeQuery = true)
     int deleteReservation(@Param("orderId") Long orderId);
@@ -106,6 +149,55 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long> {
                and quantity >= :quantity
             """, nativeQuery = true)
     int consumeReserved(
+            @Param("productId") Long productId,
+            @Param("quantity") Integer quantity);
+
+    @Query(value = """
+            with inserted_sale as (
+                insert into inventory_sales (order_id, product_id, quantity)
+                select r.order_id, r.product_id, r.quantity
+                  from inventory_reservations r
+                 where r.order_id = :orderId
+                on conflict (order_id) do nothing
+                returning order_id
+            ),
+            updated_inventory as (
+                update inventory
+                   set quantity = quantity - :quantity,
+                       reserved = reserved - :quantity,
+                       sold = sold + :quantity,
+                       updated_at = current_timestamp
+                 where product_id = :productId
+                   and exists (select 1 from inserted_sale)
+                   and reserved >= :quantity
+                   and quantity >= :quantity
+                returning product_id
+            ),
+            cleanup_sale as (
+                delete from inventory_sales
+                 where order_id = :orderId
+                   and exists (select 1 from inserted_sale)
+                   and not exists (select 1 from updated_inventory)
+                returning order_id
+            ),
+            removed_reservation as (
+                delete from inventory_reservations
+                 where order_id = :orderId
+                   and (
+                        exists (select 1 from updated_inventory)
+                        or exists (select 1 from inventory_sales where order_id = :orderId)
+                   )
+                returning order_id
+            )
+            select case
+                when exists (select 1 from updated_inventory) then 1
+                when exists (select 1 from inventory_sales where order_id = :orderId) then 2
+                when exists (select 1 from inventory_reservations where order_id = :orderId) then 0
+                else 0
+            end
+            """, nativeQuery = true)
+    int confirmSaleOptimized(
+            @Param("orderId") Long orderId,
             @Param("productId") Long productId,
             @Param("quantity") Integer quantity);
 

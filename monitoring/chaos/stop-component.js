@@ -1,4 +1,6 @@
 const { execFileSync } = require('node:child_process');
+const DB_PASSWORD = process.env.DB_PASSWORD || 'fastorder123';
+const DB_NAME = process.env.DB_NAME || 'fastorder_db';
 
 const ALIASES = {
   'api': 'fastorder-api-gateway',
@@ -63,16 +65,20 @@ function isPrimary(container) {
   try {
     const result = docker([
       'exec',
+      '-e',
+      `PGPASSWORD=${DB_PASSWORD}`,
       container,
       'psql',
+      '-h',
+      '127.0.0.1',
       '-U',
       'postgres',
       '-d',
-      'fastorder_db',
+      DB_NAME,
       '-tAc',
-      'select not pg_is_in_recovery()',
+      "select case when pg_is_in_recovery() then 'replica' else 'primary' end",
     ]);
-    return result === 't';
+    return result === 'primary';
   } catch {
     return false;
   }
@@ -90,7 +96,13 @@ function resolveDbRole(role) {
     return primary;
   }
 
-  return nodes.find((node) => node !== primary);
+  const replica = nodes.find((node) => node !== primary);
+
+  if (!replica) {
+    throw new Error('No pude detectar una replica disponible.');
+  }
+
+  return replica;
 }
 
 function resolveContainer(component) {
