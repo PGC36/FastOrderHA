@@ -46,8 +46,16 @@ foreach ($key in $required) {
     }
 }
 
+if (-not $vars.ContainsKey("APP_HOST") -or [string]::IsNullOrWhiteSpace($vars["APP_HOST"])) {
+    $vars["APP_HOST"] = $vars["PC1_IP"]
+}
+
+if (-not $vars.ContainsKey("RABBITMQ_HOST") -or [string]::IsNullOrWhiteSpace($vars["RABBITMQ_HOST"])) {
+    $vars["RABBITMQ_HOST"] = $vars["APP_HOST"]
+}
+
 $content = Get-Content -LiteralPath $resolvedTemplateFile -Raw
-foreach ($key in $required) {
+foreach ($key in @($required + @("APP_HOST", "RABBITMQ_HOST"))) {
     $content = $content.Replace('${' + $key + '}', $vars[$key])
 }
 

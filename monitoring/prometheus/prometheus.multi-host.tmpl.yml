@@ -21,13 +21,13 @@ scrape_configs:
   - job_name: rabbitmq
     static_configs:
       - targets:
-          - rabbitmq:15692
+          - ${RABBITMQ_HOST}:15692
 
   - job_name: rabbitmq-per-object
     metrics_path: /metrics/per-object
     static_configs:
       - targets:
-          - rabbitmq:15692
+          - ${RABBITMQ_HOST}:15692
 
   - job_name: postgres-node
     static_configs:
@@ -80,40 +80,40 @@ scrape_configs:
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
-          - api-gateway:8080
+          - ${APP_HOST}:8080
 
   - job_name: menu-service
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
-          - menu-service:8081
+          - ${APP_HOST}:8081
 
   - job_name: order-service
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
-          - order-service:8082
+          - ${APP_HOST}:8082
 
   - job_name: inventory-service
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
-          - inventory-service:8083
+          - ${APP_HOST}:8083
 
   - job_name: kitchen-service
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
-          - kitchen-service:8084
+          - ${APP_HOST}:8084
 
   - job_name: delivery-service
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
-          - delivery-service:8085
+          - ${APP_HOST}:8085
 
   - job_name: notification-service
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
-          - notification-service:8086
+          - ${APP_HOST}:8086
