@@ -36,16 +36,19 @@ scrape_configs:
         labels:
           postgres_node: db-0
           postgres_host: 192.168.0.2
+          postgres_role_hint: candidate
       - targets:
           - 192.168.0.5:9188
         labels:
           postgres_node: db-1
           postgres_host: 192.168.0.5
+          postgres_role_hint: candidate
       - targets:
           - 192.168.0.6:9187
         labels:
           postgres_node: db-2
           postgres_host: 192.168.0.6
+          postgres_role_hint: candidate
 
   - job_name: postgres-proxy
     static_configs:
@@ -54,11 +57,13 @@ scrape_configs:
         labels:
           proxy_node: proxy-1
           proxy_host: 192.168.0.5
+          proxy_role: primary_proxy
       - targets:
           - 192.168.0.7:9187
         labels:
           proxy_node: proxy-2
           proxy_host: 192.168.0.7
+          proxy_role: secondary_proxy
 
   - job_name: patroni
     metrics_path: /metrics
@@ -67,53 +72,77 @@ scrape_configs:
           - 192.168.0.2:8008
         labels:
           postgres_node: db-0
+          postgres_host: 192.168.0.2
       - targets:
           - 192.168.0.5:8108
         labels:
           postgres_node: db-1
+          postgres_host: 192.168.0.5
       - targets:
           - 192.168.0.6:8008
         labels:
           postgres_node: db-2
+          postgres_host: 192.168.0.6
 
   - job_name: api-gateway
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
           - 192.168.0.2:8080
+        labels:
+          service_name: api-gateway
+          service_host: 192.168.0.2
 
   - job_name: menu-service
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
           - 192.168.0.2:8081
+        labels:
+          service_name: menu-service
+          service_host: 192.168.0.2
 
   - job_name: order-service
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
           - 192.168.0.2:8082
+        labels:
+          service_name: order-service
+          service_host: 192.168.0.2
 
   - job_name: inventory-service
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
           - 192.168.0.2:8083
+        labels:
+          service_name: inventory-service
+          service_host: 192.168.0.2
 
   - job_name: kitchen-service
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
           - 192.168.0.2:8084
+        labels:
+          service_name: kitchen-service
+          service_host: 192.168.0.2
 
   - job_name: delivery-service
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
           - 192.168.0.2:8085
+        labels:
+          service_name: delivery-service
+          service_host: 192.168.0.2
 
   - job_name: notification-service
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
           - 192.168.0.2:8086
+        labels:
+          service_name: notification-service
+          service_host: 192.168.0.2

@@ -54,8 +54,24 @@ if (-not $vars.ContainsKey("RABBITMQ_HOST") -or [string]::IsNullOrWhiteSpace($va
     $vars["RABBITMQ_HOST"] = $vars["APP_HOST"]
 }
 
+$serviceHosts = @(
+    "API_GATEWAY_HOST",
+    "MENU_SERVICE_HOST",
+    "ORDER_SERVICE_HOST",
+    "INVENTORY_SERVICE_HOST",
+    "KITCHEN_SERVICE_HOST",
+    "DELIVERY_SERVICE_HOST",
+    "NOTIFICATION_SERVICE_HOST"
+)
+
+foreach ($key in $serviceHosts) {
+    if (-not $vars.ContainsKey($key) -or [string]::IsNullOrWhiteSpace($vars[$key])) {
+        $vars[$key] = $vars["APP_HOST"]
+    }
+}
+
 $content = Get-Content -LiteralPath $resolvedTemplateFile -Raw
-foreach ($key in @($required + @("APP_HOST", "RABBITMQ_HOST"))) {
+foreach ($key in @($required + @("APP_HOST", "RABBITMQ_HOST") + $serviceHosts)) {
     $content = $content.Replace('${' + $key + '}', $vars[$key])
 }
 
