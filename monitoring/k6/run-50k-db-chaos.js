@@ -4,11 +4,31 @@ const path = require("node:path");
 
 const repoRoot = path.resolve(__dirname, "..", "..");
 process.chdir(repoRoot);
+const multiHostEnvPath = path.join(repoRoot, "deploy", "multi-host", "multi-host.env");
+
+function loadEnvFile(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    fs.readFileSync(filePath, "utf8")
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith("#") && line.includes("="))
+      .map((line) => {
+        const separator = line.indexOf("=");
+        return [line.slice(0, separator).trim(), line.slice(separator + 1).trim()];
+      })
+  );
+}
+
+const multiHostEnv = loadEnvFile(multiHostEnvPath);
 
 const defaults = {
   totalOrders: 50000,
   vus: 100,
-  baseUrl: "http://[::1]:8080",
+  baseUrl: process.platform === "win32" ? "http://api-gateway:8080" : "http://127.0.0.1:8080",
   maxDuration: "30m",
   maxAttempts: 150,
   retryDelaySeconds: 2,
@@ -17,6 +37,11 @@ const defaults = {
   killAfterSeconds: [5, 140],
   finalPollIntervalSeconds: 20,
   finalPollTimeoutMinutes: 25,
+  dbResetHost: process.env.DB_RESET_HOST || "127.0.0.1",
+  dbResetPort: Number(process.env.DB_RESET_PORT || 5432),
+  dbClientContainer: process.env.DB_CLIENT_CONTAINER || "fastorder-db-0",
+  chaosTargetContainer: process.env.CHAOS_TARGET_CONTAINER || "fastorder-db-0",
+  useDockerK6: process.platform === "win32",
   disableChaos: false,
   skipCleanup: false,
 };
@@ -71,6 +96,24 @@ function parseArgs(argv) {
       case "--final-poll-timeout-minutes":
         options.finalPollTimeoutMinutes = Number(next());
         break;
+      case "--db-reset-host":
+        options.dbResetHost = next();
+        break;
+      case "--db-reset-port":
+        options.dbResetPort = Number(next());
+        break;
+      case "--db-client-container":
+        options.dbClientContainer = next();
+        break;
+      case "--chaos-target-container":
+        options.chaosTargetContainer = next();
+        break;
+      case "--use-docker-k6":
+        options.useDockerK6 = true;
+        break;
+      case "--use-local-k6":
+        options.useDockerK6 = false;
+        break;
       case "--disable-chaos":
         options.disableChaos = true;
         break;
@@ -97,7 +140,11 @@ function printHelp() {
 Options:
   --total-orders 50000
   --vus 100
-  --base-url "http://[::1]:8080"
+  --base-url "http://127.0.0.1:8080"
+  --db-reset-host "192.168.0.7"
+  --db-client-container "fastorder-db-0"
+  --chaos-target-container "fastorder-db-0"
+  --use-docker-k6 | --use-local-k6
   --kill-after-seconds "5,140"
   --disable-chaos
   --skip-cleanup
@@ -164,19 +211,20 @@ async function waitForGateway() {
   throw new Error("API Gateway no respondio /actuator/health antes del timeout.");
 }
 
-function resetTestData(totalOrders) {
+function resetTestData(totalOrders, options) {
   console.log("Limpiando datos y preparando inventario...");
-  const primary = getPrimaryDbContainer();
   run(
     "docker",
     [
       "exec",
       "-e",
       "PGPASSWORD=fastorder123",
-      primary,
+      options.dbClientContainer,
       "psql",
       "-h",
-      "127.0.0.1",
+      options.dbResetHost,
+      "-p",
+      String(options.dbResetPort),
       "-U",
       "fastorder_user",
       "-d",
@@ -214,7 +262,9 @@ function getPrimaryDbContainer(chaosLog) {
     );
 
     if (result.status !== 0) {
-      logLine(chaosLog, `${timestamp()} No se pudo consultar rol de ${node}: ${result.stderr.trim()}`);
+      if (chaosLog) {
+        logLine(chaosLog, `${timestamp()} No se pudo consultar rol de ${node}: ${result.stderr.trim()}`);
+      }
       continue;
     }
 
@@ -231,16 +281,22 @@ function getPrimaryDbContainer(chaosLog) {
   throw new Error("No pude detectar el nodo primario de PostgreSQL.");
 }
 
-function killPrimaryDb(chaosLog) {
-  const primary = getPrimaryDbContainer(chaosLog);
-  if (!primary) {
-    logLine(chaosLog, `${timestamp()} No primary detected`);
+function killPrimaryDb(options, chaosLog) {
+  const target = options.chaosTargetContainer || getPrimaryDbContainer(chaosLog);
+  if (!target) {
+    if (chaosLog) {
+      logLine(chaosLog, `${timestamp()} No chaos target detected`);
+    }
     return;
   }
 
-  logLine(chaosLog, `${timestamp()} Killing primary ${primary}`);
-  const result = run("docker", ["kill", primary], { allowFailure: true });
-  logLine(chaosLog, (result.stdout || result.stderr).trim());
+  if (chaosLog) {
+    logLine(chaosLog, `${timestamp()} Killing target ${target}`);
+  }
+  const result = run("docker", ["kill", target], { allowFailure: true });
+  if (chaosLog) {
+    logLine(chaosLog, (result.stdout || result.stderr).trim());
+  }
 }
 
 async function runChaos(options, chaosLog) {
@@ -254,7 +310,7 @@ async function runChaos(options, chaosLog) {
     const sleepFor = Math.max(0, killAt - elapsed);
     await wait(sleepFor * 1000);
     elapsed = killAt;
-    killPrimaryDb(chaosLog);
+    killPrimaryDb(options, chaosLog);
   }
 
   logLine(chaosLog, `${timestamp()} Chaos script finished`);
@@ -263,7 +319,6 @@ async function runChaos(options, chaosLog) {
 function runK6(options, runId, resultLog) {
   return new Promise((resolve, reject) => {
     const started = Date.now();
-    const k6Command = process.platform === "win32" ? "k6.exe" : "k6";
     const env = {
       ...process.env,
       TOTAL_ORDERS: String(options.totalOrders),
@@ -277,10 +332,51 @@ function runK6(options, runId, resultLog) {
       RUN_ID: runId,
     };
 
-    const child = spawn(k6Command, ["run", ".\\monitoring\\k6\\order-write-resilient-test.js"], {
-      cwd: repoRoot,
-      env,
-    });
+    const child = options.useDockerK6
+      ? spawn(
+          "docker",
+          [
+            "run",
+            "--rm",
+            "--network",
+            "fastorder-network",
+            "-e",
+            `TOTAL_ORDERS=${env.TOTAL_ORDERS}`,
+            "-e",
+            `VUS=${env.VUS}`,
+            "-e",
+            `MAX_DURATION=${env.MAX_DURATION}`,
+            "-e",
+            `MAX_ATTEMPTS=${env.MAX_ATTEMPTS}`,
+            "-e",
+            `RETRY_DELAY_SECONDS=${env.RETRY_DELAY_SECONDS}`,
+            "-e",
+            `REQUEST_TIMEOUT=${env.REQUEST_TIMEOUT}`,
+            "-e",
+            `ITERATION_DELAY_SECONDS=${env.ITERATION_DELAY_SECONDS}`,
+            "-e",
+            `BASE_URL=${env.BASE_URL}`,
+            "-e",
+            `RUN_ID=${env.RUN_ID}`,
+            "-e",
+            `RESULT_PATH=${resultLog.replace(/\\/g, "/")}`,
+            "-v",
+            `${repoRoot}:/work`,
+            "-w",
+            "/work",
+            "grafana/k6",
+            "run",
+            "monitoring/k6/order-write-resilient-test.js",
+          ],
+          {
+            cwd: repoRoot,
+            env,
+          }
+        )
+      : spawn(process.platform === "win32" ? "k6.exe" : "k6", ["run", ".\\monitoring\\k6\\order-write-resilient-test.js"], {
+          cwd: repoRoot,
+          env,
+        });
 
     const stream = fs.createWriteStream(resultLog, { flags: "a", encoding: "utf8" });
 
@@ -314,7 +410,9 @@ async function waitFinalBusinessState(options, finalLog, scriptStarted) {
   const deadline = Date.now() + options.finalPollTimeoutMinutes * 60 * 1000;
 
   while (Date.now() < deadline) {
-    const result = run("node", [".\\monitoring\\check-results.js"]);
+    const result = run("node", [".\\monitoring\\check.js"], {
+      env: { EXPECTED_ORDERS: String(options.totalOrders) },
+    });
     const elapsed = Math.round(((Date.now() - scriptStarted) / 1000) * 100) / 100;
     const header = `===== POLL ${timestamp()} elapsed=${elapsed}s =====`;
     const output = result.stdout.trim();
@@ -359,14 +457,17 @@ async function main() {
   console.log(`  k6:    ${resultLog}`);
   console.log(`  chaos: ${chaosLog}`);
   console.log(`  final: ${finalLog}`);
+  console.log(`  mode:  ${options.useDockerK6 ? "docker-k6" : "local-k6"}`);
 
   await waitForGateway();
 
   if (!options.skipCleanup) {
-    resetTestData(options.totalOrders);
+    resetTestData(options.totalOrders, options);
   }
 
-  console.log(run("node", [".\\monitoring\\check-results.js"]).stdout);
+  console.log(run("node", [".\\monitoring\\check.js"], {
+    env: { EXPECTED_ORDERS: String(options.totalOrders) },
+  }).stdout);
 
   await Promise.all([
     runK6(options, runId, resultLog),

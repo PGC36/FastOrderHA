@@ -73,6 +73,10 @@ Por defecto:
 - mata el primary de PostgreSQL en los segundos `5` y `140`.
 - espera hasta que `monitoring/check-results.js` muestre `Status: DONE`.
 
+Nota:
+
+- los scripts k6 usan `http://127.0.0.1:8080` por defecto para evitar resoluciones inconsistentes de `localhost` o `::1` en Windows.
+
 ## Prueba sostenida
 
 ```powershell

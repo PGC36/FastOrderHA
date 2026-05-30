@@ -1,4 +1,26 @@
 services:
+  db-client-proxy:
+    build:
+      context: ./deploy/patroni-3nodes/haproxy
+    container_name: fastorder-db-client-proxy
+    ports:
+      - "5440:5432"
+      - "7001:7000"
+    environment:
+      FASTORDER_DB_PRIMARY_PROXY_HOST: ${FASTORDER_DB_PRIMARY_PROXY_HOST:-fastorder-db}
+      FASTORDER_DB_PRIMARY_PROXY_PORT: ${FASTORDER_DB_PRIMARY_PROXY_PORT:-5432}
+      FASTORDER_DB_SECONDARY_PROXY_HOST: ${FASTORDER_DB_SECONDARY_PROXY_HOST:-fastorder-db}
+      FASTORDER_DB_SECONDARY_PROXY_PORT: ${FASTORDER_DB_SECONDARY_PROXY_PORT:-5432}
+    command:
+      - /bin/sh
+      - -c
+      - envsubst < /usr/local/etc/haproxy/haproxy.cfg.tmpl > /usr/local/etc/haproxy/haproxy.cfg && exec haproxy -W -db -f /usr/local/etc/haproxy/haproxy.cfg
+    volumes:
+      - ./deploy/multi-host/haproxy-app-client.cfg.tmpl:/usr/local/etc/haproxy/haproxy.cfg.tmpl:ro
+    networks:
+      - fastorder-network
+    restart: unless-stopped
+
   api-gateway:
     build:
       context: ./api-gateway
@@ -22,17 +44,23 @@ services:
     container_name: fastorder-menu-service
     ports:
       - "8081:8081"
+    depends_on:
+      - db-client-proxy
     environment:
-      DB_HOST: ${FASTORDER_DB_HOST:-fastorder-db}
+      DB_HOST: ${FASTORDER_DB_HOST:-fastorder-db-client-proxy}
       DB_PORT: ${FASTORDER_DB_PORT:-5432}
       DB_NAME: ${FASTORDER_DB_NAME:-fastorder_db}
       DB_USER: ${FASTORDER_DB_USER:-fastorder_user}
       DB_PASSWORD: ${FASTORDER_DB_PASSWORD:-fastorder123}
-      SPRING_DATASOURCE_URL: jdbc:postgresql://${FASTORDER_DB_HOST:-fastorder-db}:${FASTORDER_DB_PORT:-5432}/${FASTORDER_DB_NAME:-fastorder_db}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${FASTORDER_DB_HOST:-fastorder-db-client-proxy}:${FASTORDER_DB_PORT:-5432}/${FASTORDER_DB_NAME:-fastorder_db}?connectTimeout=${FASTORDER_DB_CONNECT_TIMEOUT_SECONDS:-10}&socketTimeout=${FASTORDER_DB_SOCKET_TIMEOUT_SECONDS:-30}&tcpKeepAlive=true
       SPRING_DATASOURCE_USERNAME: ${FASTORDER_DB_USER:-fastorder_user}
       SPRING_DATASOURCE_PASSWORD: ${FASTORDER_DB_PASSWORD:-fastorder123}
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
+      SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: 10000
+      SPRING_DATASOURCE_HIKARI_VALIDATION_TIMEOUT: 5000
+      SPRING_DATASOURCE_HIKARI_MAX_LIFETIME: 600000
+      SPRING_DATASOURCE_HIKARI_KEEPALIVE_TIME: 30000
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: guest
@@ -41,7 +69,7 @@ services:
       SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_INITIAL_INTERVAL: 2000
       SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MULTIPLIER: 1.5
       SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_INTERVAL: 15000
-      DB_WAIT_HOST: ${FASTORDER_DB_HOST:-fastorder-db}
+      DB_WAIT_HOST: ${FASTORDER_DB_HOST:-fastorder-db-client-proxy}
       DB_WAIT_PORT: ${FASTORDER_DB_PORT:-5432}
       RABBIT_WAIT_HOST: rabbitmq
       RABBIT_WAIT_PORT: 5672
@@ -58,12 +86,18 @@ services:
     container_name: fastorder-inventory-service
     ports:
       - "8083:8083"
+    depends_on:
+      - db-client-proxy
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://${FASTORDER_DB_HOST:-fastorder-db}:${FASTORDER_DB_PORT:-5432}/${FASTORDER_DB_NAME:-fastorder_db}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${FASTORDER_DB_HOST:-fastorder-db-client-proxy}:${FASTORDER_DB_PORT:-5432}/${FASTORDER_DB_NAME:-fastorder_db}?connectTimeout=${FASTORDER_DB_CONNECT_TIMEOUT_SECONDS:-10}&socketTimeout=${FASTORDER_DB_SOCKET_TIMEOUT_SECONDS:-30}&tcpKeepAlive=true
       SPRING_DATASOURCE_USERNAME: ${FASTORDER_DB_USER:-fastorder_user}
       SPRING_DATASOURCE_PASSWORD: ${FASTORDER_DB_PASSWORD:-fastorder123}
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 32
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 8
+      SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: 10000
+      SPRING_DATASOURCE_HIKARI_VALIDATION_TIMEOUT: 5000
+      SPRING_DATASOURCE_HIKARI_MAX_LIFETIME: 600000
+      SPRING_DATASOURCE_HIKARI_KEEPALIVE_TIME: 30000
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: guest
@@ -74,7 +108,7 @@ services:
       INVENTORY_ORDER_CREATED_CONSUMERS: 8
       INVENTORY_DELIVERY_COMPLETED_CONSUMERS: 8
       LOGGING_LEVEL_COM_EXAMPLE_INVENTORY_SERVICE: WARN
-      DB_WAIT_HOST: ${FASTORDER_DB_HOST:-fastorder-db}
+      DB_WAIT_HOST: ${FASTORDER_DB_HOST:-fastorder-db-client-proxy}
       DB_WAIT_PORT: ${FASTORDER_DB_PORT:-5432}
       RABBIT_WAIT_HOST: rabbitmq
       RABBIT_WAIT_PORT: 5672
@@ -92,16 +126,21 @@ services:
     ports:
       - "8082:8082"
     depends_on:
+      - db-client-proxy
       - inventory-service
       - kitchen-service
       - delivery-service
       - notification-service
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://${FASTORDER_DB_HOST:-fastorder-db}:${FASTORDER_DB_PORT:-5432}/${FASTORDER_DB_NAME:-fastorder_db}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${FASTORDER_DB_HOST:-fastorder-db-client-proxy}:${FASTORDER_DB_PORT:-5432}/${FASTORDER_DB_NAME:-fastorder_db}?connectTimeout=${FASTORDER_DB_CONNECT_TIMEOUT_SECONDS:-10}&socketTimeout=${FASTORDER_DB_SOCKET_TIMEOUT_SECONDS:-30}&tcpKeepAlive=true
       SPRING_DATASOURCE_USERNAME: ${FASTORDER_DB_USER:-fastorder_user}
       SPRING_DATASOURCE_PASSWORD: ${FASTORDER_DB_PASSWORD:-fastorder123}
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 40
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 8
+      SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: 10000
+      SPRING_DATASOURCE_HIKARI_VALIDATION_TIMEOUT: 5000
+      SPRING_DATASOURCE_HIKARI_MAX_LIFETIME: 600000
+      SPRING_DATASOURCE_HIKARI_KEEPALIVE_TIME: 30000
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: guest
@@ -122,7 +161,7 @@ services:
       NOTIFICATION_SERVICE_URL: http://notification-service:8086/notifications
       ORDER_PROCESSING_MODE: event
       LOGGING_LEVEL_COM_FASTORDER_ORDERSERVICE: WARN
-      DB_WAIT_HOST: ${FASTORDER_DB_HOST:-fastorder-db}
+      DB_WAIT_HOST: ${FASTORDER_DB_HOST:-fastorder-db-client-proxy}
       DB_WAIT_PORT: ${FASTORDER_DB_PORT:-5432}
       RABBIT_WAIT_HOST: rabbitmq
       RABBIT_WAIT_PORT: 5672
@@ -139,12 +178,18 @@ services:
     container_name: fastorder-kitchen-service
     ports:
       - "8084:8084"
+    depends_on:
+      - db-client-proxy
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://${FASTORDER_DB_HOST:-fastorder-db}:${FASTORDER_DB_PORT:-5432}/${FASTORDER_DB_NAME:-fastorder_db}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${FASTORDER_DB_HOST:-fastorder-db-client-proxy}:${FASTORDER_DB_PORT:-5432}/${FASTORDER_DB_NAME:-fastorder_db}?connectTimeout=${FASTORDER_DB_CONNECT_TIMEOUT_SECONDS:-10}&socketTimeout=${FASTORDER_DB_SOCKET_TIMEOUT_SECONDS:-30}&tcpKeepAlive=true
       SPRING_DATASOURCE_USERNAME: ${FASTORDER_DB_USER:-fastorder_user}
       SPRING_DATASOURCE_PASSWORD: ${FASTORDER_DB_PASSWORD:-fastorder123}
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 28
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 5
+      SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: 10000
+      SPRING_DATASOURCE_HIKARI_VALIDATION_TIMEOUT: 5000
+      SPRING_DATASOURCE_HIKARI_MAX_LIFETIME: 600000
+      SPRING_DATASOURCE_HIKARI_KEEPALIVE_TIME: 30000
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: guest
@@ -159,7 +204,7 @@ services:
       KITCHEN_INVENTORY_RESERVED_CONSUMERS: 12
       ORDER_SERVICE_URL: http://order-service:8082/orders
       LOGGING_LEVEL_COM_FASTORDER_KITCHEN: WARN
-      DB_WAIT_HOST: ${FASTORDER_DB_HOST:-fastorder-db}
+      DB_WAIT_HOST: ${FASTORDER_DB_HOST:-fastorder-db-client-proxy}
       DB_WAIT_PORT: ${FASTORDER_DB_PORT:-5432}
       RABBIT_WAIT_HOST: rabbitmq
       RABBIT_WAIT_PORT: 5672
@@ -176,12 +221,18 @@ services:
     container_name: fastorder-delivery-service
     ports:
       - "8085:8085"
+    depends_on:
+      - db-client-proxy
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://${FASTORDER_DB_HOST:-fastorder-db}:${FASTORDER_DB_PORT:-5432}/${FASTORDER_DB_NAME:-fastorder_db}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${FASTORDER_DB_HOST:-fastorder-db-client-proxy}:${FASTORDER_DB_PORT:-5432}/${FASTORDER_DB_NAME:-fastorder_db}?connectTimeout=${FASTORDER_DB_CONNECT_TIMEOUT_SECONDS:-10}&socketTimeout=${FASTORDER_DB_SOCKET_TIMEOUT_SECONDS:-30}&tcpKeepAlive=true
       SPRING_DATASOURCE_USERNAME: ${FASTORDER_DB_USER:-fastorder_user}
       SPRING_DATASOURCE_PASSWORD: ${FASTORDER_DB_PASSWORD:-fastorder123}
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 28
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 5
+      SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: 10000
+      SPRING_DATASOURCE_HIKARI_VALIDATION_TIMEOUT: 5000
+      SPRING_DATASOURCE_HIKARI_MAX_LIFETIME: 600000
+      SPRING_DATASOURCE_HIKARI_KEEPALIVE_TIME: 30000
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: guest
@@ -196,7 +247,7 @@ services:
       DELIVERY_KITCHEN_READY_CONSUMERS: 12
       ORDER_SERVICE_URL: http://order-service:8082/orders
       LOGGING_LEVEL_COM_FASTORDER_DELIVERY: WARN
-      DB_WAIT_HOST: ${FASTORDER_DB_HOST:-fastorder-db}
+      DB_WAIT_HOST: ${FASTORDER_DB_HOST:-fastorder-db-client-proxy}
       DB_WAIT_PORT: ${FASTORDER_DB_PORT:-5432}
       RABBIT_WAIT_HOST: rabbitmq
       RABBIT_WAIT_PORT: 5672
@@ -213,12 +264,18 @@ services:
     container_name: fastorder-notification-service
     ports:
       - "8086:8086"
+    depends_on:
+      - db-client-proxy
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://${FASTORDER_DB_HOST:-fastorder-db}:${FASTORDER_DB_PORT:-5432}/${FASTORDER_DB_NAME:-fastorder_db}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${FASTORDER_DB_HOST:-fastorder-db-client-proxy}:${FASTORDER_DB_PORT:-5432}/${FASTORDER_DB_NAME:-fastorder_db}?connectTimeout=${FASTORDER_DB_CONNECT_TIMEOUT_SECONDS:-10}&socketTimeout=${FASTORDER_DB_SOCKET_TIMEOUT_SECONDS:-30}&tcpKeepAlive=true
       SPRING_DATASOURCE_USERNAME: ${FASTORDER_DB_USER:-fastorder_user}
       SPRING_DATASOURCE_PASSWORD: ${FASTORDER_DB_PASSWORD:-fastorder123}
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 20
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 3
+      SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: 10000
+      SPRING_DATASOURCE_HIKARI_VALIDATION_TIMEOUT: 5000
+      SPRING_DATASOURCE_HIKARI_MAX_LIFETIME: 600000
+      SPRING_DATASOURCE_HIKARI_KEEPALIVE_TIME: 30000
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: guest
@@ -232,7 +289,7 @@ services:
       SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_INTERVAL: 15000
       NOTIFICATION_CREATED_CONSUMERS: 12
       LOGGING_LEVEL_COM_EXAMPLE_DEMO: WARN
-      DB_WAIT_HOST: ${FASTORDER_DB_HOST:-fastorder-db}
+      DB_WAIT_HOST: ${FASTORDER_DB_HOST:-fastorder-db-client-proxy}
       DB_WAIT_PORT: ${FASTORDER_DB_PORT:-5432}
       RABBIT_WAIT_HOST: rabbitmq
       RABBIT_WAIT_PORT: 5672

@@ -1,4 +1,5 @@
 const { execFileSync } = require("node:child_process");
+const http = require("node:http");
 
 const DB_CONTAINER = process.env.DB_CONTAINER || "";
 const DB_HOST = process.env.DB_HOST || "127.0.0.1";
@@ -6,6 +7,12 @@ const RABBIT_CONTAINER = process.env.RABBIT_CONTAINER || "fastorder-rabbitmq";
 const DB_USER = process.env.DB_USER || "fastorder_user";
 const DB_NAME = process.env.DB_NAME || "fastorder_db";
 const DB_PASSWORD = process.env.DB_PASSWORD || "fastorder123";
+const EXPECTED_ORDERS = Number(process.env.EXPECTED_ORDERS || process.env.TOTAL_ORDERS || 0);
+const NO_CLEAR = process.env.NO_CLEAR === "1";
+const PATRONI_ENDPOINTS = (process.env.PATRONI_ENDPOINTS || "http://192.168.0.2:8008,http://192.168.0.5:8108,http://192.168.0.6:8008")
+  .split(",")
+  .map((value) => value.trim())
+  .filter(Boolean);
 const WATCH = process.argv.includes("--watch");
 const INTERVAL_SECONDS = Number(process.env.INTERVAL_SECONDS || 10);
 const DB_NODES = ["fastorder-db-0", "fastorder-db-1", "fastorder-db-2"];
@@ -50,12 +57,39 @@ function detectPrimaryDbContainer() {
   throw new Error("No pude detectar el nodo primario de PostgreSQL.");
 }
 
+function detectReadableDbContainer() {
+  for (const node of DB_NODES) {
+    try {
+      run("docker", [
+        "exec",
+        "-e",
+        `PGPASSWORD=${DB_PASSWORD}`,
+        node,
+        "psql",
+        "-h",
+        "127.0.0.1",
+        "-U",
+        "postgres",
+        "-d",
+        DB_NAME,
+        "-tAc",
+        "select 1",
+      ]);
+      return node;
+    } catch {
+      // Intentamos con el siguiente nodo.
+    }
+  }
+
+  throw new Error("No pude encontrar un nodo PostgreSQL local accesible para lectura.");
+}
+
 function getDbContainer() {
   if (resolvedDbContainer) {
     return resolvedDbContainer;
   }
 
-  resolvedDbContainer = detectPrimaryDbContainer();
+  resolvedDbContainer = DB_CONTAINER || detectReadableDbContainer();
   return resolvedDbContainer;
 }
 
@@ -155,11 +189,49 @@ function formatStatus(statuses) {
   return entries.length ? entries.map(([status, count]) => `${status}: ${count}`).join(" | ") : "sin ordenes";
 }
 
-function printReport() {
+function getPatroniNodeState(url) {
+  return new Promise((resolve) => {
+    const request = http.get(url, { timeout: 2000 }, (response) => {
+      let body = "";
+      response.setEncoding("utf8");
+      response.on("data", (chunk) => {
+        body += chunk;
+      });
+      response.on("end", () => {
+        try {
+          const payload = JSON.parse(body);
+          resolve({
+            url,
+            ok: true,
+            state: payload.state || "unknown",
+            role: payload.role || "unknown",
+            name: payload.patroni?.name || payload.name || "unknown",
+          });
+        } catch {
+          resolve({ url, ok: false, state: "unreachable", role: "unknown", name: "unknown" });
+        }
+      });
+    });
+
+    request.on("error", () => resolve({ url, ok: false, state: "unreachable", role: "unknown", name: "unknown" }));
+    request.on("timeout", () => {
+      request.destroy();
+      resolve({ url, ok: false, state: "timeout", role: "unknown", name: "unknown" });
+    });
+  });
+}
+
+async function getPatroniStates() {
+  const states = await Promise.all(PATRONI_ENDPOINTS.map(getPatroniNodeState));
+  return states;
+}
+
+async function printReport() {
   const container = getDbContainer();
   const statuses = getOrdersByStatus();
   const outbox = getOutbox();
   const inventory = getInventory();
+  const patroniStates = await getPatroniStates();
   const inventorySales = getSingleCount("select count(*) from inventory_sales;");
   const notifications = getSingleCount("select count(*) from notifications;");
   const orderTotals = rows(psql("select count(*), count(distinct idempotency_key) from orders;"))[0] || ["0", "0"];
@@ -169,13 +241,25 @@ function printReport() {
   const uniqueKeys = number(orderTotals[1]);
   const pendingOutbox = outbox.pending || 0;
   const processedOutbox = outbox.processed || 0;
+  const completedOrders = Object.entries(statuses)
+    .filter(([status]) => ["COMPLETED", "CANCELLED", "ABANDONED", "DELIVERY_ABANDONED"].includes(status))
+    .reduce((sum, [, count]) => sum + count, 0);
+  const expectedProgress = EXPECTED_ORDERS > 0 ? `${completedOrders}/${EXPECTED_ORDERS}` : "n/a";
 
-  console.clear();
+  if (!NO_CLEAR) {
+    console.clear();
+  }
   console.log(`FastOrder HA results - ${new Date().toLocaleString()}`);
-  console.log(`DB node: ${container}`);
+  console.log(`DB node for queries: ${container}`);
+  console.log("");
+  console.log("Patroni cluster:");
+  patroniStates.forEach((node) => {
+    console.log(`  ${node.name} @ ${node.url}: role=${node.role}, state=${node.state}, reachable=${node.ok}`);
+  });
   console.log("");
   console.log(`Orders: ${formatStatus(statuses)}`);
   console.log(`Orders total: ${totalOrders}`);
+  console.log(`Orders final progress: ${expectedProgress}`);
   console.log(`Idempotency keys unique: ${uniqueKeys}`);
   console.log("");
   console.log(`Outbox processed: ${processedOutbox}`);
@@ -211,12 +295,19 @@ function printReport() {
   console.log(done ? "Status: DONE" : "Status: PROCESSING");
 }
 
-function main() {
-  printReport();
+async function main() {
+  await printReport();
 
   if (WATCH) {
-    setInterval(printReport, INTERVAL_SECONDS * 1000);
+    setInterval(() => {
+      printReport().catch((error) => {
+        console.error(`Status: ERROR\n${error.message}`);
+      });
+    }, INTERVAL_SECONDS * 1000);
   }
 }
 
-main();
+main().catch((error) => {
+  console.error(`Status: ERROR\n${error.message}`);
+  process.exit(1);
+});

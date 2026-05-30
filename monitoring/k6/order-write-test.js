@@ -6,7 +6,7 @@ import { textSummary } from 'https://jslib.k6.io/k6-summary/0.0.1/index.js';
 
 const totalOrders = Number(__ENV.TOTAL_ORDERS || 50000);
 const vus = Number(__ENV.VUS || 200);
-const baseUrl = __ENV.BASE_URL || 'http://[::1]:8080';
+const baseUrl = __ENV.BASE_URL || 'http://127.0.0.1:8080';
 const runId = __ENV.RUN_ID || `local-${Date.now()}`;
 const maxAttempts = Number(__ENV.MAX_ATTEMPTS || 10);
 const retryDelaySeconds = Number(__ENV.RETRY_DELAY_SECONDS || 2);

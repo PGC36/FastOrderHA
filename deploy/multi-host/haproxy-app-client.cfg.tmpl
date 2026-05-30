@@ -1,0 +1,28 @@
+global
+    log stdout format raw local0
+    maxconn 2000
+
+defaults
+    log global
+    mode tcp
+    option tcp-check
+    timeout connect 5s
+    timeout client 90s
+    timeout server 90s
+    retries 3
+
+frontend postgres_rw
+    bind *:5432
+    default_backend postgres_rw_backends
+
+frontend haproxy_stats
+    bind *:7000
+    mode http
+    stats enable
+    stats uri /stats
+    stats refresh 5s
+
+backend postgres_rw_backends
+    default-server inter 2s fall 2 rise 1 on-marked-down shutdown-sessions
+    server proxy1 ${FASTORDER_DB_PRIMARY_PROXY_HOST}:${FASTORDER_DB_PRIMARY_PROXY_PORT} check
+    server proxy2 ${FASTORDER_DB_SECONDARY_PROXY_HOST}:${FASTORDER_DB_SECONDARY_PROXY_PORT} check backup
