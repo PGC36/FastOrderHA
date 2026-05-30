@@ -55,10 +55,10 @@ scrape_configs:
           proxy_node: proxy-1
           proxy_host: 192.168.0.5
       - targets:
-          - 192.168.0.3:9187
+          - 192.168.0.7:9187
         labels:
           proxy_node: proxy-2
-          proxy_host: 192.168.0.3
+          proxy_host: 192.168.0.7
 
   - job_name: patroni
     metrics_path: /metrics
