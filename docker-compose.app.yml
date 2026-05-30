@@ -8,6 +8,9 @@ services:
     depends_on:
       - menu-service
       - inventory-service
+      - order-service
+      - kitchen-service
+      - delivery-service
       - notification-service
     networks:
       - fastorder-network
@@ -38,6 +41,13 @@ services:
       SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_INITIAL_INTERVAL: 2000
       SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MULTIPLIER: 1.5
       SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_INTERVAL: 15000
+      DB_WAIT_HOST: ${FASTORDER_DB_HOST:-fastorder-db}
+      DB_WAIT_PORT: ${FASTORDER_DB_PORT:-5432}
+      RABBIT_WAIT_HOST: rabbitmq
+      RABBIT_WAIT_PORT: 5672
+    command: ["bash", "/app/scripts/wait-for-dependencies.sh", "java", "-jar", "app.jar"]
+    volumes:
+      - ./deploy/scripts/wait-for-dependencies.sh:/app/scripts/wait-for-dependencies.sh:ro
     networks:
       - fastorder-network
     restart: unless-stopped
@@ -64,6 +74,13 @@ services:
       INVENTORY_ORDER_CREATED_CONSUMERS: 8
       INVENTORY_DELIVERY_COMPLETED_CONSUMERS: 8
       LOGGING_LEVEL_COM_EXAMPLE_INVENTORY_SERVICE: WARN
+      DB_WAIT_HOST: ${FASTORDER_DB_HOST:-fastorder-db}
+      DB_WAIT_PORT: ${FASTORDER_DB_PORT:-5432}
+      RABBIT_WAIT_HOST: rabbitmq
+      RABBIT_WAIT_PORT: 5672
+    command: ["bash", "/app/scripts/wait-for-dependencies.sh", "java", "-jar", "app.jar"]
+    volumes:
+      - ./deploy/scripts/wait-for-dependencies.sh:/app/scripts/wait-for-dependencies.sh:ro
     networks:
       - fastorder-network
     restart: unless-stopped
@@ -105,6 +122,13 @@ services:
       NOTIFICATION_SERVICE_URL: http://notification-service:8086/notifications
       ORDER_PROCESSING_MODE: event
       LOGGING_LEVEL_COM_FASTORDER_ORDERSERVICE: WARN
+      DB_WAIT_HOST: ${FASTORDER_DB_HOST:-fastorder-db}
+      DB_WAIT_PORT: ${FASTORDER_DB_PORT:-5432}
+      RABBIT_WAIT_HOST: rabbitmq
+      RABBIT_WAIT_PORT: 5672
+    command: ["bash", "/app/scripts/wait-for-dependencies.sh", "java", "-jar", "app.jar"]
+    volumes:
+      - ./deploy/scripts/wait-for-dependencies.sh:/app/scripts/wait-for-dependencies.sh:ro
     networks:
       - fastorder-network
     restart: unless-stopped
@@ -135,6 +159,13 @@ services:
       KITCHEN_INVENTORY_RESERVED_CONSUMERS: 12
       ORDER_SERVICE_URL: http://order-service:8082/orders
       LOGGING_LEVEL_COM_FASTORDER_KITCHEN: WARN
+      DB_WAIT_HOST: ${FASTORDER_DB_HOST:-fastorder-db}
+      DB_WAIT_PORT: ${FASTORDER_DB_PORT:-5432}
+      RABBIT_WAIT_HOST: rabbitmq
+      RABBIT_WAIT_PORT: 5672
+    command: ["bash", "/app/scripts/wait-for-dependencies.sh", "java", "-jar", "app.jar"]
+    volumes:
+      - ./deploy/scripts/wait-for-dependencies.sh:/app/scripts/wait-for-dependencies.sh:ro
     networks:
       - fastorder-network
     restart: unless-stopped
@@ -165,6 +196,13 @@ services:
       DELIVERY_KITCHEN_READY_CONSUMERS: 12
       ORDER_SERVICE_URL: http://order-service:8082/orders
       LOGGING_LEVEL_COM_FASTORDER_DELIVERY: WARN
+      DB_WAIT_HOST: ${FASTORDER_DB_HOST:-fastorder-db}
+      DB_WAIT_PORT: ${FASTORDER_DB_PORT:-5432}
+      RABBIT_WAIT_HOST: rabbitmq
+      RABBIT_WAIT_PORT: 5672
+    command: ["bash", "/app/scripts/wait-for-dependencies.sh", "java", "-jar", "app.jar"]
+    volumes:
+      - ./deploy/scripts/wait-for-dependencies.sh:/app/scripts/wait-for-dependencies.sh:ro
     networks:
       - fastorder-network
     restart: unless-stopped
@@ -194,6 +232,13 @@ services:
       SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_INTERVAL: 15000
       NOTIFICATION_CREATED_CONSUMERS: 12
       LOGGING_LEVEL_COM_EXAMPLE_DEMO: WARN
+      DB_WAIT_HOST: ${FASTORDER_DB_HOST:-fastorder-db}
+      DB_WAIT_PORT: ${FASTORDER_DB_PORT:-5432}
+      RABBIT_WAIT_HOST: rabbitmq
+      RABBIT_WAIT_PORT: 5672
+    command: ["bash", "/app/scripts/wait-for-dependencies.sh", "java", "-jar", "app.jar"]
+    volumes:
+      - ./deploy/scripts/wait-for-dependencies.sh:/app/scripts/wait-for-dependencies.sh:ro
     networks:
       - fastorder-network
     restart: unless-stopped

@@ -13,6 +13,8 @@ services:
     privileged: true
     devices:
       - /dev/kmsg:/dev/kmsg
+    networks:
+      - fastorder-network
     restart: unless-stopped
 
   docker-stats-exporter:
@@ -26,6 +28,8 @@ services:
     volumes:
       - ../../monitoring/docker-stats-exporter.js:/app/docker-stats-exporter.js:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - fastorder-network
     restart: unless-stopped
 
   prometheus:
@@ -44,6 +48,8 @@ services:
     depends_on:
       - cadvisor
       - docker-stats-exporter
+    networks:
+      - fastorder-network
     restart: unless-stopped
 
   grafana:
@@ -61,7 +67,13 @@ services:
       - ../../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
       - prometheus
+    networks:
+      - fastorder-network
     restart: unless-stopped
+
+networks:
+  fastorder-network:
+    external: true
 
 volumes:
   prometheus_data:
