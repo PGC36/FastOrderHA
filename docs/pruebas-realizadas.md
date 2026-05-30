@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Este documento resume la evolucion de las pruebas ejecutadas sobre FastOrder HA, desde el flujo inicial con llamadas directas entre servicios hasta el flujo actual con workers, RabbitMQ, Redis, PostgreSQL HA con Patroni y recuperacion automatica.
+Este documento resume la evolucion de las pruebas ejecutadas sobre FastOrder HA, desde el flujo inicial con llamadas directas entre servicios hasta el flujo actual con workers, RabbitMQ, PostgreSQL HA con Patroni y recuperacion automatica.
 
 La idea es dejar evidencia tecnica de:
 
@@ -340,28 +340,24 @@ k6 mide la entrada de pedidos. La saga asincrona termina despues. Por eso el res
 node .\monitoring\check-results.js
 ```
 
-## 8. Redis como rate limiting
+## 8. Rate limiting y gateway
 
-### Enfoque probado
+### Estado actual validado
 
-Redis se integro en `api-gateway` para rate limiting.
+El `api-gateway` actua como punto de entrada y enrutamiento HTTP, pero en la implementacion actual no se valido una capa activa de rate limiting ni una integracion operativa con Redis.
 
-Configuracion de demo:
+### Decision documental
 
-```text
-API_RATE_LIMIT_CAPACITY=100000
-API_RATE_LIMIT_WINDOW_SECONDS=60
-API_RATE_LIMIT_FAIL_OPEN=true
-```
+Para efectos del proyecto, el gateway se documenta como:
 
-### Decision
+- punto unico de entrada HTTP;
+- capa de enrutamiento hacia microservicios;
+- exposicion de endpoints operativos con Actuator;
+- exportacion de metricas para Prometheus.
 
-Se dejo Redis como rate limiting, no como cache de negocio, porque el flujo principal es de escritura y no depende de muchos `GET`.
+### Implicacion
 
-### Comportamiento esperado
-
-- Si hay demasiadas peticiones, el gateway puede responder `429 Too Many Requests`.
-- Si Redis se reinicia o falla, el gateway opera en modo `fail-open` para no tumbar la plataforma.
+Redis no forma parte de la arquitectura validada de esta version. Si despues se agrega rate limiting real, puede documentarse como mejora futura sin mezclarlo con las pruebas ya ejecutadas.
 
 ## 9. PostgreSQL HA con Patroni
 
@@ -1188,7 +1184,6 @@ El sistema ya demostro:
 - DLQ vacias en la prueba final.
 - inventario sin sobreventa.
 - idempotencia en pedidos.
-- Redis en rate limiting.
 - PostgreSQL HA con tres nodos Patroni.
 - failover de BD.
 - recuperacion automatica de nodos de BD con `db-recovery`.

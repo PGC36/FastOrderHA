@@ -100,6 +100,8 @@ docker compose -f .\docker-compose.app.yml up -d
 docker compose -f .\docker-compose.observability.yml up -d
 ```
 
+Si van a distribuir Patroni/etcd/HAProxy entre varias PCs Windows por limitacion de recursos, usen la guia de [deploy/multi-host/README.md](deploy/multi-host/README.md). Ese flujo ya quedo preparado para trabajar con IPs reales por PC mediante `deploy/multi-host/multi-host.env`.
+
 Archivos recomendados:
 
 - `docker-compose.infra-db.yml`: PostgreSQL HA con Patroni, etcd, HAProxy, `db-recovery`, backups y exporters de BD.

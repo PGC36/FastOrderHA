@@ -24,11 +24,9 @@ Los endpoints locales no requieren token:
 Invoke-RestMethod http://localhost:8080/api/menu/productos
 ```
 
-El gateway si puede responder `429 Too Many Requests` si se baja la capacidad del rate limiter para una prueba especifica.
+En la version actual no hay un rate limiter activo ni una dependencia operativa de Redis en el gateway.
 
-No aplica comportamiento especial de Redis en la version actual.
-
-Los endpoints `/actuator/**` del gateway no pasan por el rate limiter para no bloquear endpoints operativos.
+Los endpoints `/actuator/**` siguen siendo endpoints operativos para salud y monitoreo.
 
 ## Lo que si existe
 

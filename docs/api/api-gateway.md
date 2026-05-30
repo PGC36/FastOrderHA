@@ -39,17 +39,15 @@ El gateway no implementa logica de negocio de pedidos. Su funcion es proteger la
 
 ## Rate limiting
 
-El gateway enruta trafico sin una capa adicional de rate limiting en esta version.
+El gateway enruta trafico sin una capa adicional de rate limiting activa en esta version.
 
-Cuando el cliente supera el limite, el gateway responde `429 Too Many Requests`. Cada respuesta normal incluye:
+Existen clases de configuracion relacionadas con limites de tasa, pero la implementacion operativa no esta conectada al flujo HTTP actual y no depende de Redis.
 
-| Header | Significado |
-| --- | --- |
-| `X-RateLimit-Limit` | Limite maximo de la ventana |
-| `X-RateLimit-Remaining` | Peticiones restantes para el cliente |
-| `X-RateLimit-Window-Seconds` | Duracion de la ventana |
+Por tanto, en el estado actual del proyecto:
 
-No hay comportamiento especial asociado a Redis en la version actual.
+- no se documenta `429 Too Many Requests` como comportamiento validado;
+- no se exponen headers de cuota o ventana;
+- los endpoints `/actuator/**` solo se consideran operativos y de monitoreo.
 
 ## Redireccion hacia order-service
 

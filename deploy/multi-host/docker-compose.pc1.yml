@@ -4,11 +4,11 @@ services:
     container_name: fastorder-etcd-0
     environment:
       ETCD_NAME: etcd-0
-      ETCD_INITIAL_ADVERTISE_PEER_URLS: http://192.168.0.2:2380
+      ETCD_INITIAL_ADVERTISE_PEER_URLS: http://${PC1_IP}:2380
       ETCD_LISTEN_PEER_URLS: http://0.0.0.0:2380
-      ETCD_ADVERTISE_CLIENT_URLS: http://192.168.0.2:2379
+      ETCD_ADVERTISE_CLIENT_URLS: http://${PC1_IP}:2379
       ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
-      ETCD_INITIAL_CLUSTER: etcd-0=http://192.168.0.2:2380,etcd-1=http://192.168.0.5:2380,etcd-2=http://192.168.0.6:2380
+      ETCD_INITIAL_CLUSTER: etcd-0=http://${PC1_IP}:2380,etcd-1=http://${PC2_IP}:2380,etcd-2=http://${PC3_IP}:2380
       ETCD_INITIAL_CLUSTER_STATE: new
       ETCD_INITIAL_CLUSTER_TOKEN: fastorder-etcd-cluster
     command:
@@ -26,11 +26,11 @@ services:
       context: ../patroni-3nodes/patroni
     container_name: fastorder-db-0
     environment:
-      FASTORDER_NODE_IP: 192.168.0.2
+      FASTORDER_NODE_IP: ${PC1_IP}
       FASTORDER_POSTGRES_PORT: "5432"
       FASTORDER_PATRONI_API_PORT: "8008"
       FASTORDER_PATRONI_NAME: fastorder-db-0
-      FASTORDER_ETCD_HOSTS: 192.168.0.2:2379,192.168.0.5:2379,192.168.0.6:2379
+      FASTORDER_ETCD_HOSTS: ${PC1_IP}:2379,${PC2_IP}:2379,${PC3_IP}:2379
       FASTORDER_POSTGRES_PASSWORD: fastorder123
       FASTORDER_REPLICATION_PASSWORD: replicator123
       FASTORDER_APP_DB: fastorder_db

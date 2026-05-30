@@ -34,7 +34,7 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ../../monitoring/prometheus/prometheus.multi-host.yml:/etc/prometheus/prometheus.yml:ro
+      - ../../monitoring/prometheus/prometheus.multi-host.generated.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"

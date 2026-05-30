@@ -32,47 +32,47 @@ scrape_configs:
   - job_name: postgres-node
     static_configs:
       - targets:
-          - 192.168.0.2:9187
+          - ${PC1_IP}:9187
         labels:
           postgres_node: db-0
-          postgres_host: 192.168.0.2
+          postgres_host: ${PC1_IP}
       - targets:
-          - 192.168.0.5:9188
+          - ${PC2_IP}:9188
         labels:
           postgres_node: db-1
-          postgres_host: 192.168.0.5
+          postgres_host: ${PC2_IP}
       - targets:
-          - 192.168.0.6:9187
+          - ${PC3_IP}:9187
         labels:
           postgres_node: db-2
-          postgres_host: 192.168.0.6
+          postgres_host: ${PC3_IP}
 
   - job_name: postgres-proxy
     static_configs:
       - targets:
-          - 192.168.0.5:9189
+          - ${PC2_IP}:9189
         labels:
           proxy_node: proxy-1
-          proxy_host: 192.168.0.5
+          proxy_host: ${PC2_IP}
       - targets:
-          - 192.168.0.3:9187
+          - ${PC4_IP}:9187
         labels:
           proxy_node: proxy-2
-          proxy_host: 192.168.0.3
+          proxy_host: ${PC4_IP}
 
   - job_name: patroni
     metrics_path: /metrics
     static_configs:
       - targets:
-          - 192.168.0.2:8008
+          - ${PC1_IP}:8008
         labels:
           postgres_node: db-0
       - targets:
-          - 192.168.0.5:8108
+          - ${PC2_IP}:8108
         labels:
           postgres_node: db-1
       - targets:
-          - 192.168.0.6:8008
+          - ${PC3_IP}:8008
         labels:
           postgres_node: db-2
 
