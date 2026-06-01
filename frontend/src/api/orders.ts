@@ -31,6 +31,50 @@ export interface CreateOrderPayload {
   idempotencyKey: string
 }
 
+/**
+ * Forma cruda de la orden tal como la devuelve el order-service. No incluye
+ * `updatedAt`; en su lugar expone `deliveryLastRetryAt` y `message`.
+ */
+interface RawOrder {
+  id: number
+  productId: number
+  quantity: number
+  deliveryAddress: string
+  idempotencyKey: string
+  status: OrderStatus
+  deliveryRetryCount?: number
+  deliveryLastRetryAt?: string | null
+  createdAt: string
+  updatedAt?: string | null
+}
+
+/**
+ * El backend envia timestamps sin zona horaria (ej. "2026-06-01T20:39:00").
+ * El navegador los interpretaria como hora local (UTC-6 en Guatemala),
+ * desfasandolos 6 horas. Forzamos UTC agregando "Z" si no trae zona.
+ */
+function toUtcIso(ts: string): string {
+  if (/[zZ]|[+-]\d{2}:?\d{2}$/.test(ts)) return ts
+  return `${ts}Z`
+}
+
+function normalizeOrder(raw: RawOrder): Order {
+  const createdAt = toUtcIso(raw.createdAt)
+  const updatedAt = raw.updatedAt ?? raw.deliveryLastRetryAt ?? raw.createdAt
+  return {
+    id: raw.id,
+    productId: raw.productId,
+    quantity: raw.quantity,
+    deliveryAddress: raw.deliveryAddress,
+    idempotencyKey: raw.idempotencyKey,
+    status: raw.status,
+    deliveryRetryCount: raw.deliveryRetryCount ?? 0,
+    createdAt,
+    // El backend no envia updatedAt: usamos el ultimo reintento o la creacion.
+    updatedAt: toUtcIso(updatedAt),
+  }
+}
+
 let _mockOrderId = 1000
 
 export async function createOrder(payload: CreateOrderPayload): Promise<Order> {
@@ -46,8 +90,8 @@ export async function createOrder(payload: CreateOrderPayload): Promise<Order> {
       updatedAt: new Date().toISOString(),
     }
   }
-  const { data } = await apiClient.post<Order>('/api/orders', payload)
-  return data
+  const { data } = await apiClient.post<RawOrder>('/api/orders', payload)
+  return normalizeOrder(data)
 }
 
 export async function getOrderById(id: number): Promise<Order> {
@@ -67,8 +111,8 @@ export async function getOrderById(id: number): Promise<Order> {
       updatedAt: new Date().toISOString(),
     }
   }
-  const { data } = await apiClient.get<Order>(`/api/orders/${id}`)
-  return data
+  const { data } = await apiClient.get<RawOrder>(`/api/orders/${id}`)
+  return normalizeOrder(data)
 }
 
 export async function getOrders(): Promise<Order[]> {
@@ -76,8 +120,8 @@ export async function getOrders(): Promise<Order[]> {
     await new Promise((r) => setTimeout(r, 400))
     return []
   }
-  const { data } = await apiClient.get<Order[]>('/api/orders')
-  return data
+  const { data } = await apiClient.get<RawOrder[]>('/api/orders')
+  return data.map(normalizeOrder)
 }
 
 export async function updateOrderStatus(

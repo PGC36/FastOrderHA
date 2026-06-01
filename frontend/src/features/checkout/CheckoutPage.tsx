@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -36,6 +36,9 @@ export function CheckoutPage() {
   const { items, total, clearCart, removeItem } = useCartStore()
   const hash = cartHash(items)
   const { getKey, clearKey } = useIdempotencyKey(hash)
+  // Evita que el guardia de "carrito vacío" redirija al menú justo después de
+  // confirmar el pedido (clearCart vacía el carrito antes de navegar al seguimiento).
+  const submitted = useRef(false)
 
   const {
     register,
@@ -44,7 +47,9 @@ export function CheckoutPage() {
   } = useForm<FormData>({ resolver: zodResolver(schema) })
 
   useEffect(() => {
-    if (items.length === 0) navigate('/menu', { replace: true })
+    if (items.length === 0 && !submitted.current) {
+      navigate('/menu', { replace: true })
+    }
   }, [items.length, navigate])
 
   const mutation = useMutation({
@@ -62,6 +67,7 @@ export function CheckoutPage() {
       return results
     },
     onSuccess: (orderIds) => {
+      submitted.current = true
       clearKey()
       clearCart()
       toast.success('¡Pedido confirmado!', { duration: 2000 })
@@ -233,7 +239,8 @@ export function CheckoutPage() {
           </Card>
 
           <p className="text-xs text-muted text-center px-2">
-            El sistema procesa pagos en GTQ. No se requiere tarjeta en esta demo.
+            Esta demo no procesa pagos. Al confirmar, el pedido se registra y
+            comienza su seguimiento.
           </p>
         </div>
       </div>

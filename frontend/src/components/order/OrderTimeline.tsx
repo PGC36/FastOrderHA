@@ -44,6 +44,9 @@ interface OrderTimelineProps {
 export function OrderTimeline({ status, className }: OrderTimelineProps) {
   const isTerminalBad = status === 'CANCELLED' || status === 'FAILED'
   const currentIndex = STATUS_ORDER[status] ?? -1
+  // Cuando el pedido ya esta entregado, todos los pasos quedan completados
+  // (incluido el ultimo), sin un paso "actual" pulsante.
+  const allDone = status === 'COMPLETED'
 
   if (isTerminalBad) {
     return (
@@ -79,13 +82,13 @@ export function OrderTimeline({ status, className }: OrderTimelineProps) {
       {/* Desktop: horizontal */}
       <div className="hidden md:flex items-start">
         {STEPS.map((step, i) => {
-          const isDone = currentIndex > i
-          const isCurrent = currentIndex === i
+          const isDone = allDone || currentIndex > i
+          const isCurrent = !allDone && currentIndex === i
           const { Icon } = step
 
           return (
             <div key={step.status} className="flex items-start flex-1 last:flex-none">
-              <div className="flex flex-col items-center gap-2 min-w-0">
+              <div className="flex flex-col items-center gap-2 w-[84px] flex-shrink-0">
                 <motion.div
                   initial={{ scale: 0.7, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
@@ -143,8 +146,8 @@ export function OrderTimeline({ status, className }: OrderTimelineProps) {
       {/* Mobile: vertical */}
       <div className="flex md:hidden flex-col gap-0">
         {STEPS.map((step, i) => {
-          const isDone = currentIndex > i
-          const isCurrent = currentIndex === i
+          const isDone = allDone || currentIndex > i
+          const isCurrent = !allDone && currentIndex === i
           const { Icon } = step
 
           return (
