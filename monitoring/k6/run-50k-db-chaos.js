@@ -44,6 +44,12 @@ const defaults = {
   useDockerK6: process.platform === "win32",
   disableChaos: false,
   skipCleanup: false,
+  finalStatusDbHost:
+    process.env.FINAL_STATUS_DB_HOST ||
+    process.env.DB_STATUS_HOST ||
+    multiHostEnv.PC4_IP ||
+    multiHostEnv.PC2_IP ||
+    "127.0.0.1",
 };
 
 function parseArgs(argv) {
@@ -119,6 +125,9 @@ function parseArgs(argv) {
         break;
       case "--skip-cleanup":
         options.skipCleanup = true;
+        break;
+      case "--final-status-db-host":
+        options.finalStatusDbHost = next();
         break;
       case "--help":
       case "-h":
@@ -332,6 +341,7 @@ function runK6(options, runId, resultLog) {
       RUN_ID: runId,
     };
 
+    const containerResultPath = `/work/${path.relative(repoRoot, resultLog).replace(/\\/g, "/")}`;
     const child = options.useDockerK6
       ? spawn(
           "docker",
@@ -359,7 +369,7 @@ function runK6(options, runId, resultLog) {
             "-e",
             `RUN_ID=${env.RUN_ID}`,
             "-e",
-            `RESULT_PATH=${resultLog.replace(/\\/g, "/")}`,
+            `RESULT_PATH=${containerResultPath}`,
             "-v",
             `${repoRoot}:/work`,
             "-w",
@@ -410,20 +420,33 @@ async function waitFinalBusinessState(options, finalLog, scriptStarted) {
   const deadline = Date.now() + options.finalPollTimeoutMinutes * 60 * 1000;
 
   while (Date.now() < deadline) {
-    const result = run("node", [".\\monitoring\\check.js"], {
-      env: { EXPECTED_ORDERS: String(options.totalOrders) },
-    });
     const elapsed = Math.round(((Date.now() - scriptStarted) / 1000) * 100) / 100;
     const header = `===== POLL ${timestamp()} elapsed=${elapsed}s =====`;
-    const output = result.stdout.trim();
 
-    console.log(header);
-    console.log(output);
-    logLine(finalLog, header);
-    logLine(finalLog, output);
+    try {
+      const result = run("node", [".\\monitoring\\check.js"], {
+        env: {
+          EXPECTED_ORDERS: String(options.totalOrders),
+          NO_CLEAR: "1",
+          DB_HOST: options.finalStatusDbHost,
+        },
+      });
+      const output = result.stdout.trim();
 
-    if (output.includes("Status: DONE")) {
-      return true;
+      console.log(header);
+      console.log(output);
+      logLine(finalLog, header);
+      logLine(finalLog, output);
+
+      if (output.includes("Status: DONE")) {
+        return true;
+      }
+    } catch (error) {
+      const message = String(error.message || error).trim();
+      console.log(header);
+      console.log(message);
+      logLine(finalLog, header);
+      logLine(finalLog, message);
     }
 
     await wait(options.finalPollIntervalSeconds * 1000);
@@ -458,6 +481,7 @@ async function main() {
   console.log(`  chaos: ${chaosLog}`);
   console.log(`  final: ${finalLog}`);
   console.log(`  mode:  ${options.useDockerK6 ? "docker-k6" : "local-k6"}`);
+  console.log(`  final status DB host: ${options.finalStatusDbHost}`);
 
   await waitForGateway();
 
@@ -466,7 +490,11 @@ async function main() {
   }
 
   console.log(run("node", [".\\monitoring\\check.js"], {
-    env: { EXPECTED_ORDERS: String(options.totalOrders) },
+    env: {
+      EXPECTED_ORDERS: String(options.totalOrders),
+      NO_CLEAR: "1",
+      DB_HOST: options.finalStatusDbHost,
+    },
   }).stdout);
 
   await Promise.all([

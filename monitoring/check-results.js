@@ -9,6 +9,7 @@ const DB_NAME = process.env.DB_NAME || "fastorder_db";
 const DB_PASSWORD = process.env.DB_PASSWORD || "fastorder123";
 const EXPECTED_ORDERS = Number(process.env.EXPECTED_ORDERS || process.env.TOTAL_ORDERS || 0);
 const NO_CLEAR = process.env.NO_CLEAR === "1";
+const DB_FALLBACK_IMAGE = process.env.DB_FALLBACK_IMAGE || "postgres:16";
 const PATRONI_ENDPOINTS = (process.env.PATRONI_ENDPOINTS || "http://192.168.0.2:8008,http://192.168.0.5:8108,http://192.168.0.6:8008")
   .split(",")
   .map((value) => value.trim())
@@ -25,6 +26,19 @@ function run(command, args) {
     stdio: ["ignore", "pipe", "pipe"],
     env: { ...process.env, PGPASSWORD: DB_PASSWORD },
   }).trim();
+}
+
+function queryViaDockerRun(args) {
+  return run("docker", [
+    "run",
+    "--rm",
+    "--network",
+    "fastorder-network",
+    "-e",
+    `PGPASSWORD=${DB_PASSWORD}`,
+    DB_FALLBACK_IMAGE,
+    ...args,
+  ]);
 }
 
 function detectPrimaryDbContainer() {
@@ -89,11 +103,37 @@ function getDbContainer() {
     return resolvedDbContainer;
   }
 
-  resolvedDbContainer = DB_CONTAINER || detectReadableDbContainer();
+  if (DB_CONTAINER) {
+    resolvedDbContainer = DB_CONTAINER;
+    return resolvedDbContainer;
+  }
+
+  try {
+    resolvedDbContainer = detectReadableDbContainer();
+  } catch {
+    resolvedDbContainer = "__docker_run__";
+  }
   return resolvedDbContainer;
 }
 
 function psql(sql) {
+  if (getDbContainer() === "__docker_run__") {
+    return queryViaDockerRun([
+      "psql",
+      "-h",
+      DB_HOST,
+      "-U",
+      DB_USER,
+      "-d",
+      DB_NAME,
+      "-At",
+      "-F",
+      "|",
+      "-c",
+      sql,
+    ]);
+  }
+
   return run("docker", [
     "exec",
     "-e",
