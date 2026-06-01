@@ -30,13 +30,16 @@ public class RabbitConfig {
     @Bean
     public Queue kitchenQueue(
             @Value("${app.rabbit.queue}") String queueName,
-            @Value("${app.rabbit.dead-letter-exchange:fastorder.dlx}") String deadLetterExchange) {
-        return durableQueueWithDlq(queueName, deadLetterExchange);
+            @Value("${app.rabbit.dead-letter-exchange:fastorder.dlx}") String deadLetterExchange,
+            @Value("${app.rabbit.queue-type:classic}") String queueType) {
+        return durableQueueWithDlq(queueName, deadLetterExchange, queueType);
     }
 
     @Bean
-    public Queue kitchenDlq(@Value("${app.rabbit.queue}") String queueName) {
-        return QueueBuilder.durable(dlqName(queueName)).build();
+    public Queue kitchenDlq(
+            @Value("${app.rabbit.queue}") String queueName,
+            @Value("${app.rabbit.queue-type:classic}") String queueType) {
+        return durableDlq(queueName, queueType);
     }
 
     @Bean
@@ -66,14 +69,16 @@ public class RabbitConfig {
     @Bean
     public Queue kitchenInventoryReservedQueue(
             @Value("${app.rabbit.inventory-reserved-queue:kitchen.inventory-reserved.queue}") String queueName,
-            @Value("${app.rabbit.dead-letter-exchange:fastorder.dlx}") String deadLetterExchange) {
-        return durableQueueWithDlq(queueName, deadLetterExchange);
+            @Value("${app.rabbit.dead-letter-exchange:fastorder.dlx}") String deadLetterExchange,
+            @Value("${app.rabbit.queue-type:classic}") String queueType) {
+        return durableQueueWithDlq(queueName, deadLetterExchange, queueType);
     }
 
     @Bean
     public Queue kitchenInventoryReservedDlq(
-            @Value("${app.rabbit.inventory-reserved-queue:kitchen.inventory-reserved.queue}") String queueName) {
-        return QueueBuilder.durable(dlqName(queueName)).build();
+            @Value("${app.rabbit.inventory-reserved-queue:kitchen.inventory-reserved.queue}") String queueName,
+            @Value("${app.rabbit.queue-type:classic}") String queueType) {
+        return durableDlq(queueName, queueType);
     }
 
     @Bean
@@ -104,11 +109,22 @@ public class RabbitConfig {
         return new ObjectMapper();
     }
 
-    private Queue durableQueueWithDlq(String queueName, String deadLetterExchange) {
-        return QueueBuilder.durable(queueName)
+    private Queue durableQueueWithDlq(String queueName, String deadLetterExchange, String queueType) {
+        QueueBuilder builder = QueueBuilder.durable(queueName)
                 .deadLetterExchange(deadLetterExchange)
-                .deadLetterRoutingKey(dlqName(queueName))
-                .build();
+                .deadLetterRoutingKey(dlqName(queueName));
+        if ("quorum".equalsIgnoreCase(queueType)) {
+            builder = builder.withArgument("x-queue-type", "quorum");
+        }
+        return builder.build();
+    }
+
+    private Queue durableDlq(String queueName, String queueType) {
+        QueueBuilder builder = QueueBuilder.durable(dlqName(queueName));
+        if ("quorum".equalsIgnoreCase(queueType)) {
+            builder = builder.withArgument("x-queue-type", "quorum");
+        }
+        return builder.build();
     }
 
     private String dlqName(String queueName) {

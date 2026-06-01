@@ -1,0 +1,25 @@
+vrrp_script chk_app_entry {
+    script "curl -fsS http://127.0.0.1:8080/actuator/health > /dev/null"
+    interval 2
+    timeout 2
+    fall 2
+    rise 1
+}
+
+vrrp_instance VI_FASTORDER_APP {
+    state BACKUP
+    interface ${KEEPALIVED_INTERFACE}
+    virtual_router_id ${KEEPALIVED_ROUTER_ID}
+    priority ${KEEPALIVED_PC3_PRIORITY}
+    advert_int 1
+    authentication {
+        auth_type PASS
+        auth_pass ${KEEPALIVED_AUTH_PASS}
+    }
+    virtual_ipaddress {
+        ${FASTORDER_APP_VIP}/24
+    }
+    track_script {
+        chk_app_entry
+    }
+}

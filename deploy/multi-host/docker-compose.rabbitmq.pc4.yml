@@ -1,0 +1,33 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: fastorder-rabbitmq-pc4
+    hostname: ${RABBITMQ_NODE_3_NAME}
+    environment:
+      RABBITMQ_NODENAME: rabbit@${RABBITMQ_NODE_3_NAME}
+      RABBITMQ_USE_LONGNAME: "true"
+      RABBITMQ_ERLANG_COOKIE: ${RABBITMQ_ERLANG_COOKIE}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-guest}
+      RABBITMQ_CONFIG_FILE: /etc/rabbitmq/rabbitmq
+    command:
+      - /bin/sh
+      - -c
+      - envsubst < /etc/rabbitmq/rabbitmq.conf.tmpl > /etc/rabbitmq/rabbitmq.conf && rabbitmq-plugins enable --offline rabbitmq_prometheus && rabbitmq-server
+    volumes:
+      - rabbitmq_pc4_data:/var/lib/rabbitmq
+      - ./rabbitmq.conf.tmpl:/etc/rabbitmq/rabbitmq.conf.tmpl:ro
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+      - "15692:15692"
+      - "25672:25672"
+      - "4369:4369"
+    extra_hosts:
+      - "${RABBITMQ_NODE_1_NAME}:${RABBITMQ_NODE_1_IP}"
+      - "${RABBITMQ_NODE_2_NAME}:${RABBITMQ_NODE_2_IP}"
+      - "${RABBITMQ_NODE_3_NAME}:${RABBITMQ_NODE_3_IP}"
+    restart: unless-stopped
+
+volumes:
+  rabbitmq_pc4_data:

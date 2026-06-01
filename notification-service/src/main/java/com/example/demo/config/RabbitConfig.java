@@ -29,16 +29,35 @@ public class RabbitConfig {
     @Bean
     public Queue notificationQueue(
             @Value("${app.rabbit.queue}") String queueName,
-            @Value("${app.rabbit.dead-letter-exchange:fastorder.dlx}") String deadLetterExchange) {
-        return QueueBuilder.durable(queueName)
-                .deadLetterExchange(deadLetterExchange)
-                .deadLetterRoutingKey(queueName + ".dlq")
+            @Value("${app.rabbit.dead-letter-exchange:fastorder.dlx}") String deadLetterExchange,
+            @Value("${app.rabbit.queue-type:classic}") String queueType) {
+        return durableQueue(queueName, deadLetterExchange, queueType)
                 .build();
     }
 
     @Bean
-    public Queue notificationDlq(@Value("${app.rabbit.queue}") String queueName) {
-        return QueueBuilder.durable(queueName + ".dlq").build();
+    public Queue notificationDlq(
+            @Value("${app.rabbit.queue}") String queueName,
+            @Value("${app.rabbit.queue-type:classic}") String queueType) {
+        return durableDlq(queueName, queueType).build();
+    }
+
+    private QueueBuilder durableQueue(String queueName, String deadLetterExchange, String queueType) {
+        QueueBuilder builder = QueueBuilder.durable(queueName)
+                .deadLetterExchange(deadLetterExchange)
+                .deadLetterRoutingKey(queueName + ".dlq");
+        if ("quorum".equalsIgnoreCase(queueType)) {
+            builder = builder.withArgument("x-queue-type", "quorum");
+        }
+        return builder;
+    }
+
+    private QueueBuilder durableDlq(String queueName, String queueType) {
+        QueueBuilder builder = QueueBuilder.durable(queueName + ".dlq");
+        if ("quorum".equalsIgnoreCase(queueType)) {
+            builder = builder.withArgument("x-queue-type", "quorum");
+        }
+        return builder;
     }
 
     @Bean

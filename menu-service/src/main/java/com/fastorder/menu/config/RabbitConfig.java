@@ -20,8 +20,10 @@ public class RabbitConfig {
     }
 
     @Bean
-    public Queue menuQueue(@Value("${app.rabbit.queue}") String queueName) {
-        return QueueBuilder.durable(queueName).build();
+    public Queue menuQueue(
+            @Value("${app.rabbit.queue}") String queueName,
+            @Value("${app.rabbit.queue-type:classic}") String queueType) {
+        return durableQueue(queueName, queueType).build();
     }
 
     @Bean
@@ -35,5 +37,13 @@ public class RabbitConfig {
     @Bean
     public MessageConverter jsonMessageConverter() {
         return new Jackson2JsonMessageConverter();
+    }
+
+    private QueueBuilder durableQueue(String queueName, String queueType) {
+        QueueBuilder builder = QueueBuilder.durable(queueName);
+        if ("quorum".equalsIgnoreCase(queueType)) {
+            builder = builder.withArgument("x-queue-type", "quorum");
+        }
+        return builder;
     }
 }

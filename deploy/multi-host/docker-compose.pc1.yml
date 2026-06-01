@@ -52,6 +52,43 @@ services:
       - "8008:8008"
     restart: unless-stopped
 
+  db-backup-proxy:
+    build:
+      context: ../patroni-3nodes/haproxy
+    container_name: fastorder-db-backup-proxy
+    environment:
+      FASTORDER_DB_PRIMARY_PROXY_HOST: ${DB_PROXY_VIP}
+      FASTORDER_DB_PRIMARY_PROXY_PORT: "5432"
+      FASTORDER_DB_SECONDARY_PROXY_HOST: ${PC4_IP}
+      FASTORDER_DB_SECONDARY_PROXY_PORT: "5432"
+    command:
+      - /bin/sh
+      - -c
+      - envsubst < /usr/local/etc/haproxy/haproxy.cfg.tmpl > /usr/local/etc/haproxy/haproxy.cfg && exec haproxy -W -db -f /usr/local/etc/haproxy/haproxy.cfg
+    volumes:
+      - ./haproxy-app-client.cfg.tmpl:/usr/local/etc/haproxy/haproxy.cfg.tmpl:ro
+    restart: unless-stopped
+
+  postgres-backup:
+    image: postgres:17-alpine
+    container_name: fastorder-postgres-backup
+    environment:
+      PGHOST: db-backup-proxy
+      PGPORT: "5432"
+      PGDATABASE: fastorder_db
+      PGUSER: postgres
+      PGPASSWORD: fastorder123
+      BACKUP_DIR: /backups
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-600}
+      BACKUP_RETENTION_COUNT: ${BACKUP_RETENTION_COUNT:-5}
+    volumes:
+      - ../../database/backup/backup.sh:/scripts/backup.sh:ro
+      - ../../backups/postgres:/backups
+    command: ["sh", "/scripts/backup.sh"]
+    depends_on:
+      - db-backup-proxy
+    restart: unless-stopped
+
   postgres-exporter-db-0:
     image: prometheuscommunity/postgres-exporter:v0.15.0
     container_name: fastorder-postgres-exporter-db-0

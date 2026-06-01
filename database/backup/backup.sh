@@ -12,10 +12,9 @@ echo "Target: ${PGHOST}:${PGPORT}/${PGDATABASE}"
 echo "Interval seconds: ${BACKUP_INTERVAL_SECONDS}"
 echo "Retention count: ${BACKUP_RETENTION_COUNT}"
 
-while true; do
-  timestamp="$(date +%Y%m%d%H%M%S)"
-  file="${BACKUP_DIR}/fastorder_${timestamp}.sql"
-  tmp_file="${file}.tmp"
+create_backup() {
+  file="$1"
+  tmp_file="$2"
 
   echo "Creating backup ${file}"
 
@@ -31,13 +30,20 @@ while true; do
     > "$tmp_file"; then
     mv "$tmp_file" "$file"
     echo "Backup completed: ${file}"
-  else
-    rm -f "$tmp_file"
-    echo "Backup failed"
+    return 0
   fi
 
-  if [ "$BACKUP_RETENTION_COUNT" -gt 0 ]; then
-    old_files="$(ls -1t "${BACKUP_DIR}"/fastorder_*.sql 2>/dev/null | tail -n +"$((BACKUP_RETENTION_COUNT + 1))" || true)"
+  rm -f "$tmp_file"
+  echo "Backup failed"
+  return 1
+}
+
+apply_retention() {
+  pattern="$1"
+  retention="$2"
+
+  if [ "$retention" -gt 0 ]; then
+    old_files="$(ls -1t ${pattern} 2>/dev/null | tail -n +"$((retention + 1))" || true)"
     if [ -n "$old_files" ]; then
       echo "$old_files" | while IFS= read -r old_file; do
         echo "Removing old backup ${old_file}"
@@ -45,6 +51,15 @@ while true; do
       done
     fi
   fi
+}
+
+while true; do
+  timestamp="$(date +%Y%m%d%H%M%S)"
+  file="${BACKUP_DIR}/fastorder_${timestamp}.sql"
+  tmp_file="${file}.tmp"
+
+  create_backup "$file" "$tmp_file" || true
+  apply_retention "${BACKUP_DIR}/fastorder_*.sql" "$BACKUP_RETENTION_COUNT"
 
   sleep "$BACKUP_INTERVAL_SECONDS"
 done
