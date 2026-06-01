@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { ShoppingCart, Receipt, LayoutDashboard, Truck, Activity, UtensilsCrossed } from 'lucide-react'
 import { Toaster } from 'sonner'
 import { Logo } from '@/components/brand/Logo'
@@ -51,12 +51,28 @@ function NavItem({ to, label, icon }: NavItem) {
   )
 }
 
+/** Rutas que forman la experiencia del cliente (donde aplica el carrito). */
+const CUSTOMER_PREFIXES = ['/menu', '/checkout', '/orders', '/my-orders']
+
 export function AppShell() {
   const { itemCount, openCart } = useCartStore()
-  const { role } = useRoleStore()
+  const { role, setRole } = useRoleStore()
   const navigate = useNavigate()
+  const location = useLocation()
   const navItems = NAV_BY_ROLE[role] ?? []
   const count = itemCount()
+
+  // El carrito depende de la pantalla (zona de cliente), no del rol: así
+  // funciona en el menú aunque el usuario tenga seleccionado otro rol.
+  const isCustomerArea = CUSTOMER_PREFIXES.some((p) =>
+    location.pathname.startsWith(p),
+  )
+
+  // El logo lleva al inicio y vuelve al contexto de cliente (la tienda).
+  const handleLogoClick = () => {
+    setRole('cliente')
+    navigate('/')
+  }
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
@@ -65,7 +81,7 @@ export function AppShell() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-4">
           {/* Logo */}
           <button
-            onClick={() => navigate('/')}
+            onClick={handleLogoClick}
             className="flex-shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary rounded-md"
             aria-label="Ir a inicio"
           >
@@ -83,7 +99,7 @@ export function AppShell() {
           <div className="flex items-center gap-2 flex-shrink-0">
             <RoleSwitcher />
 
-            {role === 'cliente' && (
+            {isCustomerArea && (
               <Button
                 variant="primary"
                 size="icon"
@@ -111,8 +127,8 @@ export function AppShell() {
         <Outlet />
       </main>
 
-      {/* Cart drawer (only for cliente) */}
-      {role === 'cliente' && <CartDrawer />}
+      {/* Carrito: disponible en la zona de cliente (menú, checkout, pedidos). */}
+      {isCustomerArea && <CartDrawer />}
 
       {/* Toast notifications */}
       <Toaster

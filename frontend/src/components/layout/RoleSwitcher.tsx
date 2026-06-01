@@ -1,4 +1,5 @@
 import { ChevronDown, User, ChefHat, Bike, Settings } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useRoleStore, type AppRole, ROLE_LABELS } from '@/store/useRoleStore'
 import { cn } from '@/lib/cn'
 import { useState, useRef, useEffect } from 'react'
@@ -10,12 +11,27 @@ const ROLE_ICONS: Record<AppRole, React.ReactNode> = {
   admin: <Settings className="h-3.5 w-3.5" />,
 }
 
+/** Pantalla principal de cada rol: al cambiar de rol se navega directo aqui. */
+const ROLE_HOME: Record<AppRole, string> = {
+  cliente: '/menu',
+  cocina: '/kitchen',
+  entrega: '/delivery',
+  admin: '/admin',
+}
+
 const ROLES: AppRole[] = ['cliente', 'cocina', 'entrega', 'admin']
 
 export function RoleSwitcher() {
   const { role, setRole } = useRoleStore()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const navigate = useNavigate()
+
+  const handleSelect = (r: AppRole) => {
+    setRole(r)
+    setOpen(false)
+    navigate(ROLE_HOME[r])
+  }
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -60,7 +76,7 @@ export function RoleSwitcher() {
               key={r}
               role="option"
               aria-selected={r === role}
-              onClick={() => { setRole(r); setOpen(false) }}
+              onClick={() => handleSelect(r)}
               className={cn(
                 'w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left transition-colors',
                 r === role

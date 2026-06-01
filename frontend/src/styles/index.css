@@ -6,13 +6,13 @@
   :root {
     --color-primary:       #DC2626;
     --color-primary-deep:  #991B1B;
-    --color-primary-soft:  #FEE2E2;
+    --color-primary-soft:  #FBE6DD;
     --color-ink:           #1A1410;
     --color-surface:       #FBF8F3;
-    --color-surface-alt:   #F1ECE3;
-    --color-accent:        #D97706;
-    --color-muted:         #78716C;
-    --color-border:        #E5DDD6;
+    --color-surface-alt:   #EFE8DB;
+    --color-accent:        #E08611;
+    --color-muted:         #79706A;
+    --color-border:        #E6DACB;
     --color-success:       #15803D;
     --color-warning:       #B45309;
     --color-danger:        #B91C1C;
