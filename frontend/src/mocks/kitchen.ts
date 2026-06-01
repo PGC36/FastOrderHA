@@ -3,9 +3,11 @@ export type KitchenStatus = 'PENDING' | 'IN_PREPARATION' | 'READY'
 export interface KitchenOrder {
   id: number
   orderId: number
-  productId: number
-  productName: string
-  quantity: number
+  productId?: number
+  // El backend real de cocina no expone nombre ni cantidad del producto;
+  // por eso son opcionales (presentes solo en modo demostracion).
+  productName?: string
+  quantity?: number
   status: KitchenStatus
   createdAt: string
 }

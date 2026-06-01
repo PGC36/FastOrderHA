@@ -46,6 +46,66 @@ El frontend queda disponible en http://localhost:5173.
 
 Con `VITE_USE_MOCKS=true` el frontend funciona sin ningún servicio backend levantado.
 
+## Dos modos de datos (`VITE_USE_MOCKS`)
+
+El frontend tiene un único interruptor que cualquiera puede elegir en su `.env`,
+sin necesidad de ramas separadas:
+
+### Modo demostración — `VITE_USE_MOCKS=true`
+
+Todo usa datos de muestra. No requiere backend. Ideal para revisar la UI, hacer
+demos sin levantar Docker, o desarrollar el frontend de forma aislada. Las
+pantallas operativas (cocina, entrega) muestran tarjetas completas y el botón
+"Simular pedido" funciona.
+
+### Modo real — `VITE_USE_MOCKS=false`
+
+El frontend consume el API Gateway (`docker compose up -d` en la raíz del repo).
+
+| Vista | Comportamiento con backend real |
+|---|---|
+| Menú | Productos reales de la base de datos |
+| Checkout | Crea pedidos reales (`POST /api/orders`) |
+| Seguimiento | Estado real, polling, timeline |
+| Mis Pedidos | Historial real (`GET /api/orders`) |
+| Cocina | Datos reales del `kitchen-service` |
+| Entrega | Degrada a lista vacía (ver nota) |
+| Admin | Métricas simuladas + enlaces a Grafana/Prometheus reales |
+
+**Notas de alcance del backend** (no son bugs del frontend, son límites del
+backend actual del proyecto):
+
+- **Precio:** el backend no tiene microservicio de compras/pagos, así que no
+  expone `precio`. El frontend asigna un precio imaginario estable derivado del
+  nombre del producto.
+- **Cocina:** el endpoint real no devuelve nombre ni cantidad del producto, solo
+  los tiempos del ciclo de preparación. Las tarjetas se adaptan a lo disponible.
+- **Entrega:** el backend no expone un endpoint para *listar* todas las entregas
+  (solo por id o por pedido), por lo que el dashboard se muestra vacío en modo
+  real en vez de romperse. Requeriría un endpoint nuevo del backend.
+- **Admin:** las métricas en vivo son simuladas; las reales viven en
+  Prometheus/Grafana, enlazados desde el panel.
+
+### Cómo funciona por dentro (para el equipo)
+
+Es un *feature flag*: un mismo código que se comporta distinto según una variable
+de entorno, sin ramas separadas.
+
+1. `VITE_USE_MOCKS` vive en el `.env`.
+2. `src/lib/env.ts` la lee una vez y la expone como `USE_MOCKS`.
+3. Cada archivo de `src/api/` decide qué devolver según ese valor:
+
+```ts
+export async function getProducts() {
+  if (USE_MOCKS) return mockProducts          // datos de prueba
+  const { data } = await apiClient.get(...)    // datos reales del backend
+  return data
+}
+```
+
+Las pantallas no saben de dónde vienen los datos: solo llaman a `getProducts()`.
+La decisión "prueba o real" vive únicamente en la capa `src/api/`.
+
 ## Mapa de rutas
 
 | Ruta | Vista | Rol |

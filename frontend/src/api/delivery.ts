@@ -1,7 +1,6 @@
 import { apiClient } from './client'
 import { initialDeliveries, type DeliveryItem, type DeliveryStatus } from '@/mocks/delivery'
-
-const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true'
+import { USE_MOCKS } from '@/lib/env'
 
 let _mockDeliveries: DeliveryItem[] = [...initialDeliveries]
 
@@ -12,8 +11,15 @@ export async function getDeliveries(): Promise<DeliveryItem[]> {
     await new Promise((r) => setTimeout(r, 150))
     return [..._mockDeliveries]
   }
-  const { data } = await apiClient.get<DeliveryItem[]>('/api/delivery')
-  return data
+  // El backend no expone un endpoint para listar todas las entregas (solo por
+  // id o por pedido). Degradamos con elegancia devolviendo una lista vacia en
+  // lugar de romper el dashboard. Ver frontend/README.md (modos de datos).
+  try {
+    const { data } = await apiClient.get<DeliveryItem[]>('/api/delivery')
+    return Array.isArray(data) ? data : []
+  } catch {
+    return []
+  }
 }
 
 async function patchDelivery(

@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { Receipt, Search, X } from 'lucide-react'
 import { OrderStatusBadge } from '@/components/order/OrderStatusBadge'
 import { EmptyState } from '@/components/common/EmptyState'
 import { PageHeader } from '@/components/common/PageHeader'
 import { Button } from '@/components/ui/button'
-import { mockOrderHistory } from '@/mocks/orders'
+import { Skeleton } from '@/components/ui/skeleton'
+import { getOrders } from '@/api/orders'
 import { formatShortId, formatDateTime, formatRelativeTime } from '@/lib/formatters'
 import type { OrderStatus } from '@/api/orders'
 import { cn } from '@/lib/cn'
@@ -26,7 +28,12 @@ export function MyOrdersPage() {
   const [statusFilter, setStatusFilter] = useState(ALL)
   const [search, setSearch] = useState('')
 
-  const filtered = mockOrderHistory.filter((o) => {
+  const { data: orders = [], isLoading } = useQuery({
+    queryKey: ['orders'],
+    queryFn: getOrders,
+  })
+
+  const filtered = orders.filter((o) => {
     const matchStatus = statusFilter === ALL || o.status === statusFilter
     const matchSearch =
       !search ||
@@ -39,7 +46,9 @@ export function MyOrdersPage() {
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-6">
       <PageHeader
         title="Mis Pedidos"
-        description={`${mockOrderHistory.length} pedidos en total`}
+        description={
+          isLoading ? 'Cargando…' : `${orders.length} pedidos en total`
+        }
       />
 
       {/* Filters */}
@@ -80,7 +89,13 @@ export function MyOrdersPage() {
       </div>
 
       {/* Table */}
-      {filtered.length === 0 ? (
+      {isLoading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-16 w-full" />
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
         <EmptyState
           icon={<Receipt className="h-8 w-8" />}
           title="Sin pedidos"

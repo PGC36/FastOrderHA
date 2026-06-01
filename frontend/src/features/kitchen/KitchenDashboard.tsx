@@ -14,6 +14,7 @@ import { generateIncomingOrder } from '@/mocks/kitchen'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/common/PageHeader'
 import { formatDuration, formatShortId } from '@/lib/formatters'
+import { USE_MOCKS } from '@/lib/env'
 import { cn } from '@/lib/cn'
 
 function playBeep() {
@@ -126,12 +127,14 @@ function KitchenCard({
 
       <div>
         <p className="font-display font-bold text-sm text-ink leading-tight">
-          {order.productName}
+          {order.productName ?? `Orden #${formatShortId(order.orderId)}`}
         </p>
-        <p className="text-xs text-muted mt-0.5">
-          Cantidad:{' '}
-          <span className="font-mono font-semibold text-ink">{order.quantity}</span>
-        </p>
+        {order.quantity != null && (
+          <p className="text-xs text-muted mt-0.5">
+            Cantidad:{' '}
+            <span className="font-mono font-semibold text-ink">{order.quantity}</span>
+          </p>
+        )}
       </div>
 
       {next && (
@@ -179,7 +182,9 @@ export function KitchenDashboard() {
     if (newOnes.length > 0 && knownIds.current.size > 0) {
       if (!muted) playBeep()
       toast.info(`${newOnes.length} pedido${newOnes.length > 1 ? 's' : ''} nuevo${newOnes.length > 1 ? 's' : ''}`, {
-        description: newOnes.map((o) => o.productName).join(', '),
+        description: newOnes
+          .map((o) => o.productName ?? `Orden #${formatShortId(o.orderId)}`)
+          .join(', '),
         duration: 4000,
       })
     }
@@ -216,14 +221,16 @@ export function KitchenDashboard() {
         description="Gestión de pedidos en tiempo real."
         action={
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={simulateNewOrder}
-              className="text-xs text-muted"
-            >
-              + Simular pedido
-            </Button>
+            {USE_MOCKS && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={simulateNewOrder}
+                className="text-xs text-muted"
+              >
+                + Simular pedido
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon-sm"

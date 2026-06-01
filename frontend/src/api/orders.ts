@@ -1,6 +1,7 @@
 import { apiClient } from './client'
-
-const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true'
+import { USE_MOCKS } from '@/lib/env'
+import { toUtcIso } from '@/lib/datetime'
+import { mockOrderHistory } from '@/mocks/orders'
 
 export type OrderStatus =
   | 'PENDING'
@@ -46,16 +47,6 @@ interface RawOrder {
   deliveryLastRetryAt?: string | null
   createdAt: string
   updatedAt?: string | null
-}
-
-/**
- * El backend envia timestamps sin zona horaria (ej. "2026-06-01T20:39:00").
- * El navegador los interpretaria como hora local (UTC-6 en Guatemala),
- * desfasandolos 6 horas. Forzamos UTC agregando "Z" si no trae zona.
- */
-function toUtcIso(ts: string): string {
-  if (/[zZ]|[+-]\d{2}:?\d{2}$/.test(ts)) return ts
-  return `${ts}Z`
 }
 
 function normalizeOrder(raw: RawOrder): Order {
@@ -118,9 +109,10 @@ export async function getOrderById(id: number): Promise<Order> {
 export async function getOrders(): Promise<Order[]> {
   if (USE_MOCKS) {
     await new Promise((r) => setTimeout(r, 400))
-    return []
+    return mockOrderHistory
   }
   const { data } = await apiClient.get<RawOrder[]>('/api/orders')
+  // El backend lista de mas reciente a mas antiguo; lo respetamos.
   return data.map(normalizeOrder)
 }
 
