@@ -2,6 +2,7 @@ package com.example.inventory_service.service;
 
 import com.example.inventory_service.dto.StockUpdateRequest;
 import com.example.inventory_service.repository.InventoryRepository;
+import com.example.inventory_service.service.InventoryService.ConfirmSaleResult;
 import com.example.inventory_service.repository.projection.CompletedReservationProjection;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -43,9 +44,15 @@ public class InventoryReconciliationService {
         request.setProductId(reservation.getProductId());
         request.setQuantity(reservation.getQuantity());
 
-        boolean confirmed = inventoryService.confirmSale(reservation.getOrderId(), request);
-        if (confirmed) {
+        ConfirmSaleResult confirmSaleResult = inventoryService.confirmSale(reservation.getOrderId(), request);
+        if (confirmSaleResult == ConfirmSaleResult.CONFIRMED) {
             logger.info("Venta reconciliada automaticamente orderId={}, productId={}, quantity={}",
+                    reservation.getOrderId(), reservation.getProductId(), reservation.getQuantity());
+            return;
+        }
+
+        if (confirmSaleResult == ConfirmSaleResult.PENDING_RESERVATION) {
+            logger.warn("La reconciliacion encontro orden completada sin reserva lista orderId={}, productId={}, quantity={}",
                     reservation.getOrderId(), reservation.getProductId(), reservation.getQuantity());
         }
     }

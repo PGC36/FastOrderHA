@@ -63,6 +63,8 @@ logging:
     com.example.inventory_service: WARN
 
 app:
+  services:
+    order-url: ${ORDER_SERVICE_URL:http://localhost:8082/orders}
   rabbit:
     exchange: inventory.exchange
     queue: inventory.events.queue

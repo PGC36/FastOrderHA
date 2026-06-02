@@ -160,10 +160,7 @@ public class OrderService {
         try {
             orderWorkflowClient.createNotification(savedOrder, toCreateOrderRequest(savedOrder));
             orderWorkflowClient.createAndCompleteDelivery(savedOrder);
-            savedOrder.setStatus(COMPLETED_STATUS);
-            savedOrder.setDeliveryFailureReason(null);
-            orderRepository.save(savedOrder);
-            logger.info("Pedido procesado asincronamente orderId={}, status={}", savedOrder.getId(), COMPLETED_STATUS);
+            logger.info("Delivery disparado correctamente para orderId={}; esperando confirmacion final por evento", savedOrder.getId());
         } catch (BusinessRuleException | InventoryUnavailableException exception) {
             markDeliveryRetryPending(savedOrder, exception.getMessage());
         }

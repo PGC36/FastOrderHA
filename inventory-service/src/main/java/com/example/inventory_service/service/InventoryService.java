@@ -18,6 +18,12 @@ public class InventoryService {
 
     private final InventoryRepository inventoryRepository;
 
+    public enum ConfirmSaleResult {
+        CONFIRMED,
+        ALREADY_CONFIRMED,
+        PENDING_RESERVATION
+    }
+
     public boolean checkStock(Long productId, Integer quantity) {
         return inventoryRepository.findByProductId(productId)
                 .map(inv -> (inv.getQuantity() - inv.getReserved()) >= quantity)
@@ -69,18 +75,22 @@ public class InventoryService {
     }
 
     @Transactional
-    public boolean confirmSale(Long orderId, StockUpdateRequest request) {
+    public ConfirmSaleResult confirmSale(Long orderId, StockUpdateRequest request) {
         int result = inventoryRepository.confirmSaleOptimized(
                 orderId,
                 request.getProductId(),
                 request.getQuantity());
 
         if (result == INVENTORY_OPERATION_CONFIRMED) {
-            return true;
+            return ConfirmSaleResult.CONFIRMED;
         }
 
-        if (result == INVENTORY_OPERATION_ALREADY_APPLIED || result == INVENTORY_OPERATION_REJECTED) {
-            return false;
+        if (result == INVENTORY_OPERATION_ALREADY_APPLIED) {
+            return ConfirmSaleResult.ALREADY_CONFIRMED;
+        }
+
+        if (result == INVENTORY_OPERATION_REJECTED) {
+            return ConfirmSaleResult.PENDING_RESERVATION;
         }
 
         throw new ProductNotFoundException("No existe reserva suficiente para confirmar la venta");

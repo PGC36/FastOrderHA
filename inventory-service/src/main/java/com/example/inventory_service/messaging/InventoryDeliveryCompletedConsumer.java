@@ -2,6 +2,8 @@ package com.example.inventory_service.messaging;
 
 import com.example.inventory_service.dto.StockUpdateRequest;
 import com.example.inventory_service.service.InventoryService;
+import com.example.inventory_service.service.InventoryService.ConfirmSaleResult;
+import com.example.inventory_service.service.OrderStatusClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
@@ -17,10 +19,15 @@ public class InventoryDeliveryCompletedConsumer {
     private static final Logger logger = LoggerFactory.getLogger(InventoryDeliveryCompletedConsumer.class);
 
     private final InventoryService inventoryService;
+    private final OrderStatusClient orderStatusClient;
     private final ObjectMapper objectMapper;
 
-    public InventoryDeliveryCompletedConsumer(InventoryService inventoryService, ObjectMapper objectMapper) {
+    public InventoryDeliveryCompletedConsumer(
+            InventoryService inventoryService,
+            OrderStatusClient orderStatusClient,
+            ObjectMapper objectMapper) {
         this.inventoryService = inventoryService;
+        this.orderStatusClient = orderStatusClient;
         this.objectMapper = objectMapper;
     }
 
@@ -47,13 +54,23 @@ public class InventoryDeliveryCompletedConsumer {
             request.setProductId(productId);
             request.setQuantity(quantity);
 
-            boolean confirmed = inventoryService.confirmSale(orderId, request);
-            if (confirmed) {
+            ConfirmSaleResult confirmSaleResult = inventoryService.confirmSale(orderId, request);
+            if (confirmSaleResult == ConfirmSaleResult.CONFIRMED) {
                 logger.info("Venta confirmada en inventario orderId={}, productId={}, quantity={}",
                         orderId, productId, quantity);
-            } else {
-                logger.info("Venta ya habia sido confirmada previamente orderId={}", orderId);
+                orderStatusClient.markOrderCompleted(orderId);
+                return;
             }
+
+            if (confirmSaleResult == ConfirmSaleResult.ALREADY_CONFIRMED) {
+                logger.info("Venta ya habia sido confirmada previamente orderId={}", orderId);
+                orderStatusClient.markOrderCompleted(orderId);
+                return;
+            }
+
+            logger.warn("Delivery completado sin reserva lista para confirmar venta orderId={}, productId={}, quantity={}",
+                    orderId, productId, quantity);
+            throw new IllegalStateException("La venta aun no puede confirmarse para la orden " + orderId);
         } catch (Exception exception) {
             logger.error("Error procesando delivery.completed en inventory-service: {}", payload, exception);
             throw new IllegalStateException("Error tecnico procesando delivery.completed", exception);

@@ -51,7 +51,7 @@ public class OrderWorkflowEventConsumer {
         JsonNode event = read(message, "delivery.completed");
         Long orderId = readLong(event, "orderId");
         if (orderId != null) {
-            orderService.completeOrderById(orderId);
+            logger.info("Evento delivery.completed recibido para orderId={}; la confirmacion final la realiza inventory-service", orderId);
         }
     }
 
