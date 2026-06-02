@@ -15,7 +15,6 @@ Esto encaja con lo que te comentaron tus companeros: cada maquina queda identifi
 
 ## Distribucion
 
-- `PC1`: `etcd-0` + `fastorder-db-0`
 - `PC1`: `etcd-0` + `fastorder-db-0` + `postgres-backup`
 - `PC2`: `etcd-1` + `fastorder-db-1` + `fastorder-db-proxy-1`
 - `PC3`: `etcd-2` + `fastorder-db-2`

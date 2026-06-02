@@ -5,6 +5,7 @@ const path = require("node:path");
 const repoRoot = path.resolve(__dirname, "..", "..");
 process.chdir(repoRoot);
 const multiHostEnvPath = path.join(repoRoot, "deploy", "multi-host", "multi-host.env");
+const multiHostAppEnvPath = path.join(repoRoot, "deploy", "multi-host", "multi-host.app.env");
 
 function loadEnvFile(filePath) {
   if (!fs.existsSync(filePath)) {
@@ -24,11 +25,16 @@ function loadEnvFile(filePath) {
 }
 
 const multiHostEnv = loadEnvFile(multiHostEnvPath);
+const multiHostAppEnv = loadEnvFile(multiHostAppEnvPath);
 
 const defaults = {
   totalOrders: 50000,
   vus: 100,
-  baseUrl: process.platform === "win32" ? "http://api-gateway:8080" : "http://127.0.0.1:8080",
+  baseUrl:
+    process.env.BASE_URL ||
+    (multiHostAppEnv.APP_VIP_IP ? `http://${multiHostAppEnv.APP_VIP_IP}:8080` : null) ||
+    (multiHostEnv.PC2_IP ? `http://${multiHostEnv.PC2_IP}:8080` : null) ||
+    "http://127.0.0.1:8080",
   maxDuration: "30m",
   maxAttempts: 150,
   retryDelaySeconds: 2,
@@ -47,8 +53,13 @@ const defaults = {
   finalStatusDbHost:
     process.env.FINAL_STATUS_DB_HOST ||
     process.env.DB_STATUS_HOST ||
+    multiHostEnv.DB_PROXY_VIP ||
     multiHostEnv.PC4_IP ||
     multiHostEnv.PC2_IP ||
+    "127.0.0.1",
+  dbResetHost:
+    process.env.DB_RESET_HOST ||
+    multiHostEnv.DB_PROXY_VIP ||
     "127.0.0.1",
 };
 
@@ -481,6 +492,8 @@ async function main() {
   console.log(`  chaos: ${chaosLog}`);
   console.log(`  final: ${finalLog}`);
   console.log(`  mode:  ${options.useDockerK6 ? "docker-k6" : "local-k6"}`);
+  console.log(`  base url: ${options.baseUrl}`);
+  console.log(`  db reset host: ${options.dbResetHost}`);
   console.log(`  final status DB host: ${options.finalStatusDbHost}`);
 
   await waitForGateway();
