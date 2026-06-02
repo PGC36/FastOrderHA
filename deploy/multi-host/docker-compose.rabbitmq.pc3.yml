@@ -9,25 +9,12 @@ services:
       RABBITMQ_ERLANG_COOKIE: ${RABBITMQ_ERLANG_COOKIE}
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-guest}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-guest}
-      RABBITMQ_CONFIG_FILE: /etc/rabbitmq/rabbitmq
-    command:
-      - /bin/sh
-      - -c
-      - >-
-        sed
-        -e "s|\${RABBITMQ_NODE_1_NAME}|$${RABBITMQ_NODE_1_NAME}|g"
-        -e "s|\${RABBITMQ_NODE_2_NAME}|$${RABBITMQ_NODE_2_NAME}|g"
-        -e "s|\${RABBITMQ_NODE_3_NAME}|$${RABBITMQ_NODE_3_NAME}|g"
-        /etc/rabbitmq/rabbitmq.conf.tmpl > /etc/rabbitmq/rabbitmq.conf
-        && rabbitmq-plugins enable --offline rabbitmq_prometheus
-        && rabbitmq-server
     volumes:
       - rabbitmq_pc3_data:/var/lib/rabbitmq
-      - ./rabbitmq.conf.tmpl:/etc/rabbitmq/rabbitmq.conf.tmpl:ro
+      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
     ports:
       - "5672:5672"
       - "15672:15672"
-      - "15692:15692"
       - "25672:25672"
       - "4369:4369"
     extra_hosts:
