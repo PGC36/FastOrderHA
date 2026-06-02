@@ -33,4 +33,40 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
              limit :limit
             """, nativeQuery = true)
     List<Order> findOrdersWithConfirmedSalePendingCompletion(@Param("limit") int limit);
+
+    @Query(value = """
+            select o.*
+              from orders o
+             where o.status = 'CANCELLED'
+               and o.delivery_failure_reason like 'No hay stock suficiente%'
+               and exists (
+                    select 1
+                      from inventory i
+                     where i.product_id = o.product_id
+                       and (i.quantity - i.reserved) >= o.quantity
+               )
+               and not exists (
+                    select 1
+                      from inventory_reservations r
+                     where r.order_id = o.id
+               )
+               and not exists (
+                    select 1
+                      from inventory_sales s
+                     where s.order_id = o.id
+               )
+               and not exists (
+                    select 1
+                      from kitchen_orders k
+                     where k.order_id = o.id
+               )
+               and not exists (
+                    select 1
+                      from delivery_orders d
+                     where d.order_id = o.id
+               )
+             order by o.created_at
+             limit :limit
+            """, nativeQuery = true)
+    List<Order> findRecoverableInventoryRejectedOrders(@Param("limit") int limit);
 }

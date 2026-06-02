@@ -82,3 +82,7 @@ app:
     outbox-publisher-delay-ms: ${ORDER_OUTBOX_PUBLISHER_DELAY_MS:500}
     outbox-publisher-batch-size: ${ORDER_OUTBOX_PUBLISHER_BATCH_SIZE:100}
     outbox-publisher-confirm-timeout-ms: ${ORDER_OUTBOX_PUBLISHER_CONFIRM_TIMEOUT_MS:5000}
+  order-inventory-rejection-reconciliation:
+    fixed-delay-ms: ${ORDER_INVENTORY_REJECTION_RECONCILIATION_DELAY_MS:5000}
+    initial-delay-ms: ${ORDER_INVENTORY_REJECTION_RECONCILIATION_INITIAL_DELAY_MS:15000}
+    batch-size: ${ORDER_INVENTORY_REJECTION_RECONCILIATION_BATCH_SIZE:20}

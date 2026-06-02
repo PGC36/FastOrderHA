@@ -219,6 +219,7 @@ public class OrderService {
 
     private void cancelOrder(Order order, String reason) {
         order.setStatus(CANCELLED_STATUS);
+        order.setDeliveryFailureReason(shortReason(reason));
         orderRepository.save(order);
         logger.warn("Pedido cancelado orderId={}, reason={}", order.getId(), reason);
     }
@@ -248,6 +249,25 @@ public class OrderService {
                     orderRepository.save(order);
                     logger.info("Pedido completado por evento orderId={}", orderId);
                 });
+    }
+
+    @Transactional
+    public boolean reopenCancelledOrderForInventoryRetry(Long orderId) {
+        return orderRepository.findById(orderId)
+                .map(order -> {
+                    if (!CANCELLED_STATUS.equals(order.getStatus())) {
+                        return false;
+                    }
+                    if (!isInventoryRejectionReason(order.getDeliveryFailureReason())) {
+                        return false;
+                    }
+                    order.setStatus(PROCESSING_STATUS);
+                    order.setDeliveryFailureReason(null);
+                    orderRepository.save(order);
+                    logger.info("Pedido reabierto para reintento de inventario orderId={}", orderId);
+                    return true;
+                })
+                .orElse(false);
     }
 
     @Transactional
@@ -353,6 +373,10 @@ public class OrderService {
 
     private boolean canBeCancelled(String status) {
         return INITIAL_STATUS.equals(status) || PROCESSING_STATUS.equals(status);
+    }
+
+    private boolean isInventoryRejectionReason(String reason) {
+        return reason != null && reason.startsWith("No hay stock suficiente");
     }
 
     private String valueOrDefault(String value, String defaultValue) {
