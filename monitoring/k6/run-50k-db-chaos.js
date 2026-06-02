@@ -207,8 +207,9 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function waitForGateway() {
+async function waitForGateway(baseUrl) {
   const deadline = Date.now() + 3 * 60 * 1000;
+  const healthUrl = `${String(baseUrl || "http://localhost:8080").replace(/\/$/, "")}/actuator/health`;
 
   while (Date.now() < deadline) {
     const result = run(
@@ -216,7 +217,7 @@ async function waitForGateway() {
       [
         "-NoProfile",
         "-Command",
-        "try { Invoke-WebRequest -UseBasicParsing -Uri 'http://localhost:8080/actuator/health' -TimeoutSec 10 | Out-Null; exit 0 } catch { exit 1 }",
+        `try { Invoke-WebRequest -UseBasicParsing -Uri '${healthUrl}' -TimeoutSec 10 | Out-Null; exit 0 } catch { exit 1 }`,
       ],
       { allowFailure: true }
     );
@@ -228,7 +229,7 @@ async function waitForGateway() {
     await wait(5000);
   }
 
-  throw new Error("API Gateway no respondio /actuator/health antes del timeout.");
+  throw new Error(`API Gateway no respondio ${healthUrl} antes del timeout.`);
 }
 
 function resetTestData(totalOrders, options) {
@@ -496,7 +497,7 @@ async function main() {
   console.log(`  db reset host: ${options.dbResetHost}`);
   console.log(`  final status DB host: ${options.finalStatusDbHost}`);
 
-  await waitForGateway();
+  await waitForGateway(options.baseUrl);
 
   if (!options.skipCleanup) {
     resetTestData(options.totalOrders, options);
