@@ -4,6 +4,7 @@ import com.example.inventory_service.dto.StockUpdateRequest;
 import com.example.inventory_service.repository.InventoryRepository;
 import com.example.inventory_service.service.InventoryService.ConfirmSaleResult;
 import com.example.inventory_service.repository.projection.CompletedReservationProjection;
+import com.example.inventory_service.repository.projection.DeliveredOrderProjection;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,6 +31,11 @@ public class InventoryReconciliationService {
         var terminalReservations = inventoryRepository.findTerminalReservationsToRelease(50);
         for (CompletedReservationProjection reservation : terminalReservations) {
             reconcileTerminalReservation(reservation);
+        }
+
+        var deliveredOrders = inventoryRepository.findDeliveredOrdersWithoutSaleOrReservation(50);
+        for (DeliveredOrderProjection deliveredOrder : deliveredOrders) {
+            reconcileDeliveredOrderWithoutReservation(deliveredOrder);
         }
 
         int repairedProducts = inventoryRepository.reconcileReservedCounters();
@@ -66,5 +72,31 @@ public class InventoryReconciliationService {
         inventoryService.releaseStock(request);
         logger.info("Reserva liberada automaticamente para orden terminal orderId={}, productId={}, quantity={}",
                 reservation.getOrderId(), reservation.getProductId(), reservation.getQuantity());
+    }
+
+    private void reconcileDeliveredOrderWithoutReservation(DeliveredOrderProjection deliveredOrder) {
+        StockUpdateRequest request = new StockUpdateRequest();
+        request.setOrderId(deliveredOrder.getOrderId());
+        request.setProductId(deliveredOrder.getProductId());
+        request.setQuantity(deliveredOrder.getQuantity());
+
+        ConfirmSaleResult result = inventoryService.recoverDeliveredSaleWithoutReservation(
+                deliveredOrder.getOrderId(), request);
+
+        if (result == ConfirmSaleResult.RECOVERED_WITHOUT_RESERVATION
+                || result == ConfirmSaleResult.ALREADY_CONFIRMED) {
+            logger.warn("Venta reconciliada desde delivery entregado sin reserva orderId={}, productId={}, quantity={}, result={}",
+                    deliveredOrder.getOrderId(),
+                    deliveredOrder.getProductId(),
+                    deliveredOrder.getQuantity(),
+                    result);
+            return;
+        }
+
+        logger.warn("No se pudo reconciliar delivery entregado sin reserva orderId={}, productId={}, quantity={}, result={}",
+                deliveredOrder.getOrderId(),
+                deliveredOrder.getProductId(),
+                deliveredOrder.getQuantity(),
+                result);
     }
 }

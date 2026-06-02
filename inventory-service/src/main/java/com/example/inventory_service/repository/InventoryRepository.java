@@ -2,6 +2,7 @@ package com.example.inventory_service.repository;
 
 import com.example.inventory_service.entity.Inventory;
 import com.example.inventory_service.repository.projection.CompletedReservationProjection;
+import com.example.inventory_service.repository.projection.DeliveredOrderProjection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -127,6 +128,29 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long> {
             """, nativeQuery = true)
     List<CompletedReservationProjection> findTerminalReservationsToRelease(@Param("limit") int limit);
 
+    @Query(value = """
+            select o.id as orderId,
+                   o.product_id as productId,
+                   o.quantity as quantity
+              from orders o
+              join delivery_orders d on d.order_id = o.id
+             where o.status in ('READY_FOR_DELIVERY', 'IN_DELIVERY')
+               and d.status = 'DELIVERED'
+               and not exists (
+                    select 1
+                      from inventory_sales s
+                     where s.order_id = o.id
+               )
+               and not exists (
+                    select 1
+                      from inventory_reservations r
+                     where r.order_id = o.id
+               )
+             order by d.updated_at
+             limit :limit
+            """, nativeQuery = true)
+    List<DeliveredOrderProjection> findDeliveredOrdersWithoutSaleOrReservation(@Param("limit") int limit);
+
     @Modifying
     @Query(value = """
             insert into inventory_sales (order_id, product_id, quantity)
@@ -197,6 +221,45 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long> {
             end
             """, nativeQuery = true)
     int confirmSaleOptimized(
+            @Param("orderId") Long orderId,
+            @Param("productId") Long productId,
+            @Param("quantity") Integer quantity);
+
+    @Query(value = """
+            with inserted_sale as (
+                insert into inventory_sales (order_id, product_id, quantity)
+                select :orderId, :productId, :quantity
+                 where not exists (
+                    select 1
+                      from inventory_sales
+                     where order_id = :orderId
+                 )
+                returning order_id
+            ),
+            updated_inventory as (
+                update inventory
+                   set quantity = quantity - :quantity,
+                       sold = sold + :quantity,
+                       updated_at = current_timestamp
+                 where product_id = :productId
+                   and exists (select 1 from inserted_sale)
+                   and quantity >= :quantity
+                returning product_id
+            ),
+            cleanup_sale as (
+                delete from inventory_sales
+                 where order_id = :orderId
+                   and exists (select 1 from inserted_sale)
+                   and not exists (select 1 from updated_inventory)
+                returning order_id
+            )
+            select case
+                when exists (select 1 from updated_inventory) then 1
+                when exists (select 1 from inventory_sales where order_id = :orderId) then 2
+                else 0
+            end
+            """, nativeQuery = true)
+    int confirmDeliveredSaleWithoutReservationOptimized(
             @Param("orderId") Long orderId,
             @Param("productId") Long productId,
             @Param("quantity") Integer quantity);

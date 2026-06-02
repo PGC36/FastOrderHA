@@ -21,7 +21,8 @@ public class InventoryService {
     public enum ConfirmSaleResult {
         CONFIRMED,
         ALREADY_CONFIRMED,
-        PENDING_RESERVATION
+        PENDING_RESERVATION,
+        RECOVERED_WITHOUT_RESERVATION
     }
 
     public boolean checkStock(Long productId, Integer quantity) {
@@ -94,5 +95,27 @@ public class InventoryService {
         }
 
         throw new ProductNotFoundException("No existe reserva suficiente para confirmar la venta");
+    }
+
+    @Transactional
+    public ConfirmSaleResult recoverDeliveredSaleWithoutReservation(Long orderId, StockUpdateRequest request) {
+        int result = inventoryRepository.confirmDeliveredSaleWithoutReservationOptimized(
+                orderId,
+                request.getProductId(),
+                request.getQuantity());
+
+        if (result == INVENTORY_OPERATION_CONFIRMED) {
+            return ConfirmSaleResult.RECOVERED_WITHOUT_RESERVATION;
+        }
+
+        if (result == INVENTORY_OPERATION_ALREADY_APPLIED) {
+            return ConfirmSaleResult.ALREADY_CONFIRMED;
+        }
+
+        if (result == INVENTORY_OPERATION_REJECTED) {
+            return ConfirmSaleResult.PENDING_RESERVATION;
+        }
+
+        throw new ProductNotFoundException("No existe inventario suficiente para reconciliar la venta entregada");
     }
 }
