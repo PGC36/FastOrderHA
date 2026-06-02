@@ -21,13 +21,13 @@ scrape_configs:
   - job_name: rabbitmq
     static_configs:
       - targets:
-          - 192.168.0.5:15692
+          - host.docker.internal:15692
 
   - job_name: rabbitmq-per-object
     metrics_path: /metrics/per-object
     static_configs:
       - targets:
-          - 192.168.0.5:15692
+          - host.docker.internal:15692
 
   - job_name: postgres-node
     static_configs:
@@ -88,61 +88,61 @@ scrape_configs:
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
-          - 192.168.0.5:8080
+          - api-gateway:8080
         labels:
           service_name: api-gateway
-          service_host: 192.168.0.5
+          service_host: api-gateway
 
   - job_name: menu-service
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
-          - 192.168.0.5:8081
+          - host.docker.internal:8081
         labels:
           service_name: menu-service
-          service_host: 192.168.0.5
+          service_host: host.docker.internal
 
   - job_name: order-service
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
-          - 192.168.0.5:8082
+          - host.docker.internal:8082
         labels:
           service_name: order-service
-          service_host: 192.168.0.5
+          service_host: host.docker.internal
 
   - job_name: inventory-service
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
-          - 192.168.0.5:8083
+          - host.docker.internal:8083
         labels:
           service_name: inventory-service
-          service_host: 192.168.0.5
+          service_host: host.docker.internal
 
   - job_name: kitchen-service
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
-          - 192.168.0.5:8084
+          - host.docker.internal:8084
         labels:
           service_name: kitchen-service
-          service_host: 192.168.0.5
+          service_host: host.docker.internal
 
   - job_name: delivery-service
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
-          - 192.168.0.6:8085
+          - host.docker.internal:8085
         labels:
           service_name: delivery-service
-          service_host: 192.168.0.6
+          service_host: host.docker.internal
 
   - job_name: notification-service
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
-          - 192.168.0.6:8086
+          - host.docker.internal:8086
         labels:
           service_name: notification-service
-          service_host: 192.168.0.6
+          service_host: host.docker.internal

@@ -1,45 +1,60 @@
-RUN_ID=db-chaos-50k-20260602040933
-BASE_URL=http://192.168.0.101:8080
-TOTAL_ORDERS=50000
+RUN_ID=db-chaos-50k-20260530191720
+BASE_URL=http://api-gateway:8080
+TOTAL_ORDERS=100000
 VUS=200
 MAX_DURATION=10m
 MAX_ATTEMPTS=150
 RETRY_DELAY_SECONDS=2
 REQUEST_TIMEOUT=5s
 ITERATION_DELAY_SECONDS=0
-START=2026-06-02T04:10:28.376Z
-END=2026-06-02T04:10:28.376Z
+START=2026-05-30T19:18:08.895Z
+END=2026-05-30T19:18:08.896Z
      ✓ order eventually accepted
      ✓ order finished within retry budget
 
-     attempts_per_order.............: avg=1        min=1      med=1       p(90)=1        p(95)=1        p(99)=1        max=1      
-   ✓ checks.........................: 100.00% ✓ 100000      ✗ 0    
-     data_received..................: 24 MB   474 kB/s
-     data_sent......................: 18 MB   360 kB/s
-   ✓ final_order_failed.............: 0.00%   ✓ 0           ✗ 50000
-     http_req_blocked...............: avg=129.72µs min=506ns  med=1.85µs  p(90)=3.78µs   p(95)=4.32µs   p(99)=14.09µs  max=82.85ms
-     http_req_connecting............: avg=126.96µs min=0s     med=0s      p(90)=0s       p(95)=0s       p(99)=0s       max=82.81ms
-   ✓ http_req_duration..............: avg=198.95ms min=7.02ms med=95.17ms p(90)=529.54ms p(95)=663.02ms p(99)=953.45ms max=1.94s  
-       { expected_response:true }...: avg=198.95ms min=7.02ms med=95.17ms p(90)=529.54ms p(95)=663.02ms p(99)=953.45ms max=1.94s  
-     http_req_failed................: 0.00%   ✓ 0           ✗ 50000
-     http_req_receiving.............: avg=40.01µs  min=7.82µs med=32.94µs p(90)=64.26µs  p(95)=84.17µs  p(99)=132.49µs max=2.27ms 
-     http_req_sending...............: avg=12.05µs  min=2.3µs  med=7.72µs  p(90)=20.93µs  p(95)=27.07µs  p(99)=63.41µs  max=2ms    
-     http_req_tls_handshaking.......: avg=0s       min=0s     med=0s      p(90)=0s       p(95)=0s       p(99)=0s       max=0s     
-     http_req_waiting...............: avg=198.9ms  min=6.97ms med=95.12ms p(90)=529.51ms p(95)=662.97ms p(99)=953.21ms max=1.94s  
-     http_reqs......................: 50000   1001.682491/s
-     iteration_duration.............: avg=199.22ms min=7.12ms med=95.29ms p(90)=529.86ms p(95)=663.15ms p(99)=958ms    max=1.95s  
-     iterations.....................: 50000   1001.682491/s
-     vus............................: 200     min=200       max=200
-     vus_max........................: 200     min=200       max=200
-[0m     
-     http_req_waiting[2m...............:[0m avg=[36m198.9ms[0m  min=[36m6.97ms[0m med=[36m95.12ms[0m p(90)=[36m529.51ms[0m p(95)=[36m662.97ms[0m p(99)=[36m953.21ms[0m max=[36m1.94s[0m  
-     http_reqs[2m......................:[0m [36m50000[0m   [36;2m1001.682491/s[0m
-     iteration_duration[2m.............:[0m avg=[36m199.22ms[0m min=[36m7.12ms[0m med=[36m95.29ms[0m p(90)=[36m529.86ms[0m p(95)=[36m663.15ms[0m p(99)=[36m958ms[0m    max=[36m1.95s[0m  
-     iterations[2m.....................:[0m [36m50000[0m   [36;2m1001.682491/s[0m
-     vus[2m............................:[0m [36m200[0m     [36;2mmin=200[0m       [36;2mmax=200[0m
-     vus_max[2m........................:[0m [36m200[0m     [36;2mmin=200[0m       [36;2mmax=200[0m
-running (00m49.9s), 000/200 VUs, 50000 complete and 0 interrupted iterations
-create_orders_resilient ✓ [ 100% ] 200 VUs  00m49.9s/10m0s  50000/50000 shared iters
+     attempts_per_order.............: avg=1       min=1       med=1       p(90)=1        p(95)=1        p(99)=1        max=1       
+   ✓ checks.........................: 100.00% ✓ 200000      ✗ 0     
+     data_received..................: 47 MB   1.0 MB/s
+     data_sent......................: 36 MB   789 kB/s
+   ✓ final_order_failed.............: 0.00%   ✓ 0           ✗ 100000
+     http_req_blocked...............: avg=30.41µs min=534ns   med=2.96µs  p(90)=4.68µs   p(95)=5.78µs   p(99)=174.16µs max=47.43ms 
+     http_req_connecting............: avg=12.09µs min=0s      med=0s      p(90)=0s       p(95)=0s       p(99)=113.29µs max=27.61ms 
+   ✓ http_req_duration..............: avg=90.22ms min=11.63ms med=85.68ms p(90)=153.55ms p(95)=186.9ms  p(99)=265.59ms max=814.04ms
+       { expected_response:true }...: avg=90.22ms min=11.63ms med=85.68ms p(90)=153.55ms p(95)=186.9ms  p(99)=265.59ms max=814.04ms
+     http_req_failed................: 0.00%   ✓ 0           ✗ 100000
+     http_req_receiving.............: avg=99.8µs  min=9.19µs  med=58.62µs p(90)=172.77µs p(95)=264.56µs p(99)=732.47µs max=28.83ms 
+     http_req_sending...............: avg=22.02µs min=2.51µs  med=12.12µs p(90)=31.22µs  p(95)=42.28µs  p(99)=108.58µs max=43.14ms 
+     http_req_tls_handshaking.......: avg=0s      min=0s      med=0s      p(90)=0s       p(95)=0s       p(99)=0s       max=0s      
+     http_req_waiting...............: avg=90.09ms min=11.53ms med=85.56ms p(90)=153.45ms p(95)=186.76ms p(99)=265.42ms max=813.93ms
+     http_reqs......................: 100000  2208.198613/s
+     iteration_duration.............: avg=90.44ms min=11.72ms med=85.88ms p(90)=153.82ms p(95)=187.24ms p(99)=265.75ms max=814.19ms
+     iterations.....................: 100000  2208.198613/s
+     vus............................: 200     min=200       max=200 
+     vus_max........................: 200     min=200       max=200 
+[32m     ✓ order eventually accepted[0m
+[32m     ✓ order finished within retry budget[0m
+
+     attempts_per_order[2m.............:[0m avg=[36m1[0m       min=[36m1[0m       med=[36m1[0m       p(90)=[36m1[0m        p(95)=[36m1[0m        p(99)=[36m1[0m        max=[36m1[0m       
+   [32m✓[0m checks[2m.........................:[0m [36m100.00%[0m [36;2m✓ 200000[0m      [36;2m✗ 0[0m     
+     data_received[2m..................:[0m [36m47 MB[0m   [36;2m1.0 MB/s[0m
+     data_sent[2m......................:[0m [36m36 MB[0m   [36;2m789 kB/s[0m
+   [32m✓[0m final_order_failed[2m.............:[0m [36m0.00%[0m   [36;2m✓ 0[0m           [36;2m✗ 100000[0m
+     http_req_blocked[2m...............:[0m avg=[36m30.41µs[0m min=[36m534ns[0m   med=[36m2.96µs[0m  p(90)=[36m4.68µs[0m   p(95)=[36m5.78µs[0m   p(99)=[36m174.16µs[0m max=[36m47.43ms[0m 
+     http_req_connecting[2m............:[0m avg=[36m12.09µs[0m min=[36m0s[0m      med=[36m0s[0m      p(90)=[36m0s[0m       p(95)=[36m0s[0m       p(99)=[36m113.29µs[0m max=[36m27.61ms[0m 
+   [32m✓[0m http_req_duration[2m..............:[0m avg=[36m90.22ms[0m min=[36m11.63ms[0m med=[36m85.68ms[0m p(90)=[36m153.55ms[0m p(95)=[36m186.9ms[0m  p(99)=[36m265.59ms[0m max=[36m814.04ms[0m
+       { expected_response:true }[2m...:[0m avg=[36m90.22ms[0m min=[36m11.63ms[0m med=[36m85.68ms[0m p(90)=[36m153.55ms[0m p(95)=[36m186.9ms[0m  p(99)=[36m265.59ms[0m max=[36m814.04ms[0m
+     http_req_failed[2m................:[0m [36m0.00%[0m   [36;2m✓ 0[0m           [36;2m✗ 100000[0m
+     http_req_receiving[2m.............:[0m avg=[36m99.8µs[0m  min=[36m9.19µs[0m  med=[36m58.62µs[0m p(90)=[36m172.77µs[0m p(95)=[36m264.56µs[0m p(99)=[36m732.47µs[0m max=[36m28.83ms[0m 
+     http_req_sending[2m...............:[0m avg=[36m22.02µs[0m min=[36m2.51µs[0m  med=[36m12.12µs[0m p(90)=[36m31.22µs[0m  p(95)=[36m42.28µs[0m  p(99)=[36m108.58µs[0m max=[36m43.14ms[0m 
+     http_req_tls_handshaking[2m.......:[0m avg=[36m0s[0m      min=[36m0s[0m      med=[36m0s[0m      p(90)=[36m0s[0m       p(95)=[36m0s[0m       p(99)=[36m0s[0m       max=[36m0s[0m      
+     http_req_waiting[2m...............:[0m avg=[36m90.09ms[0m min=[36m11.53ms[0m med=[36m85.56ms[0m p(90)=[36m153.45ms[0m p(95)=[36m186.76ms[0m p(99)=[36m265.42ms[0m max=[36m813.93ms[0m
+     http_reqs[2m......................:[0m [36m100000[0m  [36;2m2208.198613/s[0m
+     iteration_duration[2m.............:[0m avg=[36m90.44ms[0m min=[36m11.72ms[0m med=[36m85.88ms[0m p(90)=[36m153.82ms[0m p(95)=[36m187.24ms[0m p(99)=[36m265.75ms[0m max=[36m814.19ms[0m
+     iterations[2m.....................:[0m [36m100000[0m  [36;2m2208.198613/s[0m
+     vus[2m............................:[0m [36m200[0m     [36;2mmin=200[0m       [36;2mmax=200[0m 
+     vus_max[2m........................:[0m [36m200[0m     [36;2mmin=200[0m       [36;2mmax=200[0m 
+running (00m45.3s), 000/200 VUs, 100000 complete and 0 interrupted iterations
+create_orders_resilient ✓ [ 100% ] 200 VUs  00m45.3s/10m0s  100000/100000 shared iters
 K6_EXIT_CODE=0
-K6_ELAPSED_SECONDS=51.4
-END=2026-06-02T04:10:28.988Z
+K6_ELAPSED_SECONDS=46.58
+END=2026-05-30T19:18:09.532Z

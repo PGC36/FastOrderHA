@@ -1,5 +1,5 @@
 param(
-  [int]$TotalOrders = 50000,
+  [int]$TotalOrders = 100000,
   [int]$Vus = 200,
   [string]$MaxDuration = "10m",
   [double]$IterationDelaySeconds = 0,
@@ -7,7 +7,7 @@ param(
   [string]$DbResetHost = "192.168.0.100",
   [string]$FinalStatusDbHost = "192.168.0.100",
   [string]$PrimaryPc = "PC2",
-  [string]$BackupPc = "PC3",
+  [string]$BackupPc = "PC4",
   [int]$SuggestedFailoverAfterSeconds = 10
 )
 
@@ -71,14 +71,13 @@ Write-Host "Base URL: $BaseUrl"
 Write-Host "DB reset host: $DbResetHost"
 Write-Host "DB status host: $FinalStatusDbHost"
 Write-Host ""
-Write-Host "Failover esperado por VIP de app:" -ForegroundColor Yellow
-Write-Host "  La carga debe entrar por el endpoint configurado en BaseUrl."
+Write-Host "Failover esperado por VIP:" -ForegroundColor Yellow
+Write-Host "  La app debe entrar por el endpoint configurado en BaseUrl."
 Write-Host "  La BD debe seguir por la VIP $FinalStatusDbHost."
-Write-Host "  Para esta prueba, tumben la app de $PrimaryPc y verifiquen que $BackupPc tome la VIP de aplicacion." -ForegroundColor Yellow
+Write-Host "  Si quieren probar failover, apaguen o detengan keepalived en $PrimaryPc y verifiquen que $BackupPc tome la VIP." -ForegroundColor Yellow
 Write-Host ""
 Write-Host "Sugerencia practica:" -ForegroundColor Yellow
 Write-Host "  Espera unos $SuggestedFailoverAfterSeconds segundos despues de ver que k6 empezo a contar iteraciones."
-Write-Host "  Luego baja la app de $PrimaryPc para confirmar que $BackupPc siga atendiendo por la misma VIP."
 Write-Host ""
 Write-Host "Comando que se ejecutara aqui:" -ForegroundColor DarkGray
 Write-Host "  node .\monitoring\k6\run-50k-db-chaos.js --total-orders $TotalOrders --vus $Vus --base-url $BaseUrl --max-duration $MaxDuration --iteration-delay-seconds $IterationDelaySeconds --disable-chaos --db-reset-host $DbResetHost --final-status-db-host $FinalStatusDbHost --final-poll-interval-seconds 10 --final-poll-timeout-minutes 30"

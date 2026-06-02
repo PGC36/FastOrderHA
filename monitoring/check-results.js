@@ -200,20 +200,15 @@ function getInventory() {
 }
 
 function getRabbitQueues() {
-  let output = "";
-  try {
-    output = run("docker", [
-      "exec",
-      RABBIT_CONTAINER,
-      "rabbitmqctl",
-      "list_queues",
-      "name",
-      "messages_ready",
-      "messages_unacknowledged",
-    ]);
-  } catch {
-    return null;
-  }
+  const output = run("docker", [
+    "exec",
+    RABBIT_CONTAINER,
+    "rabbitmqctl",
+    "list_queues",
+    "name",
+    "messages_ready",
+    "messages_unacknowledged",
+  ]);
 
   return output
     .split(/\r?\n/)
@@ -281,9 +276,7 @@ async function printReport() {
   const notifications = getSingleCount("select count(*) from notifications;");
   const orderTotals = rows(psql("select count(*), count(distinct idempotency_key) from orders;"))[0] || ["0", "0"];
   const queues = getRabbitQueues();
-  const activeQueues = Array.isArray(queues)
-    ? queues.filter((queue) => queue.ready > 0 || queue.unacked > 0)
-    : [];
+  const activeQueues = queues.filter((queue) => queue.ready > 0 || queue.unacked > 0);
   const totalOrders = number(orderTotals[0]);
   const uniqueKeys = number(orderTotals[1]);
   const pendingOutbox = outbox.pending || 0;
@@ -322,9 +315,7 @@ async function printReport() {
   console.log(`Notifications: ${notifications}`);
   console.log("");
 
-  if (queues === null) {
-    console.log("Rabbit queues: unavailable from this host");
-  } else if (activeQueues.length === 0) {
+  if (activeQueues.length === 0) {
     console.log("Rabbit queues: empty");
   } else {
     console.log("Rabbit queues with messages:");
@@ -338,18 +329,9 @@ async function printReport() {
     .reduce((sum, [, count]) => sum + count, 0);
   const reserved = inventory.reduce((sum, item) => sum + item.reserved, 0);
   const activeQueueMessages = activeQueues.reduce((sum, queue) => sum + queue.ready + queue.unacked, 0);
-  const allExpectedOrdersReached =
-    (EXPECTED_ORDERS > 0 && completedOrders >= EXPECTED_ORDERS) ||
-    (EXPECTED_ORDERS === 0 && pendingOrders === 0);
-  const inventoryDrift = Math.max(0, completedOrders - inventorySales);
-  const done = pendingOrders === 0 && pendingOutbox === 0 && activeQueueMessages === 0 && allExpectedOrdersReached;
+  const done = pendingOrders === 0 && pendingOutbox === 0 && reserved === 0 && activeQueueMessages === 0;
 
   console.log("");
-  if (reserved > 0 || inventoryDrift > 0) {
-    console.log(
-      `Inventory reconciliation warning: reserved=${reserved}, completed_without_sale=${inventoryDrift}`
-    );
-  }
   console.log(done ? "Status: DONE" : "Status: PROCESSING");
 }
 

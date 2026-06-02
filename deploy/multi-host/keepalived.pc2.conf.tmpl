@@ -1,15 +1,3 @@
-global_defs {
-    enable_script_security
-}
-
-vrrp_script chk_fastorder_app {
-    script "/usr/bin/curl -fsS http://127.0.0.1:7011/stats > /dev/null"
-    interval 2
-    timeout 2
-    fall 2
-    rise 1
-}
-
 vrrp_instance VI_FASTORDER_APP {
     state MASTER
     interface ${KEEPALIVED_PC2_INTERFACE}
@@ -22,8 +10,5 @@ vrrp_instance VI_FASTORDER_APP {
     }
     virtual_ipaddress {
         ${APP_VIP_IP}/24
-    }
-    track_script {
-        chk_fastorder_app
     }
 }
