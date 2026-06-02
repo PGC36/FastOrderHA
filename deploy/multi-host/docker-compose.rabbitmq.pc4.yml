@@ -13,7 +13,14 @@ services:
     command:
       - /bin/sh
       - -c
-      - envsubst < /etc/rabbitmq/rabbitmq.conf.tmpl > /etc/rabbitmq/rabbitmq.conf && rabbitmq-plugins enable --offline rabbitmq_prometheus && rabbitmq-server
+      - >-
+        sed
+        -e "s|\${RABBITMQ_NODE_1_NAME}|$${RABBITMQ_NODE_1_NAME}|g"
+        -e "s|\${RABBITMQ_NODE_2_NAME}|$${RABBITMQ_NODE_2_NAME}|g"
+        -e "s|\${RABBITMQ_NODE_3_NAME}|$${RABBITMQ_NODE_3_NAME}|g"
+        /etc/rabbitmq/rabbitmq.conf.tmpl > /etc/rabbitmq/rabbitmq.conf
+        && rabbitmq-plugins enable --offline rabbitmq_prometheus
+        && rabbitmq-server
     volumes:
       - rabbitmq_pc4_data:/var/lib/rabbitmq
       - ./rabbitmq.conf.tmpl:/etc/rabbitmq/rabbitmq.conf.tmpl:ro
