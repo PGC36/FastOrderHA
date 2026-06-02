@@ -331,8 +331,8 @@
       },
       "targets": [
         {
-          "expr": "avg by (service) (fastorder_container_cpu_percent{service=~\"api-gateway|menu-service|order-service|inventory-service|kitchen-service|delivery-service|notification-service\"})",
-          "legendFormat": "{{service}}",
+          "expr": "100 * avg by (job) (process_cpu_usage{job=~\"api-gateway|menu-service|order-service|inventory-service|kitchen-service|delivery-service|notification-service\"})",
+          "legendFormat": "{{job}}",
           "refId": "A"
         }
       ],

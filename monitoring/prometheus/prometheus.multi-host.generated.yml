@@ -92,6 +92,13 @@ scrape_configs:
         labels:
           service_name: api-gateway
           service_host: 192.168.0.5
+          service_node: pc2
+      - targets:
+          - 192.168.0.6:8080
+        labels:
+          service_name: api-gateway
+          service_host: 192.168.0.6
+          service_node: pc3
 
   - job_name: menu-service
     metrics_path: /actuator/prometheus
@@ -101,6 +108,13 @@ scrape_configs:
         labels:
           service_name: menu-service
           service_host: 192.168.0.5
+          service_node: pc2
+      - targets:
+          - 192.168.0.6:8081
+        labels:
+          service_name: menu-service
+          service_host: 192.168.0.6
+          service_node: pc3
 
   - job_name: order-service
     metrics_path: /actuator/prometheus
@@ -110,6 +124,13 @@ scrape_configs:
         labels:
           service_name: order-service
           service_host: 192.168.0.5
+          service_node: pc2
+      - targets:
+          - 192.168.0.6:8082
+        labels:
+          service_name: order-service
+          service_host: 192.168.0.6
+          service_node: pc3
 
   - job_name: inventory-service
     metrics_path: /actuator/prometheus
@@ -119,6 +140,13 @@ scrape_configs:
         labels:
           service_name: inventory-service
           service_host: 192.168.0.5
+          service_node: pc2
+      - targets:
+          - 192.168.0.6:8083
+        labels:
+          service_name: inventory-service
+          service_host: 192.168.0.6
+          service_node: pc3
 
   - job_name: kitchen-service
     metrics_path: /actuator/prometheus
@@ -128,6 +156,13 @@ scrape_configs:
         labels:
           service_name: kitchen-service
           service_host: 192.168.0.5
+          service_node: pc2
+      - targets:
+          - 192.168.0.6:8084
+        labels:
+          service_name: kitchen-service
+          service_host: 192.168.0.6
+          service_node: pc3
 
   - job_name: delivery-service
     metrics_path: /actuator/prometheus

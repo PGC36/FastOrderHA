@@ -88,46 +88,81 @@ scrape_configs:
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
-          - ${API_GATEWAY_HOST}:8080
+          - ${PC2_IP}:8080
         labels:
           service_name: api-gateway
-          service_host: ${API_GATEWAY_HOST}
+          service_host: ${PC2_IP}
+          service_node: pc2
+      - targets:
+          - ${PC3_IP}:8080
+        labels:
+          service_name: api-gateway
+          service_host: ${PC3_IP}
+          service_node: pc3
 
   - job_name: menu-service
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
-          - ${MENU_SERVICE_HOST}:8081
+          - ${PC2_IP}:8081
         labels:
           service_name: menu-service
-          service_host: ${MENU_SERVICE_HOST}
+          service_host: ${PC2_IP}
+          service_node: pc2
+      - targets:
+          - ${PC3_IP}:8081
+        labels:
+          service_name: menu-service
+          service_host: ${PC3_IP}
+          service_node: pc3
 
   - job_name: order-service
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
-          - ${ORDER_SERVICE_HOST}:8082
+          - ${PC2_IP}:8082
         labels:
           service_name: order-service
-          service_host: ${ORDER_SERVICE_HOST}
+          service_host: ${PC2_IP}
+          service_node: pc2
+      - targets:
+          - ${PC3_IP}:8082
+        labels:
+          service_name: order-service
+          service_host: ${PC3_IP}
+          service_node: pc3
 
   - job_name: inventory-service
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
-          - ${INVENTORY_SERVICE_HOST}:8083
+          - ${PC2_IP}:8083
         labels:
           service_name: inventory-service
-          service_host: ${INVENTORY_SERVICE_HOST}
+          service_host: ${PC2_IP}
+          service_node: pc2
+      - targets:
+          - ${PC3_IP}:8083
+        labels:
+          service_name: inventory-service
+          service_host: ${PC3_IP}
+          service_node: pc3
 
   - job_name: kitchen-service
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
-          - ${KITCHEN_SERVICE_HOST}:8084
+          - ${PC2_IP}:8084
         labels:
           service_name: kitchen-service
-          service_host: ${KITCHEN_SERVICE_HOST}
+          service_host: ${PC2_IP}
+          service_node: pc2
+      - targets:
+          - ${PC3_IP}:8084
+        labels:
+          service_name: kitchen-service
+          service_host: ${PC3_IP}
+          service_node: pc3
 
   - job_name: delivery-service
     metrics_path: /actuator/prometheus
