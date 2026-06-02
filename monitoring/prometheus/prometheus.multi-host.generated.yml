@@ -168,16 +168,30 @@ scrape_configs:
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
+          - 192.168.0.5:8085
+        labels:
+          service_name: delivery-service
+          service_host: 192.168.0.5
+          service_node: pc2
+      - targets:
           - 192.168.0.6:8085
         labels:
           service_name: delivery-service
           service_host: 192.168.0.6
+          service_node: pc3
 
   - job_name: notification-service
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
+          - 192.168.0.5:8086
+        labels:
+          service_name: notification-service
+          service_host: 192.168.0.5
+          service_node: pc2
+      - targets:
           - 192.168.0.6:8086
         labels:
           service_name: notification-service
           service_host: 192.168.0.6
+          service_node: pc3

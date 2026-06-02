@@ -168,16 +168,30 @@ scrape_configs:
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
-          - ${DELIVERY_SERVICE_HOST}:8085
+          - ${PC2_IP}:8085
         labels:
           service_name: delivery-service
-          service_host: ${DELIVERY_SERVICE_HOST}
+          service_host: ${PC2_IP}
+          service_node: pc2
+      - targets:
+          - ${PC3_IP}:8085
+        labels:
+          service_name: delivery-service
+          service_host: ${PC3_IP}
+          service_node: pc3
 
   - job_name: notification-service
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
-          - ${NOTIFICATION_SERVICE_HOST}:8086
+          - ${PC2_IP}:8086
         labels:
           service_name: notification-service
-          service_host: ${NOTIFICATION_SERVICE_HOST}
+          service_host: ${PC2_IP}
+          service_node: pc2
+      - targets:
+          - ${PC3_IP}:8086
+        labels:
+          service_name: notification-service
+          service_host: ${PC3_IP}
+          service_node: pc3
