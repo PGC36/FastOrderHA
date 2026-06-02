@@ -37,6 +37,8 @@ public class OrderService {
     private static final String DELIVERY_CANCELLED_STATUS = "DELIVERY_CANCELLED";
     private static final String COMPLETED_STATUS = "COMPLETED";
     private static final String DEFAULT_DELIVERY_ADDRESS = "Direccion pendiente";
+    private static final int INVENTORY_RESERVE_MAX_ATTEMPTS = 3;
+    private static final long INVENTORY_RESERVE_RETRY_DELAY_MS = 150L;
 
     private final OrderRepository orderRepository;
     private final OutboxEventRepository outboxEventRepository;
@@ -152,7 +154,7 @@ public class OrderService {
         boolean inventoryReserved = false;
 
         try {
-            orderWorkflowClient.reserveInventory(toCreateOrderRequest(savedOrder));
+            reserveInventoryWithRetry(savedOrder);
             inventoryReserved = true;
             orderWorkflowClient.createKitchenOrder(savedOrder);
             savedOrder.setStatus(READY_FOR_DELIVERY_STATUS);
@@ -174,6 +176,44 @@ public class OrderService {
             logger.info("Delivery disparado correctamente para orderId={}; esperando confirmacion final por evento", savedOrder.getId());
         } catch (BusinessRuleException | InventoryUnavailableException exception) {
             markDeliveryRetryPending(savedOrder, exception.getMessage());
+        }
+    }
+
+    private void reserveInventoryWithRetry(Order order) {
+        CreateOrderRequest request = toCreateOrderRequest(order);
+        RuntimeException lastException = null;
+
+        for (int attempt = 1; attempt <= INVENTORY_RESERVE_MAX_ATTEMPTS; attempt++) {
+            try {
+                orderWorkflowClient.reserveInventory(request);
+                if (attempt > 1) {
+                    logger.info("Reserva de inventario recuperada tras reintento orderId={}, attempt={}",
+                            order.getId(), attempt);
+                }
+                return;
+            } catch (BusinessRuleException | InventoryUnavailableException exception) {
+                lastException = exception;
+                if (attempt >= INVENTORY_RESERVE_MAX_ATTEMPTS) {
+                    throw exception;
+                }
+
+                logger.warn("Reserva de inventario reintentable orderId={}, attempt={}/{}, reason={}",
+                        order.getId(), attempt, INVENTORY_RESERVE_MAX_ATTEMPTS, exception.getMessage());
+                sleepInventoryRetry();
+            }
+        }
+
+        if (lastException != null) {
+            throw lastException;
+        }
+    }
+
+    private void sleepInventoryRetry() {
+        try {
+            Thread.sleep(INVENTORY_RESERVE_RETRY_DELAY_MS);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new InventoryUnavailableException("Reserva de inventario interrumpida durante reintento");
         }
     }
 
