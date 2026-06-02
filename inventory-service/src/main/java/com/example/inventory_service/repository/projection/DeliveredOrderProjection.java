@@ -7,4 +7,6 @@ public interface DeliveredOrderProjection {
     Long getProductId();
 
     Integer getQuantity();
+
+    Boolean getHasReservation();
 }

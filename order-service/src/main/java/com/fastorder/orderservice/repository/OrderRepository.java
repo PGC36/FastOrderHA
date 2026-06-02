@@ -23,7 +23,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query(value = """
             select o.*
               from orders o
-             where o.status in ('READY_FOR_DELIVERY', 'IN_DELIVERY', 'DELIVERY_FAILED', 'DELIVERY_RETRY_PENDING')
+             where o.status in ('READY_FOR_DELIVERY', 'IN_DELIVERY', 'DELIVERY_FAILED', 'DELIVERY_RETRY_PENDING', 'CANCELLED')
                and exists (
                     select 1
                       from inventory_sales s

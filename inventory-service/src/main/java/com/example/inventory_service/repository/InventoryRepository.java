@@ -131,25 +131,27 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long> {
     @Query(value = """
             select o.id as orderId,
                    o.product_id as productId,
-                   o.quantity as quantity
+                   o.quantity as quantity,
+                   exists (
+                        select 1
+                          from inventory_reservations r
+                         where r.order_id = o.id
+                   ) as hasReservation
               from orders o
               join delivery_orders d on d.order_id = o.id
-             where o.status in ('READY_FOR_DELIVERY', 'IN_DELIVERY')
+              join notifications n on n.order_id = o.id
+             where o.status in ('READY_FOR_DELIVERY', 'IN_DELIVERY', 'CANCELLED')
                and d.status = 'DELIVERED'
+               and n.status = 'PROCESSED'
                and not exists (
                     select 1
                       from inventory_sales s
                      where s.order_id = o.id
                )
-               and not exists (
-                    select 1
-                      from inventory_reservations r
-                     where r.order_id = o.id
-               )
              order by d.updated_at
              limit :limit
             """, nativeQuery = true)
-    List<DeliveredOrderProjection> findDeliveredOrdersWithoutSaleOrReservation(@Param("limit") int limit);
+    List<DeliveredOrderProjection> findDeliveredOrdersWithoutSale(@Param("limit") int limit);
 
     @Modifying
     @Query(value = """
