@@ -69,38 +69,6 @@ services:
       - fastorder-network
     restart: unless-stopped
 
-  rabbitmq:
-    image: rabbitmq:3-management
-    container_name: fastorder-rabbitmq
-    command: >
-      bash -c "rabbitmq-plugins enable --offline rabbitmq_prometheus && rabbitmq-server"
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-      - "15692:15692"
-    networks:
-      - fastorder-network
-    restart: unless-stopped
-
-  dlq-recovery:
-    image: node:24-alpine
-    container_name: fastorder-dlq-recovery
-    working_dir: /app
-    command: ["node", "requeue-dlq.js", "--watch"]
-    environment:
-      RABBIT_URL: http://rabbitmq:15672/api
-      RABBIT_USER: guest
-      RABBIT_PASSWORD: guest
-      INTERVAL_SECONDS: "15"
-      BATCH_SIZE: "100"
-    volumes:
-      - ../../monitoring/requeue-dlq.js:/app/requeue-dlq.js:ro
-    depends_on:
-      - rabbitmq
-    networks:
-      - fastorder-network
-    restart: always
-
   api-gateway:
     build:
       context: ../../api-gateway
@@ -128,7 +96,6 @@ services:
       - "8081:8081"
     depends_on:
       - db-client-proxy
-      - rabbitmq
     environment:
       DB_HOST: db-client-proxy
       DB_PORT: 5432
@@ -144,9 +111,9 @@ services:
       SPRING_DATASOURCE_HIKARI_VALIDATION_TIMEOUT: 5000
       SPRING_DATASOURCE_HIKARI_MAX_LIFETIME: 600000
       SPRING_DATASOURCE_HIKARI_KEEPALIVE_TIME: 30000
-      SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_RABBITMQ_ADDRESSES: ${RABBITMQ_ADDRESSES:-rabbitmq:5672}
-      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_HOST: ${RABBITMQ_HOST}
+      SPRING_RABBITMQ_ADDRESSES: ${RABBITMQ_ADDRESSES:-${RABBITMQ_HOST}:5672}
+      SPRING_RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
       SPRING_RABBITMQ_USERNAME: guest
       SPRING_RABBITMQ_PASSWORD: guest
       SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_ATTEMPTS: 12
@@ -155,8 +122,8 @@ services:
       SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_INTERVAL: 15000
       DB_WAIT_HOST: db-client-proxy
       DB_WAIT_PORT: 5432
-      RABBIT_WAIT_HOST: ${RABBITMQ_WAIT_HOST:-rabbitmq}
-      RABBIT_WAIT_PORT: ${RABBITMQ_WAIT_PORT:-5672}
+      RABBIT_WAIT_HOST: ${RABBITMQ_WAIT_HOST:-${RABBITMQ_HOST}}
+      RABBIT_WAIT_PORT: ${RABBITMQ_WAIT_PORT:-${RABBITMQ_PORT:-5672}}
       APP_RABBIT_QUEUE_TYPE: quorum
     command: ["bash", "/app/scripts/wait-for-dependencies.sh", "java", "-jar", "app.jar"]
     volumes:
@@ -173,7 +140,6 @@ services:
       - "8083:8083"
     depends_on:
       - db-client-proxy
-      - rabbitmq
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db-client-proxy:5432/fastorder_db?connectTimeout=10&socketTimeout=30&tcpKeepAlive=true
       SPRING_DATASOURCE_USERNAME: fastorder_user
@@ -184,9 +150,9 @@ services:
       SPRING_DATASOURCE_HIKARI_VALIDATION_TIMEOUT: 5000
       SPRING_DATASOURCE_HIKARI_MAX_LIFETIME: 600000
       SPRING_DATASOURCE_HIKARI_KEEPALIVE_TIME: 30000
-      SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_RABBITMQ_ADDRESSES: ${RABBITMQ_ADDRESSES:-rabbitmq:5672}
-      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_HOST: ${RABBITMQ_HOST}
+      SPRING_RABBITMQ_ADDRESSES: ${RABBITMQ_ADDRESSES:-${RABBITMQ_HOST}:5672}
+      SPRING_RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
       SPRING_RABBITMQ_USERNAME: guest
       SPRING_RABBITMQ_PASSWORD: guest
       SPRING_RABBITMQ_LISTENER_SIMPLE_PREFETCH: 10
@@ -197,8 +163,8 @@ services:
       LOGGING_LEVEL_COM_EXAMPLE_INVENTORY_SERVICE: WARN
       DB_WAIT_HOST: db-client-proxy
       DB_WAIT_PORT: 5432
-      RABBIT_WAIT_HOST: ${RABBITMQ_WAIT_HOST:-rabbitmq}
-      RABBIT_WAIT_PORT: ${RABBITMQ_WAIT_PORT:-5672}
+      RABBIT_WAIT_HOST: ${RABBITMQ_WAIT_HOST:-${RABBITMQ_HOST}}
+      RABBIT_WAIT_PORT: ${RABBITMQ_WAIT_PORT:-${RABBITMQ_PORT:-5672}}
       APP_RABBIT_QUEUE_TYPE: quorum
     command: ["bash", "/app/scripts/wait-for-dependencies.sh", "java", "-jar", "app.jar"]
     volumes:
@@ -216,7 +182,6 @@ services:
     depends_on:
       - db-client-proxy
       - service-router
-      - rabbitmq
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db-client-proxy:5432/fastorder_db?connectTimeout=10&socketTimeout=30&tcpKeepAlive=true
       SPRING_DATASOURCE_USERNAME: fastorder_user
@@ -227,9 +192,9 @@ services:
       SPRING_DATASOURCE_HIKARI_VALIDATION_TIMEOUT: 5000
       SPRING_DATASOURCE_HIKARI_MAX_LIFETIME: 600000
       SPRING_DATASOURCE_HIKARI_KEEPALIVE_TIME: 30000
-      SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_RABBITMQ_ADDRESSES: ${RABBITMQ_ADDRESSES:-rabbitmq:5672}
-      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_HOST: ${RABBITMQ_HOST}
+      SPRING_RABBITMQ_ADDRESSES: ${RABBITMQ_ADDRESSES:-${RABBITMQ_HOST}:5672}
+      SPRING_RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
       SPRING_RABBITMQ_USERNAME: guest
       SPRING_RABBITMQ_PASSWORD: guest
       SPRING_RABBITMQ_LISTENER_SIMPLE_PREFETCH: 25
@@ -250,8 +215,8 @@ services:
       LOGGING_LEVEL_COM_FASTORDER_ORDERSERVICE: WARN
       DB_WAIT_HOST: db-client-proxy
       DB_WAIT_PORT: 5432
-      RABBIT_WAIT_HOST: ${RABBITMQ_WAIT_HOST:-rabbitmq}
-      RABBIT_WAIT_PORT: ${RABBITMQ_WAIT_PORT:-5672}
+      RABBIT_WAIT_HOST: ${RABBITMQ_WAIT_HOST:-${RABBITMQ_HOST}}
+      RABBIT_WAIT_PORT: ${RABBITMQ_WAIT_PORT:-${RABBITMQ_PORT:-5672}}
       APP_RABBIT_QUEUE_TYPE: quorum
     command: ["bash", "/app/scripts/wait-for-dependencies.sh", "java", "-jar", "app.jar"]
     volumes:
@@ -269,7 +234,6 @@ services:
     depends_on:
       - db-client-proxy
       - service-router
-      - rabbitmq
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db-client-proxy:5432/fastorder_db?connectTimeout=10&socketTimeout=30&tcpKeepAlive=true
       SPRING_DATASOURCE_USERNAME: fastorder_user
@@ -280,9 +244,9 @@ services:
       SPRING_DATASOURCE_HIKARI_VALIDATION_TIMEOUT: 5000
       SPRING_DATASOURCE_HIKARI_MAX_LIFETIME: 600000
       SPRING_DATASOURCE_HIKARI_KEEPALIVE_TIME: 30000
-      SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_RABBITMQ_ADDRESSES: ${RABBITMQ_ADDRESSES:-rabbitmq:5672}
-      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_HOST: ${RABBITMQ_HOST}
+      SPRING_RABBITMQ_ADDRESSES: ${RABBITMQ_ADDRESSES:-${RABBITMQ_HOST}:5672}
+      SPRING_RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
       SPRING_RABBITMQ_USERNAME: guest
       SPRING_RABBITMQ_PASSWORD: guest
       SPRING_RABBITMQ_LISTENER_SIMPLE_PREFETCH: 25
@@ -297,8 +261,8 @@ services:
       LOGGING_LEVEL_COM_FASTORDER_KITCHEN: WARN
       DB_WAIT_HOST: db-client-proxy
       DB_WAIT_PORT: 5432
-      RABBIT_WAIT_HOST: ${RABBITMQ_WAIT_HOST:-rabbitmq}
-      RABBIT_WAIT_PORT: ${RABBITMQ_WAIT_PORT:-5672}
+      RABBIT_WAIT_HOST: ${RABBITMQ_WAIT_HOST:-${RABBITMQ_HOST}}
+      RABBIT_WAIT_PORT: ${RABBITMQ_WAIT_PORT:-${RABBITMQ_PORT:-5672}}
       APP_RABBIT_QUEUE_TYPE: quorum
     command: ["bash", "/app/scripts/wait-for-dependencies.sh", "java", "-jar", "app.jar"]
     volumes:

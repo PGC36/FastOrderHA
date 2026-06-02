@@ -47,31 +47,31 @@ foreach ($key in $required) {
 }
 
 if (-not $vars.ContainsKey("APP_HOST") -or [string]::IsNullOrWhiteSpace($vars["APP_HOST"])) {
-    $vars["APP_HOST"] = $vars["PC1_IP"]
+    $vars["APP_HOST"] = $vars["PC2_IP"]
 }
 
 if (-not $vars.ContainsKey("RABBITMQ_HOST") -or [string]::IsNullOrWhiteSpace($vars["RABBITMQ_HOST"])) {
-    $vars["RABBITMQ_HOST"] = $vars["APP_HOST"]
+    $vars["RABBITMQ_HOST"] = $vars["PC2_IP"]
 }
 
-$serviceHosts = @(
-    "API_GATEWAY_HOST",
-    "MENU_SERVICE_HOST",
-    "ORDER_SERVICE_HOST",
-    "INVENTORY_SERVICE_HOST",
-    "KITCHEN_SERVICE_HOST",
-    "DELIVERY_SERVICE_HOST",
-    "NOTIFICATION_SERVICE_HOST"
-)
+$serviceDefaults = @{
+    "API_GATEWAY_HOST" = $vars["PC2_IP"]
+    "MENU_SERVICE_HOST" = $vars["PC2_IP"]
+    "ORDER_SERVICE_HOST" = $vars["PC2_IP"]
+    "INVENTORY_SERVICE_HOST" = $vars["PC2_IP"]
+    "KITCHEN_SERVICE_HOST" = $vars["PC2_IP"]
+    "DELIVERY_SERVICE_HOST" = $vars["PC3_IP"]
+    "NOTIFICATION_SERVICE_HOST" = $vars["PC3_IP"]
+}
 
-foreach ($key in $serviceHosts) {
+foreach ($key in $serviceDefaults.Keys) {
     if (-not $vars.ContainsKey($key) -or [string]::IsNullOrWhiteSpace($vars[$key])) {
-        $vars[$key] = $vars["APP_HOST"]
+        $vars[$key] = $serviceDefaults[$key]
     }
 }
 
 $content = Get-Content -LiteralPath $resolvedTemplateFile -Raw
-foreach ($key in @($required + @("APP_HOST", "RABBITMQ_HOST") + $serviceHosts)) {
+foreach ($key in @($required + @("APP_HOST", "RABBITMQ_HOST") + @($serviceDefaults.Keys))) {
     $content = $content.Replace('${' + $key + '}', $vars[$key])
 }
 

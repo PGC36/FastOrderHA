@@ -88,6 +88,189 @@ services:
       - fastorder-network
     restart: unless-stopped
 
+  menu-service:
+    build:
+      context: ../../menu-service
+    container_name: fastorder-menu-service
+    ports:
+      - "8081:8081"
+    depends_on:
+      - db-client-proxy
+    environment:
+      DB_HOST: db-client-proxy
+      DB_PORT: 5432
+      DB_NAME: fastorder_db
+      DB_USER: fastorder_user
+      DB_PASSWORD: fastorder123
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db-client-proxy:5432/fastorder_db?connectTimeout=10&socketTimeout=30&tcpKeepAlive=true
+      SPRING_DATASOURCE_USERNAME: fastorder_user
+      SPRING_DATASOURCE_PASSWORD: fastorder123
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
+      SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: 10000
+      SPRING_DATASOURCE_HIKARI_VALIDATION_TIMEOUT: 5000
+      SPRING_DATASOURCE_HIKARI_MAX_LIFETIME: 600000
+      SPRING_DATASOURCE_HIKARI_KEEPALIVE_TIME: 30000
+      SPRING_RABBITMQ_HOST: ${RABBITMQ_HOST}
+      SPRING_RABBITMQ_ADDRESSES: ${RABBITMQ_ADDRESSES:-${RABBITMQ_HOST}:5672}
+      SPRING_RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
+      SPRING_RABBITMQ_USERNAME: guest
+      SPRING_RABBITMQ_PASSWORD: guest
+      SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_ATTEMPTS: 12
+      SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_INITIAL_INTERVAL: 2000
+      SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MULTIPLIER: 1.5
+      SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_INTERVAL: 15000
+      DB_WAIT_HOST: db-client-proxy
+      DB_WAIT_PORT: 5432
+      RABBIT_WAIT_HOST: ${RABBITMQ_WAIT_HOST:-${RABBITMQ_HOST}}
+      RABBIT_WAIT_PORT: ${RABBITMQ_WAIT_PORT:-${RABBITMQ_PORT:-5672}}
+      APP_RABBIT_QUEUE_TYPE: quorum
+    command: ["bash", "/app/scripts/wait-for-dependencies.sh", "java", "-jar", "app.jar"]
+    volumes:
+      - ../scripts/wait-for-dependencies.sh:/app/scripts/wait-for-dependencies.sh:ro
+    networks:
+      - fastorder-network
+    restart: unless-stopped
+
+  inventory-service:
+    build:
+      context: ../../inventory-service
+    container_name: fastorder-inventory-service
+    ports:
+      - "8083:8083"
+    depends_on:
+      - db-client-proxy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db-client-proxy:5432/fastorder_db?connectTimeout=10&socketTimeout=30&tcpKeepAlive=true
+      SPRING_DATASOURCE_USERNAME: fastorder_user
+      SPRING_DATASOURCE_PASSWORD: fastorder123
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 32
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 8
+      SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: 10000
+      SPRING_DATASOURCE_HIKARI_VALIDATION_TIMEOUT: 5000
+      SPRING_DATASOURCE_HIKARI_MAX_LIFETIME: 600000
+      SPRING_DATASOURCE_HIKARI_KEEPALIVE_TIME: 30000
+      SPRING_RABBITMQ_HOST: ${RABBITMQ_HOST}
+      SPRING_RABBITMQ_ADDRESSES: ${RABBITMQ_ADDRESSES:-${RABBITMQ_HOST}:5672}
+      SPRING_RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
+      SPRING_RABBITMQ_USERNAME: guest
+      SPRING_RABBITMQ_PASSWORD: guest
+      SPRING_RABBITMQ_LISTENER_SIMPLE_PREFETCH: 10
+      SPRING_RABBITMQ_LISTENER_SIMPLE_CONCURRENCY: 8
+      SPRING_RABBITMQ_LISTENER_SIMPLE_MAX_CONCURRENCY: 16
+      INVENTORY_ORDER_CREATED_CONSUMERS: 8
+      INVENTORY_DELIVERY_COMPLETED_CONSUMERS: 8
+      LOGGING_LEVEL_COM_EXAMPLE_INVENTORY_SERVICE: WARN
+      DB_WAIT_HOST: db-client-proxy
+      DB_WAIT_PORT: 5432
+      RABBIT_WAIT_HOST: ${RABBITMQ_WAIT_HOST:-${RABBITMQ_HOST}}
+      RABBIT_WAIT_PORT: ${RABBITMQ_WAIT_PORT:-${RABBITMQ_PORT:-5672}}
+      APP_RABBIT_QUEUE_TYPE: quorum
+    command: ["bash", "/app/scripts/wait-for-dependencies.sh", "java", "-jar", "app.jar"]
+    volumes:
+      - ../scripts/wait-for-dependencies.sh:/app/scripts/wait-for-dependencies.sh:ro
+    networks:
+      - fastorder-network
+    restart: unless-stopped
+
+  order-service:
+    build:
+      context: ../../order-service
+    container_name: fastorder-order-service
+    ports:
+      - "8082:8082"
+    depends_on:
+      - db-client-proxy
+      - service-router
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db-client-proxy:5432/fastorder_db?connectTimeout=10&socketTimeout=30&tcpKeepAlive=true
+      SPRING_DATASOURCE_USERNAME: fastorder_user
+      SPRING_DATASOURCE_PASSWORD: fastorder123
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 40
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 8
+      SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: 10000
+      SPRING_DATASOURCE_HIKARI_VALIDATION_TIMEOUT: 5000
+      SPRING_DATASOURCE_HIKARI_MAX_LIFETIME: 600000
+      SPRING_DATASOURCE_HIKARI_KEEPALIVE_TIME: 30000
+      SPRING_RABBITMQ_HOST: ${RABBITMQ_HOST}
+      SPRING_RABBITMQ_ADDRESSES: ${RABBITMQ_ADDRESSES:-${RABBITMQ_HOST}:5672}
+      SPRING_RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
+      SPRING_RABBITMQ_USERNAME: guest
+      SPRING_RABBITMQ_PASSWORD: guest
+      SPRING_RABBITMQ_LISTENER_SIMPLE_PREFETCH: 25
+      SPRING_RABBITMQ_LISTENER_SIMPLE_CONCURRENCY: 12
+      SPRING_RABBITMQ_LISTENER_SIMPLE_MAX_CONCURRENCY: 24
+      SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_ATTEMPTS: 12
+      SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_INITIAL_INTERVAL: 2000
+      SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MULTIPLIER: 1.5
+      SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_INTERVAL: 15000
+      ORDER_WORKFLOW_EVENT_CONSUMERS: 12
+      ORDER_OUTBOX_PUBLISHER_DELAY_MS: 25
+      ORDER_OUTBOX_PUBLISHER_BATCH_SIZE: 1500
+      INVENTORY_SERVICE_URL: http://service-router:9083/inventory
+      KITCHEN_SERVICE_URL: http://service-router:9084/kitchen/orders
+      DELIVERY_SERVICE_URL: http://service-router:9085/deliveries
+      NOTIFICATION_SERVICE_URL: http://service-router:9086/notifications
+      ORDER_PROCESSING_MODE: event
+      LOGGING_LEVEL_COM_FASTORDER_ORDERSERVICE: WARN
+      DB_WAIT_HOST: db-client-proxy
+      DB_WAIT_PORT: 5432
+      RABBIT_WAIT_HOST: ${RABBITMQ_WAIT_HOST:-${RABBITMQ_HOST}}
+      RABBIT_WAIT_PORT: ${RABBITMQ_WAIT_PORT:-${RABBITMQ_PORT:-5672}}
+      APP_RABBIT_QUEUE_TYPE: quorum
+    command: ["bash", "/app/scripts/wait-for-dependencies.sh", "java", "-jar", "app.jar"]
+    volumes:
+      - ../scripts/wait-for-dependencies.sh:/app/scripts/wait-for-dependencies.sh:ro
+    networks:
+      - fastorder-network
+    restart: unless-stopped
+
+  kitchen-service:
+    build:
+      context: ../../kitchen-service
+    container_name: fastorder-kitchen-service
+    ports:
+      - "8084:8084"
+    depends_on:
+      - db-client-proxy
+      - service-router
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db-client-proxy:5432/fastorder_db?connectTimeout=10&socketTimeout=30&tcpKeepAlive=true
+      SPRING_DATASOURCE_USERNAME: fastorder_user
+      SPRING_DATASOURCE_PASSWORD: fastorder123
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 28
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 5
+      SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: 10000
+      SPRING_DATASOURCE_HIKARI_VALIDATION_TIMEOUT: 5000
+      SPRING_DATASOURCE_HIKARI_MAX_LIFETIME: 600000
+      SPRING_DATASOURCE_HIKARI_KEEPALIVE_TIME: 30000
+      SPRING_RABBITMQ_HOST: ${RABBITMQ_HOST}
+      SPRING_RABBITMQ_ADDRESSES: ${RABBITMQ_ADDRESSES:-${RABBITMQ_HOST}:5672}
+      SPRING_RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
+      SPRING_RABBITMQ_USERNAME: guest
+      SPRING_RABBITMQ_PASSWORD: guest
+      SPRING_RABBITMQ_LISTENER_SIMPLE_PREFETCH: 25
+      SPRING_RABBITMQ_LISTENER_SIMPLE_CONCURRENCY: 12
+      SPRING_RABBITMQ_LISTENER_SIMPLE_MAX_CONCURRENCY: 24
+      SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_ATTEMPTS: 12
+      SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_INITIAL_INTERVAL: 2000
+      SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MULTIPLIER: 1.5
+      SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_INTERVAL: 15000
+      KITCHEN_INVENTORY_RESERVED_CONSUMERS: 12
+      ORDER_SERVICE_URL: http://service-router:9082/orders
+      LOGGING_LEVEL_COM_FASTORDER_KITCHEN: WARN
+      DB_WAIT_HOST: db-client-proxy
+      DB_WAIT_PORT: 5432
+      RABBIT_WAIT_HOST: ${RABBITMQ_WAIT_HOST:-${RABBITMQ_HOST}}
+      RABBIT_WAIT_PORT: ${RABBITMQ_WAIT_PORT:-${RABBITMQ_PORT:-5672}}
+      APP_RABBIT_QUEUE_TYPE: quorum
+    command: ["bash", "/app/scripts/wait-for-dependencies.sh", "java", "-jar", "app.jar"]
+    volumes:
+      - ../scripts/wait-for-dependencies.sh:/app/scripts/wait-for-dependencies.sh:ro
+    networks:
+      - fastorder-network
+    restart: unless-stopped
+
   delivery-service:
     build:
       context: ../../delivery-service
