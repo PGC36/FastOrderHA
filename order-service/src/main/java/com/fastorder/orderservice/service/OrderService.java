@@ -187,9 +187,9 @@ public class OrderService {
     public void cancelOrderById(Long orderId, String reason) {
         orderRepository.findById(orderId)
                 .ifPresent(order -> {
-                    if (COMPLETED_STATUS.equals(order.getStatus())) {
-                        logger.warn("Cancelacion ignorada para pedido ya completado orderId={}, reason={}",
-                                orderId, reason);
+                    if (!canBeCancelled(order.getStatus())) {
+                        logger.warn("Cancelacion tardia ignorada orderId={}, status={}, reason={}",
+                                orderId, order.getStatus(), reason);
                         return;
                     }
                     cancelOrder(order, reason);
@@ -309,6 +309,10 @@ public class OrderService {
             return "Orden no pudo entregarse despues de varios reintentos";
         }
         return "Orden ya recibida anteriormente";
+    }
+
+    private boolean canBeCancelled(String status) {
+        return INITIAL_STATUS.equals(status) || PROCESSING_STATUS.equals(status);
     }
 
     private String valueOrDefault(String value, String defaultValue) {
