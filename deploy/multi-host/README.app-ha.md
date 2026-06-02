@@ -1,42 +1,38 @@
-# App Multi-Host HA (fase inicial)
+# App Multi-Host HA
 
-Estos archivos agregan una capa multi-host para la aplicacion sin tocar la capa de base HA ya existente.
+Estos archivos dejan la app distribuida entre `PC2` y `PC3`, con `RabbitMQ` estable en `PC2` y con soporte para una VIP de app entre ambos nodos.
 
 ## Que resuelve
 
-- permite que `api-gateway` y las llamadas HTTP entre microservicios dejen de depender de nombres locales de Docker
-- agrega un `service-router` por host con `HAProxy` para enrutar hacia instancias vivas en `APP_NODE_1_IP`, `APP_NODE_2_IP` y `APP_NODE_3_IP`
-- mantiene un `db-client-proxy` local por host para seguir entrando a la BD por los proxies de Patroni ya existentes
-
-## Que no resuelve todavia
-
-- `RabbitMQ` puede migrarse a clúster con los archivos `docker-compose.rabbitmq.pcX.yml`, pero no queda probado solo con estos cambios
-- estos archivos son una fase inicial para HA de microservicios, no un reemplazo completo de un orquestador
+- `api-gateway` y las llamadas HTTP entre microservicios ya no dependen de nombres locales de Docker
+- cada host tiene su `service-router` para enrutar a instancias vivas
+- cada host tiene su `db-client-proxy` local para entrar a la BD HA
+- `PC3` ahora tambien puede correr `menu`, `inventory`, `order` y `kitchen`
+- la app puede exponerse por una VIP entre `PC2` y `PC3`
 
 ## Distribucion sugerida
 
 - `PC2`
-  - `rabbitmq`
   - `api-gateway`
   - `service-router`
+  - `app-entry-proxy`
   - `db-client-proxy`
   - `menu-service`
   - `inventory-service`
   - `order-service`
   - `kitchen-service`
+  - `RabbitMQ`
 - `PC3`
   - `api-gateway`
   - `service-router`
+  - `app-entry-proxy`
   - `db-client-proxy`
+  - `menu-service`
+  - `inventory-service`
+  - `order-service`
+  - `kitchen-service`
   - `delivery-service`
   - `notification-service`
-
-Con esta distribucion:
-
-- si `PC1` muere, `PC2` y `PC3` siguen publicando API
-- `api-gateway` puede llegar a servicios remotos via `service-router`
-- `order-service` en `PC2` puede llamar a `delivery-service` y `notification-service` en `PC3`
-- el conjunto `PC2 + PC3` asume la carga de `PC1`, pero esta fase todavia no garantiza que `PC2` o `PC3` por separado puedan reemplazar a todo el stack
 
 ## Preparacion
 
@@ -52,9 +48,16 @@ Copy-Item .\deploy\multi-host\multi-host.app.env.example .\deploy\multi-host\mul
 APP_NODE_1_IP=192.168.0.2
 APP_NODE_2_IP=192.168.0.5
 APP_NODE_3_IP=192.168.0.6
+APP_GATEWAY_NODE_1_IP=192.168.0.5
+APP_GATEWAY_NODE_2_IP=192.168.0.6
+APP_VIP_IP=192.168.0.101
 DB_PROXY_PRIMARY_HOST=192.168.0.5
 DB_PROXY_SECONDARY_HOST=192.168.0.7
 RABBITMQ_HOST=192.168.0.5
+RABBITMQ_PORT=5672
+RABBITMQ_ADDRESSES=192.168.0.5:5672
+RABBITMQ_WAIT_HOST=192.168.0.5
+RABBITMQ_WAIT_PORT=5672
 ```
 
 ## Arranque
@@ -71,34 +74,47 @@ En `PC3`:
 docker compose --env-file .\deploy\multi-host\multi-host.app.env -f .\deploy\multi-host\docker-compose.app.pc3.yml up -d --build
 ```
 
-## Entrada automatica con VIP
+## VIP de app con keepalived
 
-Cada nodo ahora expone:
+La VIP de app debe convivir con la VIP de BD sin sobrescribir la configuracion existente de `keepalived`.
 
-- `api-gateway` real en `18080`
-- `app-entry-proxy` en `8080`
-
-El `app-entry-proxy` balancea entre los gateways de `PC2` y `PC3`. Para que el cliente no cambie de IP cuando caiga un host, usen `keepalived` en Linux y muevan una VIP entre `PC2` y `PC3`.
-
-1. Rendericen la configuracion en `PC2`:
+### PC2: config combinada BD + app
 
 ```bash
-env $(grep -v '^#' deploy/multi-host/multi-host.app.env | xargs) envsubst < deploy/multi-host/keepalived.pc2.conf.tmpl | sudo tee /etc/keepalived/keepalived.conf
+set -a
+source deploy/multi-host/multi-host.env
+source deploy/multi-host/multi-host.app.env
+set +a
+envsubst < deploy/multi-host/keepalived.combined.pc2.conf.tmpl | sudo tee /etc/keepalived/keepalived.conf
+sudo keepalived -t -f /etc/keepalived/keepalived.conf
+sudo systemctl restart keepalived
 ```
 
-2. Rendericen la configuracion en `PC3`:
+### PC3: VIP de app
 
 ```bash
-env $(grep -v '^#' deploy/multi-host/multi-host.app.env | xargs) envsubst < deploy/multi-host/keepalived.pc3.conf.tmpl | sudo tee /etc/keepalived/keepalived.conf
+set -a
+source deploy/multi-host/multi-host.app.env
+set +a
+envsubst < deploy/multi-host/keepalived.pc3.conf.tmpl | sudo tee /etc/keepalived/keepalived.conf
+sudo keepalived -t -f /etc/keepalived/keepalived.conf
+sudo systemctl restart keepalived
 ```
 
-3. Inicien `keepalived` en ambos hosts Linux:
+### PC4: VIP de BD
 
 ```bash
-sudo systemctl enable --now keepalived
+set -a
+source deploy/multi-host/multi-host.env
+set +a
+envsubst < deploy/multi-host/keepalived.db.pc4.conf.tmpl | sudo tee /etc/keepalived/keepalived.conf
+sudo keepalived -t -f /etc/keepalived/keepalived.conf
+sudo systemctl restart keepalived
 ```
 
-4. Hagan que el cliente use la VIP:
+### Cliente
+
+El cliente o `k6` debe entrar por:
 
 ```text
 http://<APP_VIP_IP>:8080
@@ -106,38 +122,20 @@ http://<APP_VIP_IP>:8080
 
 Con eso:
 
-- si `PC2` sigue vivo, la VIP queda en `PC2`
-- si `PC2` cae completo, `PC3` toma la VIP
-- el cliente sigue entrando por la misma IP
-
-## Nota sobre Windows
-
-`PC1` queda fuera de la app multi-host. Usen `PC1` para:
-
-- su nodo de base HA
-- observabilidad
-- pruebas de carga con `k6`
-
-La limitacion importante es otra:
-
-- no recomiendo usar `PC1` Windows para `keepalived`
-- la VIP automatica debe quedarse entre `PC2` y `PC3`, que son Linux
-- `PC1` no participa como dueño de la VIP
+- si `PC2` sigue vivo, la VIP de app queda en `PC2`
+- si la app de `PC2` cae, `PC3` toma la VIP de app
+- la VIP de BD sigue independiente entre `PC2` y `PC4`
 
 ## Verificacion
 
-- `http://<PC2_IP>:18080/actuator/health`
-- `http://<PC3_IP>:18080/actuator/health`
 - `http://<PC2_IP>:8080/actuator/health`
 - `http://<PC3_IP>:8080/actuator/health`
-- `http://<PC2_IP>:7010/stats`
-- `http://<PC3_IP>:7010/stats`
-- `http://<PC2_IP>:7011/stats`
-- `http://<PC3_IP>:7011/stats`
+- `http://<APP_VIP_IP>:8080/actuator/health`
+- `http://<APP_VIP_IP>:8080/api/menu/productos`
+- `http://<APP_VIP_IP>:8080/api/orders`
 
-## Siguiente paso recomendado
+## Prueba recomendada
 
-El siguiente salto para HA real de toda la app es uno de estos:
-
-- duplicar los microservicios criticos en ambos nodos en lugar de repartirlos por mitades
-- terminar de levantar y validar el clúster de `RabbitMQ` en `PC2`, `PC3` y `PC4`
+1. Lanzar `50k` peticiones a la VIP de app
+2. Detener `docker-compose.app.pc2.yml`
+3. Verificar que `PC3` siga respondiendo por la misma VIP
