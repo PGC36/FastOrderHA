@@ -33,6 +33,8 @@ public class OrderService {
     private static final String DELIVERY_FAILED_STATUS = "DELIVERY_FAILED";
     private static final String DELIVERY_RETRY_PENDING_STATUS = "DELIVERY_RETRY_PENDING";
     private static final String DELIVERY_ABANDONED_STATUS = "DELIVERY_ABANDONED";
+    private static final String IN_DELIVERY_STATUS = "IN_DELIVERY";
+    private static final String DELIVERY_CANCELLED_STATUS = "DELIVERY_CANCELLED";
     private static final String COMPLETED_STATUS = "COMPLETED";
     private static final String DEFAULT_DELIVERY_ADDRESS = "Direccion pendiente";
 
@@ -86,7 +88,16 @@ public class OrderService {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new OrderNotFoundException("Pedido no encontrado con id " + id));
 
+        if (COMPLETED_STATUS.equals(order.getStatus()) && !COMPLETED_STATUS.equals(request.getStatus())) {
+            logger.warn("Cambio de estado ignorado para pedido ya completado orderId={}, requestedStatus={}",
+                    id, request.getStatus());
+            return OrderResponse.fromEntity(order);
+        }
+
         order.setStatus(request.getStatus());
+        if (COMPLETED_STATUS.equals(request.getStatus())) {
+            order.setDeliveryFailureReason(null);
+        }
         Order updated = orderRepository.save(order);
         logger.info("Estado de pedido actualizado orderId={}, status={}", id, request.getStatus());
         return OrderResponse.fromEntity(updated);
@@ -189,6 +200,9 @@ public class OrderService {
     public void completeOrderById(Long orderId) {
         orderRepository.findById(orderId)
                 .ifPresent(order -> {
+                    if (COMPLETED_STATUS.equals(order.getStatus())) {
+                        return;
+                    }
                     order.setStatus(COMPLETED_STATUS);
                     order.setDeliveryFailureReason(null);
                     orderRepository.save(order);
@@ -281,6 +295,12 @@ public class OrderService {
         }
         if (DELIVERY_RETRY_PENDING_STATUS.equals(existingOrder.getStatus())) {
             return "Orden pendiente de reintento de delivery";
+        }
+        if (IN_DELIVERY_STATUS.equals(existingOrder.getStatus())) {
+            return "Orden en entrega";
+        }
+        if (DELIVERY_CANCELLED_STATUS.equals(existingOrder.getStatus())) {
+            return "Orden cancelada en delivery";
         }
         if (DELIVERY_FAILED_STATUS.equals(existingOrder.getStatus())) {
             return "Orden pendiente de reintento de delivery";
