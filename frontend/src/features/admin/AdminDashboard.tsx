@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Activity,
@@ -82,9 +82,20 @@ export function AdminDashboard() {
   const latencyStatus =
     latest.latencyP95 > 200 ? 'critical' : latest.latencyP95 > 100 ? 'warning' : 'normal'
 
+  // Cuando el caos se activa (aparecen los banners arriba), sube suave hasta
+  // el inicio para que el usuario los vea sin scrollear manualmente. Se hace
+  // aqui (y no en el click) para que el scroll ocurra ya con el banner montado.
+  useEffect(() => {
+    if (isChaos) {
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      })
+    }
+  }, [isChaos])
+
   const handleChaos = async () => {
     setChaosLoading(true)
-    await new Promise((r) => setTimeout(r, 1200))
+    await new Promise((r) => setTimeout(r, 400))
     runChaos()
     setChaosLoading(false)
     toast.warning('Prueba de caos iniciada — observá las métricas', {

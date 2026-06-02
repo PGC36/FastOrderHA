@@ -1,22 +1,44 @@
 import { apiClient } from './client'
 import { initialDeliveries, type DeliveryItem, type DeliveryStatus } from '@/mocks/delivery'
 import { USE_MOCKS } from '@/lib/env'
+import { getOrders, type OrderStatus } from './orders'
 
 let _mockDeliveries: DeliveryItem[] = [...initialDeliveries]
 
 export type { DeliveryItem, DeliveryStatus }
+
+/**
+ * El backend no expone "listar todas las entregas" (solo por id o por pedido).
+ * Como cada pedido ya trae su estado de entrega y la direccion, derivamos la
+ * vista del dashboard a partir de /api/orders. Es solo lectura: las acciones
+ * de gestion (asignar, recoger, etc.) funcionan en modo demo.
+ */
+const ORDER_TO_DELIVERY: Partial<Record<OrderStatus, DeliveryStatus>> = {
+  READY_FOR_DELIVERY: 'READY_FOR_PICKUP',
+  IN_TRANSIT: 'IN_TRANSIT',
+  COMPLETED: 'DELIVERED',
+  FAILED: 'FAILED',
+}
 
 export async function getDeliveries(): Promise<DeliveryItem[]> {
   if (USE_MOCKS) {
     await new Promise((r) => setTimeout(r, 150))
     return [..._mockDeliveries]
   }
-  // El backend no expone un endpoint para listar todas las entregas (solo por
-  // id o por pedido). Degradamos con elegancia devolviendo una lista vacia en
-  // lugar de romper el dashboard. Ver frontend/README.md (modos de datos).
   try {
-    const { data } = await apiClient.get<DeliveryItem[]>('/api/delivery')
-    return Array.isArray(data) ? data : []
+    const orders = await getOrders()
+    return orders
+      .filter((o) => ORDER_TO_DELIVERY[o.status] != null)
+      .map((o) => ({
+        id: o.id,
+        orderId: o.id,
+        deliveryAddress: o.deliveryAddress,
+        status: ORDER_TO_DELIVERY[o.status]!,
+        courierId: null,
+        failureReason: null,
+        createdAt: o.createdAt,
+        updatedAt: o.updatedAt,
+      }))
   } catch {
     return []
   }

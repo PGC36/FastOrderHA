@@ -29,6 +29,11 @@ export function CartDrawer() {
     navigate('/checkout')
   }
 
+  const handleViewMenu = () => {
+    closeCart()
+    navigate('/menu')
+  }
+
   const count = itemCount()
 
   return (
@@ -109,7 +114,7 @@ export function CartDrawer() {
                       <p className="font-display font-bold text-ink">Tu carrito está vacío</p>
                       <p className="text-sm text-muted">Agregá productos desde el menú.</p>
                     </div>
-                    <Button variant="outline" size="sm" onClick={closeCart}>
+                    <Button variant="outline" size="sm" onClick={handleViewMenu}>
                       Ver menú
                     </Button>
                   </motion.div>
