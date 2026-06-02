@@ -26,6 +26,8 @@ public class InventoryOrderCreatedConsumer {
     private final String inventoryExchange;
     private final String reservedRoutingKey;
     private final String rejectedRoutingKey;
+    private final int reserveMaxAttempts;
+    private final long reserveRetryDelayMs;
 
     public InventoryOrderCreatedConsumer(
             InventoryService inventoryService,
@@ -33,13 +35,17 @@ public class InventoryOrderCreatedConsumer {
             RabbitTemplate rabbitTemplate,
             @Value("${app.rabbit.exchange}") String inventoryExchange,
             @Value("${app.rabbit.reserved-routing-key:inventory.reserved}") String reservedRoutingKey,
-            @Value("${app.rabbit.rejected-routing-key:inventory.rejected}") String rejectedRoutingKey) {
+            @Value("${app.rabbit.rejected-routing-key:inventory.rejected}") String rejectedRoutingKey,
+            @Value("${app.inventory.reserve-max-attempts:4}") int reserveMaxAttempts,
+            @Value("${app.inventory.reserve-retry-delay-ms:200}") long reserveRetryDelayMs) {
         this.inventoryService = inventoryService;
         this.objectMapper = objectMapper;
         this.rabbitTemplate = rabbitTemplate;
         this.inventoryExchange = inventoryExchange;
         this.reservedRoutingKey = reservedRoutingKey;
         this.rejectedRoutingKey = rejectedRoutingKey;
+        this.reserveMaxAttempts = reserveMaxAttempts;
+        this.reserveRetryDelayMs = reserveRetryDelayMs;
     }
 
     @RabbitListener(
@@ -65,7 +71,7 @@ public class InventoryOrderCreatedConsumer {
             request.setProductId(productId);
             request.setQuantity(quantity);
 
-            boolean reserved = inventoryService.reserveStockForOrder(orderId, request);
+            boolean reserved = reserveStockWithRetry(orderId, request);
             if (reserved) {
                 publish(reservedRoutingKey, Map.of(
                         "orderId", orderId,
@@ -89,6 +95,40 @@ public class InventoryOrderCreatedConsumer {
         } catch (Exception exception) {
             logger.error("Error procesando order.created en inventory-service: {}", payload, exception);
             throw new IllegalStateException("Error tecnico procesando order.created", exception);
+        }
+    }
+
+    private boolean reserveStockWithRetry(Long orderId, StockUpdateRequest request) {
+        for (int attempt = 1; attempt <= reserveMaxAttempts; attempt++) {
+            boolean reserved = inventoryService.reserveStockForOrder(orderId, request);
+            if (reserved) {
+                if (attempt > 1) {
+                    logger.info("Reserva recuperada tras reintento orderId={}, attempt={}/{}",
+                            orderId, attempt, reserveMaxAttempts);
+                }
+                return true;
+            }
+
+            if (attempt >= reserveMaxAttempts) {
+                logger.warn("Reserva rechazada tras agotar reintentos orderId={}, attempt={}/{}",
+                        orderId, attempt, reserveMaxAttempts);
+                return false;
+            }
+
+            logger.warn("Reserva no confirmada; reintentando orderId={}, attempt={}/{}",
+                    orderId, attempt, reserveMaxAttempts);
+            sleepBeforeRetry();
+        }
+
+        return false;
+    }
+
+    private void sleepBeforeRetry() {
+        try {
+            Thread.sleep(reserveRetryDelayMs);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Reserva de inventario interrumpida durante reintento", exception);
         }
     }
 

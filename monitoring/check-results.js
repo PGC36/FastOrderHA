@@ -288,10 +288,11 @@ async function printReport() {
   const uniqueKeys = number(orderTotals[1]);
   const pendingOutbox = outbox.pending || 0;
   const processedOutbox = outbox.processed || 0;
-  const completedOrders = Object.entries(statuses)
+  const terminalOrders = Object.entries(statuses)
     .filter(([status]) => ["COMPLETED", "CANCELLED", "ABANDONED", "DELIVERY_ABANDONED"].includes(status))
     .reduce((sum, [, count]) => sum + count, 0);
-  const expectedProgress = EXPECTED_ORDERS > 0 ? `${completedOrders}/${EXPECTED_ORDERS}` : "n/a";
+  const completedOrders = number(statuses.COMPLETED || 0);
+  const expectedProgress = EXPECTED_ORDERS > 0 ? `${terminalOrders}/${EXPECTED_ORDERS}` : "n/a";
 
   if (!NO_CLEAR) {
     console.clear();
@@ -339,7 +340,7 @@ async function printReport() {
   const reserved = inventory.reduce((sum, item) => sum + item.reserved, 0);
   const activeQueueMessages = activeQueues.reduce((sum, queue) => sum + queue.ready + queue.unacked, 0);
   const allExpectedOrdersReached =
-    (EXPECTED_ORDERS > 0 && completedOrders >= EXPECTED_ORDERS) ||
+    (EXPECTED_ORDERS > 0 && terminalOrders >= EXPECTED_ORDERS) ||
     (EXPECTED_ORDERS === 0 && pendingOrders === 0);
   const inventoryDrift = Math.max(0, completedOrders - inventorySales);
   const done = pendingOrders === 0 && pendingOutbox === 0 && activeQueueMessages === 0 && allExpectedOrdersReached;
