@@ -1,879 +1,602 @@
-RUN_ID=db-chaos-50k-20260530191720
-START=2026-05-30T19:17:20.202Z
-===== POLL 2026-05-30T19:18:09.532Z elapsed=49.33s =====
-FastOrder HA results - 30/5/2026, 1:18:13 p. m.
+RUN_ID=db-chaos-50k-20260602040933
+START=2026-06-02T04:09:33.530Z
+===== POLL 2026-06-02T04:10:28.988Z elapsed=55.46s =====
+FastOrder HA results - 1/6/2026, 10:10:32 p. m.
 DB node for queries: fastorder-db-0
 
 Patroni cluster:
-  fastorder-db-0 @ http://192.168.0.2:8008: role=replica, state=running, reachable=true
-  fastorder-db-1 @ http://192.168.0.5:8108: role=primary, state=running, reachable=true
+  fastorder-db-0 @ http://192.168.0.2:8008: role=primary, state=running, reachable=true
+  unknown @ http://192.168.0.5:8108: role=unknown, state=timeout, reachable=false
   fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
 
-Orders: COMPLETED: 6505 | IN_KITCHEN: 9 | PENDING: 93469 | READY_FOR_DELIVERY: 17
-Orders total: 100000
-Orders final progress: 6505/100000
-Idempotency keys unique: 100000
+Orders: COMPLETED: 6070 | PENDING: 43928 | READY_FOR_DELIVERY: 2
+Orders total: 50000
+Orders final progress: 6070/50000
+Idempotency keys unique: 50000
 
-Outbox processed: 8139
-Outbox pending: 91861
+Outbox processed: 15259
+Outbox pending: 34741
 
 Inventory:
-  product 1: quantity=93880, reserved=2658, sold=6120
-Inventory sales: 6151
-Notifications: 6940
+  product 1: quantity=44646, reserved=771, sold=5354
+Inventory sales: 5746
+Notifications: 6559
 
-Rabbit queues with messages:
-  kitchen.inventory-reserved.queue: ready=343, unacked=600
-  notification.created.queue: ready=0, unacked=6
-  inventory.order-created.queue: ready=200, unacked=160
-  order.delivery-completed.queue: ready=0, unacked=4
-  inventory.delivery-completed.queue: ready=1578, unacked=160
-  delivery.kitchen-ready.queue: ready=0, unacked=6
+Rabbit queues: unavailable from this host
 
 Status: PROCESSING
-===== POLL 2026-05-30T19:18:23.090Z elapsed=62.89s =====
-FastOrder HA results - 30/5/2026, 1:18:25 p. m.
+===== POLL 2026-06-02T04:10:42.167Z elapsed=68.64s =====
+FastOrder HA results - 1/6/2026, 10:10:45 p. m.
 DB node for queries: fastorder-db-0
 
 Patroni cluster:
-  fastorder-db-0 @ http://192.168.0.2:8008: role=replica, state=running, reachable=true
-  fastorder-db-1 @ http://192.168.0.5:8108: role=primary, state=running, reachable=true
+  fastorder-db-0 @ http://192.168.0.2:8008: role=primary, state=running, reachable=true
+  unknown @ http://192.168.0.5:8108: role=unknown, state=timeout, reachable=false
   fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
 
-Orders: COMPLETED: 11980 | IN_KITCHEN: 5 | PENDING: 88012 | READY_FOR_DELIVERY: 3
-Orders total: 100000
-Orders final progress: 11980/100000
-Idempotency keys unique: 100000
+Orders: COMPLETED: 8435 | IN_KITCHEN: 2 | PENDING: 41559 | READY_FOR_DELIVERY: 4
+Orders total: 50000
+Orders final progress: 8435/50000
+Idempotency keys unique: 50000
 
-Outbox processed: 12639
-Outbox pending: 87361
+Outbox processed: 21259
+Outbox pending: 28741
 
 Inventory:
-  product 1: quantity=90617, reserved=2711, sold=9383
-Inventory sales: 9446
-Notifications: 12180
+  product 1: quantity=42360, reserved=873, sold=7640
+Inventory sales: 8085
+Notifications: 8473
 
-Rabbit queues with messages:
-  kitchen.inventory-reserved.queue: ready=0, unacked=8
-  notification.created.queue: ready=0, unacked=3
-  inventory.order-created.queue: ready=1473, unacked=160
-  order.delivery-completed.queue: ready=0, unacked=1
-  inventory.delivery-completed.queue: ready=2490, unacked=160
-  delivery.kitchen-ready.queue: ready=0, unacked=3
+Rabbit queues: unavailable from this host
 
 Status: PROCESSING
-===== POLL 2026-05-30T19:18:35.605Z elapsed=75.41s =====
-FastOrder HA results - 30/5/2026, 1:18:39 p. m.
+===== POLL 2026-06-02T04:10:55.452Z elapsed=81.92s =====
+FastOrder HA results - 1/6/2026, 10:10:58 p. m.
 DB node for queries: fastorder-db-0
 
 Patroni cluster:
-  fastorder-db-0 @ http://192.168.0.2:8008: role=replica, state=running, reachable=true
-  fastorder-db-1 @ http://192.168.0.5:8108: role=primary, state=running, reachable=true
+  fastorder-db-0 @ http://192.168.0.2:8008: role=primary, state=running, reachable=true
+  unknown @ http://192.168.0.5:8108: role=unknown, state=timeout, reachable=false
   fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
 
-Orders: COMPLETED: 15032 | IN_KITCHEN: 3 | PENDING: 84957 | READY_FOR_DELIVERY: 8
-Orders total: 100000
-Orders final progress: 15032/100000
-Idempotency keys unique: 100000
+Orders: COMPLETED: 10890 | IN_KITCHEN: 3 | PENDING: 39104 | READY_FOR_DELIVERY: 3
+Orders total: 50000
+Orders final progress: 10890/50000
+Idempotency keys unique: 50000
 
-Outbox processed: 17139
-Outbox pending: 82861
+Outbox processed: 25759
+Outbox pending: 24241
 
 Inventory:
-  product 1: quantity=87485, reserved=2605, sold=12515
-Inventory sales: 12551
-Notifications: 15188
+  product 1: quantity=39992, reserved=936, sold=10008
+Inventory sales: 10426
+Notifications: 11390
 
-Rabbit queues with messages:
-  kitchen.inventory-reserved.queue: ready=0, unacked=9
-  notification.created.queue: ready=0, unacked=4
-  inventory.order-created.queue: ready=2914, unacked=160
-  order.delivery-completed.queue: ready=0, unacked=3
-  inventory.delivery-completed.queue: ready=2390, unacked=160
-  delivery.kitchen-ready.queue: ready=0, unacked=2
+Rabbit queues: unavailable from this host
 
 Status: PROCESSING
-===== POLL 2026-05-30T19:18:49.442Z elapsed=89.24s =====
-FastOrder HA results - 30/5/2026, 1:18:52 p. m.
+===== POLL 2026-06-02T04:11:08.671Z elapsed=95.14s =====
+FastOrder HA results - 1/6/2026, 10:11:11 p. m.
 DB node for queries: fastorder-db-0
 
 Patroni cluster:
-  fastorder-db-0 @ http://192.168.0.2:8008: role=replica, state=running, reachable=true
-  fastorder-db-1 @ http://192.168.0.5:8108: role=primary, state=running, reachable=true
+  fastorder-db-0 @ http://192.168.0.2:8008: role=primary, state=running, reachable=true
+  unknown @ http://192.168.0.5:8108: role=unknown, state=timeout, reachable=false
   fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
 
-Orders: COMPLETED: 18066 | IN_KITCHEN: 1 | PENDING: 81930 | READY_FOR_DELIVERY: 3
-Orders total: 100000
-Orders final progress: 18066/100000
-Idempotency keys unique: 100000
+Orders: COMPLETED: 13261 | IN_KITCHEN: 4 | PENDING: 36733 | READY_FOR_DELIVERY: 2
+Orders total: 50000
+Orders final progress: 13261/50000
+Idempotency keys unique: 50000
 
-Outbox processed: 20139
-Outbox pending: 79861
+Outbox processed: 31759
+Outbox pending: 18241
 
 Inventory:
-  product 1: quantity=84242, reserved=2437, sold=15758
-Inventory sales: 15824
-Notifications: 18285
+  product 1: quantity=37556, reserved=881, sold=12444
+Inventory sales: 12834
+Notifications: 13774
 
-Rabbit queues with messages:
-  kitchen.inventory-reserved.queue: ready=0, unacked=9
-  notification.created.queue: ready=0, unacked=2
-  inventory.order-created.queue: ready=4259, unacked=160
-  order.delivery-completed.queue: ready=0, unacked=1
-  inventory.delivery-completed.queue: ready=2230, unacked=160
-  delivery.kitchen-ready.queue: ready=0, unacked=3
+Rabbit queues: unavailable from this host
 
 Status: PROCESSING
-===== POLL 2026-05-30T19:19:02.709Z elapsed=102.51s =====
-FastOrder HA results - 30/5/2026, 1:19:06 p. m.
+===== POLL 2026-06-02T04:11:21.884Z elapsed=108.36s =====
+FastOrder HA results - 1/6/2026, 10:11:25 p. m.
 DB node for queries: fastorder-db-0
 
 Patroni cluster:
-  fastorder-db-0 @ http://192.168.0.2:8008: role=replica, state=running, reachable=true
-  fastorder-db-1 @ http://192.168.0.5:8108: role=primary, state=running, reachable=true
+  fastorder-db-0 @ http://192.168.0.2:8008: role=primary, state=running, reachable=true
+  unknown @ http://192.168.0.5:8108: role=unknown, state=timeout, reachable=false
   fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
 
-Orders: COMPLETED: 21436 | IN_KITCHEN: 3 | PENDING: 78557 | READY_FOR_DELIVERY: 4
-Orders total: 100000
-Orders final progress: 21436/100000
-Idempotency keys unique: 100000
+Orders: COMPLETED: 15456 | IN_KITCHEN: 2 | PENDING: 34511 | READY_FOR_DELIVERY: 31
+Orders total: 50000
+Orders final progress: 15456/50000
+Idempotency keys unique: 50000
 
-Outbox processed: 24639
-Outbox pending: 75361
+Outbox processed: 36259
+Outbox pending: 13741
 
 Inventory:
-  product 1: quantity=80873, reserved=2446, sold=19127
-Inventory sales: 19190
-Notifications: 21670
+  product 1: quantity=35256, reserved=804, sold=14744
+Inventory sales: 15168
+Notifications: 15982
 
-Rabbit queues with messages:
-  kitchen.inventory-reserved.queue: ready=0, unacked=8
-  inventory.order-created.queue: ready=5354, unacked=160
-  order.delivery-completed.queue: ready=0, unacked=1
-  inventory.delivery-completed.queue: ready=2242, unacked=160
-  delivery.kitchen-ready.queue: ready=0, unacked=3
+Rabbit queues: unavailable from this host
 
 Status: PROCESSING
-===== POLL 2026-05-30T19:19:16.185Z elapsed=115.99s =====
-FastOrder HA results - 30/5/2026, 1:19:19 p. m.
+===== POLL 2026-06-02T04:11:35.150Z elapsed=121.62s =====
+FastOrder HA results - 1/6/2026, 10:11:38 p. m.
 DB node for queries: fastorder-db-0
 
 Patroni cluster:
-  fastorder-db-0 @ http://192.168.0.2:8008: role=replica, state=running, reachable=true
-  fastorder-db-1 @ http://192.168.0.5:8108: role=primary, state=running, reachable=true
+  fastorder-db-0 @ http://192.168.0.2:8008: role=primary, state=running, reachable=true
+  unknown @ http://192.168.0.5:8108: role=unknown, state=timeout, reachable=false
   fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
 
-Orders: COMPLETED: 24726 | IN_KITCHEN: 4 | PENDING: 75266 | READY_FOR_DELIVERY: 4
-Orders total: 100000
-Orders final progress: 24726/100000
-Idempotency keys unique: 100000
+Orders: COMPLETED: 17955 | IN_KITCHEN: 2 | PENDING: 32040 | READY_FOR_DELIVERY: 3
+Orders total: 50000
+Orders final progress: 17955/50000
+Idempotency keys unique: 50000
 
-Outbox processed: 29139
-Outbox pending: 70861
+Outbox processed: 42259
+Outbox pending: 7741
 
 Inventory:
-  product 1: quantity=77625, reserved=2456, sold=22375
-Inventory sales: 22425
-Notifications: 24906
+  product 1: quantity=32829, reserved=846, sold=17171
+Inventory sales: 17575
+Notifications: 18331
 
-Rabbit queues with messages:
-  kitchen.inventory-reserved.queue: ready=0, unacked=9
-  notification.created.queue: ready=0, unacked=1
-  inventory.order-created.queue: ready=5201, unacked=160
-  order.delivery-completed.queue: ready=0, unacked=1
-  inventory.delivery-completed.queue: ready=2272, unacked=160
-  delivery.kitchen-ready.queue: ready=0, unacked=4
+Rabbit queues: unavailable from this host
 
 Status: PROCESSING
-===== POLL 2026-05-30T19:19:29.058Z elapsed=128.86s =====
-FastOrder HA results - 30/5/2026, 1:19:31 p. m.
+===== POLL 2026-06-02T04:11:48.326Z elapsed=134.8s =====
+FastOrder HA results - 1/6/2026, 10:11:51 p. m.
 DB node for queries: fastorder-db-0
 
 Patroni cluster:
-  fastorder-db-0 @ http://192.168.0.2:8008: role=replica, state=running, reachable=true
-  fastorder-db-1 @ http://192.168.0.5:8108: role=primary, state=running, reachable=true
+  fastorder-db-0 @ http://192.168.0.2:8008: role=primary, state=running, reachable=true
+  unknown @ http://192.168.0.5:8108: role=unknown, state=timeout, reachable=false
   fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
 
-Orders: COMPLETED: 28198 | IN_KITCHEN: 3 | PENDING: 71796 | READY_FOR_DELIVERY: 3
-Orders total: 100000
-Orders final progress: 28198/100000
-Idempotency keys unique: 100000
+Orders: COMPLETED: 20139 | IN_KITCHEN: 2 | PENDING: 29856 | READY_FOR_DELIVERY: 3
+Orders total: 50000
+Orders final progress: 20139/50000
+Idempotency keys unique: 50000
 
-Outbox processed: 33639
-Outbox pending: 66361
+Outbox processed: 46759
+Outbox pending: 3241
 
 Inventory:
-  product 1: quantity=74193, reserved=2502, sold=25807
-Inventory sales: 25862
-Notifications: 28395
+  product 1: quantity=30500, reserved=698, sold=19500
+Inventory sales: 19865
+Notifications: 20662
 
-Rabbit queues with messages:
-  kitchen.inventory-reserved.queue: ready=0, unacked=6
-  notification.created.queue: ready=0, unacked=2
-  inventory.order-created.queue: ready=6243, unacked=160
-  order.delivery-completed.queue: ready=0, unacked=1
-  inventory.delivery-completed.queue: ready=2300, unacked=160
-  delivery.kitchen-ready.queue: ready=0, unacked=2
+Rabbit queues: unavailable from this host
 
 Status: PROCESSING
-===== POLL 2026-05-30T19:19:41.621Z elapsed=141.42s =====
-FastOrder HA results - 30/5/2026, 1:19:44 p. m.
+===== POLL 2026-06-02T04:12:01.556Z elapsed=148.03s =====
+FastOrder HA results - 1/6/2026, 10:12:04 p. m.
 DB node for queries: fastorder-db-0
 
 Patroni cluster:
-  fastorder-db-0 @ http://192.168.0.2:8008: role=replica, state=running, reachable=true
-  fastorder-db-1 @ http://192.168.0.5:8108: role=primary, state=running, reachable=true
+  fastorder-db-0 @ http://192.168.0.2:8008: role=primary, state=running, reachable=true
+  unknown @ http://192.168.0.5:8108: role=unknown, state=timeout, reachable=false
   fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
 
-Orders: COMPLETED: 31606 | IN_KITCHEN: 4 | PENDING: 68384 | READY_FOR_DELIVERY: 6
-Orders total: 100000
-Orders final progress: 31606/100000
-Idempotency keys unique: 100000
-
-Outbox processed: 38139
-Outbox pending: 61861
-
-Inventory:
-  product 1: quantity=70725, reserved=2433, sold=29275
-Inventory sales: 29334
-Notifications: 31795
-
-Rabbit queues with messages:
-  kitchen.inventory-reserved.queue: ready=0, unacked=7
-  notification.created.queue: ready=0, unacked=2
-  inventory.order-created.queue: ready=8825, unacked=160
-  inventory.delivery-completed.queue: ready=2239, unacked=160
-  delivery.kitchen-ready.queue: ready=0, unacked=5
-
-Status: PROCESSING
-===== POLL 2026-05-30T19:19:54.373Z elapsed=154.17s =====
-FastOrder HA results - 30/5/2026, 1:19:58 p. m.
-DB node for queries: fastorder-db-0
-
-Patroni cluster:
-  fastorder-db-0 @ http://192.168.0.2:8008: role=replica, state=running, reachable=true
-  fastorder-db-1 @ http://192.168.0.5:8108: role=primary, state=running, reachable=true
-  fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
-
-Orders: COMPLETED: 34664 | IN_KITCHEN: 1 | PENDING: 65326 | READY_FOR_DELIVERY: 9
-Orders total: 100000
-Orders final progress: 34664/100000
-Idempotency keys unique: 100000
-
-Outbox processed: 42639
-Outbox pending: 57361
-
-Inventory:
-  product 1: quantity=67616, reserved=2351, sold=32384
-Inventory sales: 32406
-Notifications: 34781
-
-Rabbit queues with messages:
-  kitchen.inventory-reserved.queue: ready=0, unacked=5
-  notification.created.queue: ready=0, unacked=1
-  inventory.order-created.queue: ready=8852, unacked=160
-  order.delivery-completed.queue: ready=0, unacked=1
-  inventory.delivery-completed.queue: ready=2176, unacked=160
-  delivery.kitchen-ready.queue: ready=0, unacked=2
-
-Status: PROCESSING
-===== POLL 2026-05-30T19:20:08.487Z elapsed=168.29s =====
-FastOrder HA results - 30/5/2026, 1:20:10 p. m.
-DB node for queries: fastorder-db-0
-
-Patroni cluster:
-  fastorder-db-0 @ http://192.168.0.2:8008: role=replica, state=running, reachable=true
-  fastorder-db-1 @ http://192.168.0.5:8108: role=primary, state=running, reachable=true
-  fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
-
-Orders: COMPLETED: 37169 | IN_KITCHEN: 3 | PENDING: 62823 | READY_FOR_DELIVERY: 5
-Orders total: 100000
-Orders final progress: 37169/100000
-Idempotency keys unique: 100000
-
-Outbox processed: 45639
-Outbox pending: 54361
-
-Inventory:
-  product 1: quantity=65042, reserved=2308, sold=34958
-Inventory sales: 34998
-Notifications: 37329
-
-Rabbit queues with messages:
-  kitchen.inventory-reserved.queue: ready=0, unacked=7
-  inventory.order-created.queue: ready=9398, unacked=160
-  inventory.delivery-completed.queue: ready=2141, unacked=160
-  delivery.kitchen-ready.queue: ready=0, unacked=2
-
-Status: PROCESSING
-===== POLL 2026-05-30T19:20:20.961Z elapsed=180.76s =====
-FastOrder HA results - 30/5/2026, 1:20:24 p. m.
-DB node for queries: fastorder-db-0
-
-Patroni cluster:
-  fastorder-db-0 @ http://192.168.0.2:8008: role=replica, state=running, reachable=true
-  fastorder-db-1 @ http://192.168.0.5:8108: role=primary, state=running, reachable=true
-  fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
-
-Orders: COMPLETED: 40008 | IN_KITCHEN: 5 | PENDING: 59983 | READY_FOR_DELIVERY: 4
-Orders total: 100000
-Orders final progress: 40008/100000
-Idempotency keys unique: 100000
-
-Outbox processed: 48639
-Outbox pending: 51361
-
-Inventory:
-  product 1: quantity=62180, reserved=2313, sold=37820
-Inventory sales: 37883
-Notifications: 40209
-
-Rabbit queues with messages:
-  kitchen.inventory-reserved.queue: ready=0, unacked=5
-  inventory.order-created.queue: ready=10827, unacked=160
-  inventory.delivery-completed.queue: ready=2132, unacked=160
-  delivery.kitchen-ready.queue: ready=0, unacked=4
-
-Status: PROCESSING
-===== POLL 2026-05-30T19:20:34.299Z elapsed=194.1s =====
-FastOrder HA results - 30/5/2026, 1:20:37 p. m.
-DB node for queries: fastorder-db-0
-
-Patroni cluster:
-  fastorder-db-0 @ http://192.168.0.2:8008: role=replica, state=running, reachable=true
-  fastorder-db-1 @ http://192.168.0.5:8108: role=primary, state=running, reachable=true
-  fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
-
-Orders: COMPLETED: 43593 | IN_KITCHEN: 3 | PENDING: 56399 | READY_FOR_DELIVERY: 5
-Orders total: 100000
-Orders final progress: 43593/100000
-Idempotency keys unique: 100000
-
-Outbox processed: 54639
-Outbox pending: 45361
-
-Inventory:
-  product 1: quantity=58631, reserved=2334, sold=41369
-Inventory sales: 41429
-Notifications: 43799
-
-Rabbit queues with messages:
-  kitchen.inventory-reserved.queue: ready=0, unacked=7
-  notification.created.queue: ready=0, unacked=1
-  inventory.order-created.queue: ready=11778, unacked=160
-  inventory.delivery-completed.queue: ready=2154, unacked=160
-  delivery.kitchen-ready.queue: ready=0, unacked=3
-
-Status: PROCESSING
-===== POLL 2026-05-30T19:20:47.393Z elapsed=207.19s =====
-FastOrder HA results - 30/5/2026, 1:20:49 p. m.
-DB node for queries: fastorder-db-0
-
-Patroni cluster:
-  fastorder-db-0 @ http://192.168.0.2:8008: role=replica, state=running, reachable=true
-  fastorder-db-1 @ http://192.168.0.5:8108: role=primary, state=running, reachable=true
-  fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
-
-Orders: COMPLETED: 47002 | IN_KITCHEN: 4 | PENDING: 52986 | READY_FOR_DELIVERY: 8
-Orders total: 100000
-Orders final progress: 47002/100000
-Idempotency keys unique: 100000
-
-Outbox processed: 59139
-Outbox pending: 40861
-
-Inventory:
-  product 1: quantity=55119, reserved=2238, sold=44881
-Inventory sales: 44934
-Notifications: 47212
-
-Rabbit queues with messages:
-  kitchen.inventory-reserved.queue: ready=0, unacked=9
-  notification.created.queue: ready=0, unacked=1
-  inventory.order-created.queue: ready=12919, unacked=160
-  order.delivery-completed.queue: ready=0, unacked=2
-  inventory.delivery-completed.queue: ready=2048, unacked=160
-  delivery.kitchen-ready.queue: ready=0, unacked=4
-
-Status: PROCESSING
-===== POLL 2026-05-30T19:20:59.896Z elapsed=219.7s =====
-FastOrder HA results - 30/5/2026, 1:21:02 p. m.
-DB node for queries: fastorder-db-0
-
-Patroni cluster:
-  fastorder-db-0 @ http://192.168.0.2:8008: role=replica, state=running, reachable=true
-  fastorder-db-1 @ http://192.168.0.5:8108: role=primary, state=running, reachable=true
-  fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
-
-Orders: COMPLETED: 50453 | IN_KITCHEN: 4 | PENDING: 49536 | READY_FOR_DELIVERY: 7
-Orders total: 100000
-Orders final progress: 50453/100000
-Idempotency keys unique: 100000
-
-Outbox processed: 63639
-Outbox pending: 36361
-
-Inventory:
-  product 1: quantity=51603, reserved=2182, sold=48397
-Inventory sales: 48443
-Notifications: 50672
-
-Rabbit queues with messages:
-  kitchen.inventory-reserved.queue: ready=0, unacked=11
-  notification.created.queue: ready=0, unacked=2
-  inventory.order-created.queue: ready=13963, unacked=160
-  order.delivery-completed.queue: ready=0, unacked=2
-  inventory.delivery-completed.queue: ready=2006, unacked=160
-  delivery.kitchen-ready.queue: ready=0, unacked=3
-
-Status: PROCESSING
-===== POLL 2026-05-30T19:21:12.358Z elapsed=232.16s =====
-FastOrder HA results - 30/5/2026, 1:21:15 p. m.
-DB node for queries: fastorder-db-0
-
-Patroni cluster:
-  fastorder-db-0 @ http://192.168.0.2:8008: role=replica, state=running, reachable=true
-  fastorder-db-1 @ http://192.168.0.5:8108: role=primary, state=running, reachable=true
-  fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
-
-Orders: COMPLETED: 54058 | IN_KITCHEN: 3 | PENDING: 45935 | READY_FOR_DELIVERY: 4
-Orders total: 100000
-Orders final progress: 54058/100000
-Idempotency keys unique: 100000
-
-Outbox processed: 68139
-Outbox pending: 31861
-
-Inventory:
-  product 1: quantity=48047, reserved=2217, sold=51953
-Inventory sales: 52005
-Notifications: 54263
-
-Rabbit queues with messages:
-  kitchen.inventory-reserved.queue: ready=0, unacked=9
-  notification.created.queue: ready=0, unacked=2
-  inventory.order-created.queue: ready=14804, unacked=160
-  order.delivery-completed.queue: ready=0, unacked=1
-  inventory.delivery-completed.queue: ready=2078, unacked=160
-  delivery.kitchen-ready.queue: ready=0, unacked=4
-
-Status: PROCESSING
-===== POLL 2026-05-30T19:21:25.107Z elapsed=244.91s =====
-FastOrder HA results - 30/5/2026, 1:21:27 p. m.
-DB node for queries: fastorder-db-0
-
-Patroni cluster:
-  fastorder-db-0 @ http://192.168.0.2:8008: role=replica, state=running, reachable=true
-  fastorder-db-1 @ http://192.168.0.5:8108: role=primary, state=running, reachable=true
-  fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
-
-Orders: COMPLETED: 57593 | IN_KITCHEN: 3 | PENDING: 42398 | READY_FOR_DELIVERY: 6
-Orders total: 100000
-Orders final progress: 57593/100000
-Idempotency keys unique: 100000
-
-Outbox processed: 72639
-Outbox pending: 27361
-
-Inventory:
-  product 1: quantity=44557, reserved=2279, sold=55443
-Inventory sales: 55487
-Notifications: 57826
-
-Rabbit queues with messages:
-  kitchen.inventory-reserved.queue: ready=0, unacked=7
-  notification.created.queue: ready=0, unacked=1
-  inventory.order-created.queue: ready=17318, unacked=160
-  inventory.delivery-completed.queue: ready=2111, unacked=160
-  delivery.kitchen-ready.queue: ready=0, unacked=4
-
-Status: PROCESSING
-===== POLL 2026-05-30T19:21:37.896Z elapsed=257.7s =====
-FastOrder HA results - 30/5/2026, 1:21:40 p. m.
-DB node for queries: fastorder-db-0
-
-Patroni cluster:
-  fastorder-db-0 @ http://192.168.0.2:8008: role=replica, state=running, reachable=true
-  fastorder-db-1 @ http://192.168.0.5:8108: role=primary, state=running, reachable=true
-  fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
-
-Orders: COMPLETED: 61146 | IN_KITCHEN: 5 | PENDING: 38841 | READY_FOR_DELIVERY: 8
-Orders total: 100000
-Orders final progress: 61146/100000
-Idempotency keys unique: 100000
-
-Outbox processed: 77139
-Outbox pending: 22861
-
-Inventory:
-  product 1: quantity=41000, reserved=2274, sold=59000
-Inventory sales: 59060
-Notifications: 61353
-
-Rabbit queues with messages:
-  kitchen.inventory-reserved.queue: ready=0, unacked=11
-  inventory.order-created.queue: ready=18262, unacked=160
-  order.delivery-completed.queue: ready=0, unacked=1
-  inventory.delivery-completed.queue: ready=2084, unacked=160
-  delivery.kitchen-ready.queue: ready=0, unacked=3
-
-Status: PROCESSING
-===== POLL 2026-05-30T19:21:50.537Z elapsed=270.34s =====
-FastOrder HA results - 30/5/2026, 1:21:53 p. m.
-DB node for queries: fastorder-db-0
-
-Patroni cluster:
-  fastorder-db-0 @ http://192.168.0.2:8008: role=replica, state=running, reachable=true
-  fastorder-db-1 @ http://192.168.0.5:8108: role=primary, state=running, reachable=true
-  fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
-
-Orders: COMPLETED: 64510 | IN_KITCHEN: 4 | PENDING: 35483 | READY_FOR_DELIVERY: 3
-Orders total: 100000
-Orders final progress: 64510/100000
-Idempotency keys unique: 100000
-
-Outbox processed: 81639
-Outbox pending: 18361
-
-Inventory:
-  product 1: quantity=37655, reserved=2274, sold=62345
-Inventory sales: 62392
-Notifications: 64706
-
-Rabbit queues with messages:
-  kitchen.inventory-reserved.queue: ready=0, unacked=7
-  notification.created.queue: ready=0, unacked=2
-  inventory.order-created.queue: ready=19442, unacked=160
-  order.delivery-completed.queue: ready=0, unacked=1
-  inventory.delivery-completed.queue: ready=2082, unacked=160
-  delivery.kitchen-ready.queue: ready=0, unacked=1
-
-Status: PROCESSING
-===== POLL 2026-05-30T19:22:03.047Z elapsed=282.85s =====
-FastOrder HA results - 30/5/2026, 1:22:05 p. m.
-DB node for queries: fastorder-db-0
-
-Patroni cluster:
-  fastorder-db-0 @ http://192.168.0.2:8008: role=replica, state=running, reachable=true
-  fastorder-db-1 @ http://192.168.0.5:8108: role=primary, state=running, reachable=true
-  fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
-
-Orders: COMPLETED: 67699 | IN_KITCHEN: 2 | PENDING: 32291 | READY_FOR_DELIVERY: 8
-Orders total: 100000
-Orders final progress: 67699/100000
-Idempotency keys unique: 100000
-
-Outbox processed: 86139
-Outbox pending: 13861
-
-Inventory:
-  product 1: quantity=34449, reserved=2261, sold=65551
-Inventory sales: 65597
-Notifications: 67902
-
-Rabbit queues with messages:
-  kitchen.inventory-reserved.queue: ready=0, unacked=10
-  notification.created.queue: ready=0, unacked=1
-  inventory.order-created.queue: ready=20702, unacked=160
-  inventory.delivery-completed.queue: ready=2113, unacked=160
-  delivery.kitchen-ready.queue: ready=0, unacked=5
-
-Status: PROCESSING
-===== POLL 2026-05-30T19:22:15.745Z elapsed=295.55s =====
-FastOrder HA results - 30/5/2026, 1:22:18 p. m.
-DB node for queries: fastorder-db-0
-
-Patroni cluster:
-  fastorder-db-0 @ http://192.168.0.2:8008: role=replica, state=running, reachable=true
-  fastorder-db-1 @ http://192.168.0.5:8108: role=primary, state=running, reachable=true
-  fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
-
-Orders: COMPLETED: 71059 | IN_KITCHEN: 1 | PENDING: 28935 | READY_FOR_DELIVERY: 5
-Orders total: 100000
-Orders final progress: 71059/100000
-Idempotency keys unique: 100000
-
-Outbox processed: 90639
-Outbox pending: 9361
-
-Inventory:
-  product 1: quantity=31071, reserved=2241, sold=68929
-Inventory sales: 68981
-Notifications: 71244
-
-Rabbit queues with messages:
-  kitchen.inventory-reserved.queue: ready=0, unacked=8
-  notification.created.queue: ready=0, unacked=1
-  inventory.order-created.queue: ready=20811, unacked=160
-  order.delivery-completed.queue: ready=0, unacked=2
-  inventory.delivery-completed.queue: ready=2057, unacked=160
-  delivery.kitchen-ready.queue: ready=0, unacked=2
-
-Status: PROCESSING
-===== POLL 2026-05-30T19:22:28.267Z elapsed=308.07s =====
-FastOrder HA results - 30/5/2026, 1:22:30 p. m.
-DB node for queries: fastorder-db-0
-
-Patroni cluster:
-  fastorder-db-0 @ http://192.168.0.2:8008: role=replica, state=running, reachable=true
-  fastorder-db-1 @ http://192.168.0.5:8108: role=primary, state=running, reachable=true
-  fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
-
-Orders: COMPLETED: 73969 | IN_KITCHEN: 3 | PENDING: 26024 | READY_FOR_DELIVERY: 4
-Orders total: 100000
-Orders final progress: 73969/100000
-Idempotency keys unique: 100000
-
-Outbox processed: 95139
-Outbox pending: 4861
-
-Inventory:
-  product 1: quantity=28271, reserved=2333, sold=71729
-Inventory sales: 71793
-Notifications: 74149
-
-Rabbit queues with messages:
-  kitchen.inventory-reserved.queue: ready=0, unacked=10
-  notification.created.queue: ready=0, unacked=1
-  inventory.order-created.queue: ready=21940, unacked=160
-  order.delivery-completed.queue: ready=0, unacked=2
-  inventory.delivery-completed.queue: ready=2165, unacked=160
-  delivery.kitchen-ready.queue: ready=0, unacked=3
-
-Status: PROCESSING
-===== POLL 2026-05-30T19:22:40.793Z elapsed=320.59s =====
-FastOrder HA results - 30/5/2026, 1:22:43 p. m.
-DB node for queries: fastorder-db-0
-
-Patroni cluster:
-  fastorder-db-0 @ http://192.168.0.2:8008: role=replica, state=running, reachable=true
-  fastorder-db-1 @ http://192.168.0.5:8108: role=primary, state=running, reachable=true
-  fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
-
-Orders: COMPLETED: 77485 | IN_KITCHEN: 2 | PENDING: 22506 | READY_FOR_DELIVERY: 7
-Orders total: 100000
-Orders final progress: 77485/100000
-Idempotency keys unique: 100000
-
-Outbox processed: 99639
-Outbox pending: 361
-
-Inventory:
-  product 1: quantity=24682, reserved=2292, sold=75318
-Inventory sales: 75378
-Notifications: 77708
-
-Rabbit queues with messages:
-  kitchen.inventory-reserved.queue: ready=0, unacked=6
-  inventory.order-created.queue: ready=21773, unacked=160
-  inventory.delivery-completed.queue: ready=2114, unacked=160
-  delivery.kitchen-ready.queue: ready=0, unacked=3
-
-Status: PROCESSING
-===== POLL 2026-05-30T19:22:53.292Z elapsed=333.09s =====
-FastOrder HA results - 30/5/2026, 1:22:55 p. m.
-DB node for queries: fastorder-db-0
-
-Patroni cluster:
-  fastorder-db-0 @ http://192.168.0.2:8008: role=replica, state=running, reachable=true
-  fastorder-db-1 @ http://192.168.0.5:8108: role=primary, state=running, reachable=true
-  fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
-
-Orders: COMPLETED: 81072 | IN_KITCHEN: 3 | PENDING: 18920 | READY_FOR_DELIVERY: 5
-Orders total: 100000
-Orders final progress: 81072/100000
-Idempotency keys unique: 100000
-
-Outbox processed: 100000
+Orders: COMPLETED: 22390 | IN_KITCHEN: 4 | PENDING: 27603 | READY_FOR_DELIVERY: 3
+Orders total: 50000
+Orders final progress: 22390/50000
+Idempotency keys unique: 50000
+
+Outbox processed: 50000
 Outbox pending: 0
 
 Inventory:
-  product 1: quantity=21044, reserved=2232, sold=78956
-Inventory sales: 79005
-Notifications: 81285
+  product 1: quantity=28194, reserved=648, sold=21806
+Inventory sales: 22233
+Notifications: 22892
 
-Rabbit queues with messages:
-  kitchen.inventory-reserved.queue: ready=0, unacked=9
-  notification.created.queue: ready=0, unacked=1
-  inventory.order-created.queue: ready=18145, unacked=160
-  inventory.delivery-completed.queue: ready=2127, unacked=160
-  delivery.kitchen-ready.queue: ready=0, unacked=3
+Rabbit queues: unavailable from this host
 
 Status: PROCESSING
-===== POLL 2026-05-30T19:23:05.848Z elapsed=345.65s =====
-FastOrder HA results - 30/5/2026, 1:23:09 p. m.
+===== POLL 2026-06-02T04:12:14.761Z elapsed=161.23s =====
+FastOrder HA results - 1/6/2026, 10:12:17 p. m.
 DB node for queries: fastorder-db-0
 
 Patroni cluster:
-  fastorder-db-0 @ http://192.168.0.2:8008: role=replica, state=running, reachable=true
-  fastorder-db-1 @ http://192.168.0.5:8108: role=primary, state=running, reachable=true
+  fastorder-db-0 @ http://192.168.0.2:8008: role=primary, state=running, reachable=true
+  unknown @ http://192.168.0.5:8108: role=unknown, state=timeout, reachable=false
   fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
 
-Orders: COMPLETED: 84167 | IN_KITCHEN: 1 | PENDING: 15827 | READY_FOR_DELIVERY: 5
-Orders total: 100000
-Orders final progress: 84167/100000
-Idempotency keys unique: 100000
+Orders: COMPLETED: 24727 | IN_KITCHEN: 2 | PENDING: 25268 | READY_FOR_DELIVERY: 3
+Orders total: 50000
+Orders final progress: 24727/50000
+Idempotency keys unique: 50000
 
-Outbox processed: 100000
+Outbox processed: 50000
 Outbox pending: 0
 
 Inventory:
-  product 1: quantity=17963, reserved=2249, sold=82037
-Inventory sales: 82082
-Notifications: 84362
+  product 1: quantity=25826, reserved=606, sold=24174
+Inventory sales: 24589
+Notifications: 25202
 
-Rabbit queues with messages:
-  kitchen.inventory-reserved.queue: ready=0, unacked=9
-  notification.created.queue: ready=0, unacked=2
-  inventory.order-created.queue: ready=15044, unacked=160
-  order.delivery-completed.queue: ready=0, unacked=1
-  inventory.delivery-completed.queue: ready=2156, unacked=160
-  delivery.kitchen-ready.queue: ready=0, unacked=3
+Rabbit queues: unavailable from this host
 
 Status: PROCESSING
-===== POLL 2026-05-30T19:23:19.498Z elapsed=359.3s =====
-FastOrder HA results - 30/5/2026, 1:23:22 p. m.
+===== POLL 2026-06-02T04:12:27.964Z elapsed=174.44s =====
+FastOrder HA results - 1/6/2026, 10:12:31 p. m.
 DB node for queries: fastorder-db-0
 
 Patroni cluster:
-  fastorder-db-0 @ http://192.168.0.2:8008: role=replica, state=running, reachable=true
-  fastorder-db-1 @ http://192.168.0.5:8108: role=primary, state=running, reachable=true
+  fastorder-db-0 @ http://192.168.0.2:8008: role=primary, state=running, reachable=true
+  unknown @ http://192.168.0.5:8108: role=unknown, state=timeout, reachable=false
   fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
 
-Orders: COMPLETED: 87561 | IN_KITCHEN: 3 | PENDING: 12433 | READY_FOR_DELIVERY: 3
-Orders total: 100000
-Orders final progress: 87561/100000
-Idempotency keys unique: 100000
+Orders: COMPLETED: 27218 | IN_KITCHEN: 2 | PENDING: 22776 | READY_FOR_DELIVERY: 4
+Orders total: 50000
+Orders final progress: 27218/50000
+Idempotency keys unique: 50000
 
-Outbox processed: 100000
+Outbox processed: 50000
 Outbox pending: 0
 
 Inventory:
-  product 1: quantity=14581, reserved=2260, sold=85419
-Inventory sales: 85464
-Notifications: 87767
+  product 1: quantity=23377, reserved=645, sold=26623
+Inventory sales: 27051
+Notifications: 27681
 
-Rabbit queues with messages:
-  kitchen.inventory-reserved.queue: ready=0, unacked=9
-  notification.created.queue: ready=0, unacked=2
-  inventory.order-created.queue: ready=11680, unacked=160
-  order.delivery-completed.queue: ready=0, unacked=1
-  inventory.delivery-completed.queue: ready=2082, unacked=160
-  delivery.kitchen-ready.queue: ready=0, unacked=1
+Rabbit queues: unavailable from this host
 
 Status: PROCESSING
-===== POLL 2026-05-30T19:23:32.460Z elapsed=372.26s =====
-FastOrder HA results - 30/5/2026, 1:23:35 p. m.
+===== POLL 2026-06-02T04:12:41.258Z elapsed=187.73s =====
+FastOrder HA results - 1/6/2026, 10:12:44 p. m.
 DB node for queries: fastorder-db-0
 
 Patroni cluster:
-  fastorder-db-0 @ http://192.168.0.2:8008: role=replica, state=running, reachable=true
-  fastorder-db-1 @ http://192.168.0.5:8108: role=primary, state=running, reachable=true
+  fastorder-db-0 @ http://192.168.0.2:8008: role=primary, state=running, reachable=true
+  unknown @ http://192.168.0.5:8108: role=unknown, state=timeout, reachable=false
   fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
 
-Orders: COMPLETED: 90992 | IN_KITCHEN: 2 | PENDING: 9000 | READY_FOR_DELIVERY: 6
-Orders total: 100000
-Orders final progress: 90992/100000
-Idempotency keys unique: 100000
+Orders: COMPLETED: 29715 | IN_KITCHEN: 2 | PENDING: 20280 | READY_FOR_DELIVERY: 3
+Orders total: 50000
+Orders final progress: 29715/50000
+Idempotency keys unique: 50000
 
-Outbox processed: 100000
+Outbox processed: 50000
 Outbox pending: 0
 
 Inventory:
-  product 1: quantity=11148, reserved=2261, sold=88852
-Inventory sales: 88903
-Notifications: 91209
+  product 1: quantity=20863, reserved=652, sold=29137
+Inventory sales: 29534
+Notifications: 30212
 
-Rabbit queues with messages:
-  kitchen.inventory-reserved.queue: ready=0, unacked=8
-  notification.created.queue: ready=0, unacked=2
-  inventory.order-created.queue: ready=8244, unacked=160
-  order.delivery-completed.queue: ready=0, unacked=1
-  inventory.delivery-completed.queue: ready=2118, unacked=160
-  delivery.kitchen-ready.queue: ready=0, unacked=1
+Rabbit queues: unavailable from this host
 
 Status: PROCESSING
-===== POLL 2026-05-30T19:23:45.121Z elapsed=384.92s =====
-FastOrder HA results - 30/5/2026, 1:23:47 p. m.
+===== POLL 2026-06-02T04:12:54.474Z elapsed=200.95s =====
+FastOrder HA results - 1/6/2026, 10:12:57 p. m.
 DB node for queries: fastorder-db-0
 
 Patroni cluster:
-  fastorder-db-0 @ http://192.168.0.2:8008: role=replica, state=running, reachable=true
-  fastorder-db-1 @ http://192.168.0.5:8108: role=primary, state=running, reachable=true
+  fastorder-db-0 @ http://192.168.0.2:8008: role=primary, state=running, reachable=true
+  unknown @ http://192.168.0.5:8108: role=unknown, state=timeout, reachable=false
   fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
 
-Orders: COMPLETED: 94725 | IN_KITCHEN: 4 | PENDING: 5265 | READY_FOR_DELIVERY: 6
-Orders total: 100000
-Orders final progress: 94725/100000
-Idempotency keys unique: 100000
+Orders: COMPLETED: 32194 | IN_KITCHEN: 2 | PENDING: 17802 | READY_FOR_DELIVERY: 2
+Orders total: 50000
+Orders final progress: 32194/50000
+Idempotency keys unique: 50000
 
-Outbox processed: 100000
+Outbox processed: 50000
 Outbox pending: 0
 
 Inventory:
-  product 1: quantity=7375, reserved=2213, sold=92625
-Inventory sales: 92680
-Notifications: 94917
+  product 1: quantity=18302, reserved=567, sold=31698
+Inventory sales: 32101
+Notifications: 32700
 
-Rabbit queues with messages:
-  kitchen.inventory-reserved.queue: ready=0, unacked=10
-  inventory.order-created.queue: ready=4567, unacked=160
-  order.delivery-completed.queue: ready=0, unacked=1
-  inventory.delivery-completed.queue: ready=2009, unacked=160
-  delivery.kitchen-ready.queue: ready=0, unacked=3
+Rabbit queues: unavailable from this host
 
 Status: PROCESSING
-===== POLL 2026-05-30T19:23:57.838Z elapsed=397.64s =====
-FastOrder HA results - 30/5/2026, 1:24:00 p. m.
+===== POLL 2026-06-02T04:13:07.653Z elapsed=214.13s =====
+FastOrder HA results - 1/6/2026, 10:13:10 p. m.
 DB node for queries: fastorder-db-0
 
 Patroni cluster:
-  fastorder-db-0 @ http://192.168.0.2:8008: role=replica, state=running, reachable=true
-  fastorder-db-1 @ http://192.168.0.5:8108: role=primary, state=running, reachable=true
+  fastorder-db-0 @ http://192.168.0.2:8008: role=primary, state=running, reachable=true
+  unknown @ http://192.168.0.5:8108: role=unknown, state=timeout, reachable=false
   fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
 
-Orders: COMPLETED: 98344 | IN_KITCHEN: 2 | PENDING: 1647 | READY_FOR_DELIVERY: 7
-Orders total: 100000
-Orders final progress: 98344/100000
-Idempotency keys unique: 100000
+Orders: COMPLETED: 34567 | IN_KITCHEN: 3 | PENDING: 15427 | READY_FOR_DELIVERY: 3
+Orders total: 50000
+Orders final progress: 34567/50000
+Idempotency keys unique: 50000
 
-Outbox processed: 100000
+Outbox processed: 50000
 Outbox pending: 0
 
 Inventory:
-  product 1: quantity=3770, reserved=2228, sold=96230
-Inventory sales: 96286
-Notifications: 98538
+  product 1: quantity=15941, reserved=566, sold=34059
+Inventory sales: 34472
+Notifications: 35077
 
-Rabbit queues with messages:
-  kitchen.inventory-reserved.queue: ready=0, unacked=7
-  inventory.order-created.queue: ready=956, unacked=160
-  inventory.delivery-completed.queue: ready=1995, unacked=160
-  delivery.kitchen-ready.queue: ready=0, unacked=2
+Rabbit queues: unavailable from this host
 
 Status: PROCESSING
-===== POLL 2026-05-30T19:24:10.361Z elapsed=410.16s =====
-FastOrder HA results - 30/5/2026, 1:24:12 p. m.
+===== POLL 2026-06-02T04:13:20.886Z elapsed=227.36s =====
+FastOrder HA results - 1/6/2026, 10:13:24 p. m.
 DB node for queries: fastorder-db-0
 
 Patroni cluster:
-  fastorder-db-0 @ http://192.168.0.2:8008: role=replica, state=running, reachable=true
-  fastorder-db-1 @ http://192.168.0.5:8108: role=primary, state=running, reachable=true
+  fastorder-db-0 @ http://192.168.0.2:8008: role=primary, state=running, reachable=true
+  unknown @ http://192.168.0.5:8108: role=unknown, state=timeout, reachable=false
   fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
 
-Orders: COMPLETED: 100000
-Orders total: 100000
-Orders final progress: 100000/100000
-Idempotency keys unique: 100000
+Orders: COMPLETED: 37156 | IN_KITCHEN: 3 | PENDING: 12836 | READY_FOR_DELIVERY: 5
+Orders total: 50000
+Orders final progress: 37156/50000
+Idempotency keys unique: 50000
 
-Outbox processed: 100000
+Outbox processed: 50000
 Outbox pending: 0
 
 Inventory:
-  product 1: quantity=0, reserved=0, sold=100000
-Inventory sales: 100000
-Notifications: 100000
+  product 1: quantity=13361, reserved=580, sold=36639
+Inventory sales: 36908
+Notifications: 37487
 
-Rabbit queues: empty
+Rabbit queues: unavailable from this host
 
-Status: DONE
+Status: PROCESSING
+===== POLL 2026-06-02T04:13:34.071Z elapsed=240.54s =====
+FastOrder HA results - 1/6/2026, 10:13:37 p. m.
+DB node for queries: fastorder-db-0
+
+Patroni cluster:
+  fastorder-db-0 @ http://192.168.0.2:8008: role=primary, state=running, reachable=true
+  unknown @ http://192.168.0.5:8108: role=unknown, state=timeout, reachable=false
+  fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
+
+Orders: COMPLETED: 39280 | IN_KITCHEN: 2 | PENDING: 10715 | READY_FOR_DELIVERY: 3
+Orders total: 50000
+Orders final progress: 39280/50000
+Idempotency keys unique: 50000
+
+Outbox processed: 50000
+Outbox pending: 0
+
+Inventory:
+  product 1: quantity=11248, reserved=593, sold=38752
+Inventory sales: 39066
+Notifications: 39679
+
+Rabbit queues: unavailable from this host
+
+Status: PROCESSING
+===== POLL 2026-06-02T04:13:47.262Z elapsed=253.73s =====
+FastOrder HA results - 1/6/2026, 10:13:50 p. m.
+DB node for queries: fastorder-db-0
+
+Patroni cluster:
+  fastorder-db-0 @ http://192.168.0.2:8008: role=primary, state=running, reachable=true
+  unknown @ http://192.168.0.5:8108: role=unknown, state=timeout, reachable=false
+  fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
+
+Orders: COMPLETED: 41526 | IN_KITCHEN: 3 | PENDING: 8469 | READY_FOR_DELIVERY: 2
+Orders total: 50000
+Orders final progress: 41526/50000
+Idempotency keys unique: 50000
+
+Outbox processed: 50000
+Outbox pending: 0
+
+Inventory:
+  product 1: quantity=8942, reserved=531, sold=41058
+Inventory sales: 41482
+Notifications: 41994
+
+Rabbit queues: unavailable from this host
+
+Status: PROCESSING
+===== POLL 2026-06-02T04:14:00.456Z elapsed=266.93s =====
+FastOrder HA results - 1/6/2026, 10:14:03 p. m.
+DB node for queries: fastorder-db-0
+
+Patroni cluster:
+  fastorder-db-0 @ http://192.168.0.2:8008: role=primary, state=running, reachable=true
+  unknown @ http://192.168.0.5:8108: role=unknown, state=timeout, reachable=false
+  fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
+
+Orders: COMPLETED: 43898 | IN_KITCHEN: 2 | PENDING: 6097 | READY_FOR_DELIVERY: 3
+Orders total: 50000
+Orders final progress: 43898/50000
+Idempotency keys unique: 50000
+
+Outbox processed: 50000
+Outbox pending: 0
+
+Inventory:
+  product 1: quantity=6497, reserved=461, sold=43503
+Inventory sales: 43922
+Notifications: 44412
+
+Rabbit queues: unavailable from this host
+
+Status: PROCESSING
+===== POLL 2026-06-02T04:14:13.643Z elapsed=280.12s =====
+FastOrder HA results - 1/6/2026, 10:14:16 p. m.
+DB node for queries: fastorder-db-0
+
+Patroni cluster:
+  fastorder-db-0 @ http://192.168.0.2:8008: role=primary, state=running, reachable=true
+  unknown @ http://192.168.0.5:8108: role=unknown, state=timeout, reachable=false
+  fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
+
+Orders: COMPLETED: 46316 | IN_KITCHEN: 4 | PENDING: 3676 | READY_FOR_DELIVERY: 4
+Orders total: 50000
+Orders final progress: 46316/50000
+Idempotency keys unique: 50000
+
+Outbox processed: 50000
+Outbox pending: 0
+
+Inventory:
+  product 1: quantity=4043, reserved=430, sold=45957
+Inventory sales: 46376
+Notifications: 46827
+
+Rabbit queues: unavailable from this host
+
+Status: PROCESSING
+===== POLL 2026-06-02T04:14:26.952Z elapsed=293.42s =====
+FastOrder HA results - 1/6/2026, 10:14:30 p. m.
+DB node for queries: fastorder-db-0
+
+Patroni cluster:
+  fastorder-db-0 @ http://192.168.0.2:8008: role=primary, state=running, reachable=true
+  unknown @ http://192.168.0.5:8108: role=unknown, state=timeout, reachable=false
+  fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
+
+Orders: COMPLETED: 48834 | IN_KITCHEN: 1 | PENDING: 1160 | READY_FOR_DELIVERY: 5
+Orders total: 50000
+Orders final progress: 48834/50000
+Idempotency keys unique: 50000
+
+Outbox processed: 50000
+Outbox pending: 0
+
+Inventory:
+  product 1: quantity=1541, reserved=447, sold=48459
+Inventory sales: 48836
+Notifications: 49323
+
+Rabbit queues: unavailable from this host
+
+Status: PROCESSING
+===== POLL 2026-06-02T04:14:40.173Z elapsed=306.65s =====
+FastOrder HA results - 1/6/2026, 10:14:43 p. m.
+DB node for queries: fastorder-db-0
+
+Patroni cluster:
+  fastorder-db-0 @ http://192.168.0.2:8008: role=primary, state=running, reachable=true
+  unknown @ http://192.168.0.5:8108: role=unknown, state=timeout, reachable=false
+  fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
+
+Orders: COMPLETED: 50000
+Orders total: 50000
+Orders final progress: 50000/50000
+Idempotency keys unique: 50000
+
+Outbox processed: 50000
+Outbox pending: 0
+
+Inventory:
+  product 1: quantity=5, reserved=5, sold=49995
+Inventory sales: 49995
+Notifications: 50000
+
+Rabbit queues: unavailable from this host
+
+Status: PROCESSING
+===== POLL 2026-06-02T04:14:53.703Z elapsed=320.18s =====
+FastOrder HA results - 1/6/2026, 10:14:57 p. m.
+DB node for queries: fastorder-db-0
+
+Patroni cluster:
+  fastorder-db-0 @ http://192.168.0.2:8008: role=primary, state=running, reachable=true
+  unknown @ http://192.168.0.5:8108: role=unknown, state=timeout, reachable=false
+  fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
+
+Orders: COMPLETED: 50000
+Orders total: 50000
+Orders final progress: 50000/50000
+Idempotency keys unique: 50000
+
+Outbox processed: 50000
+Outbox pending: 0
+
+Inventory:
+  product 1: quantity=5, reserved=5, sold=49995
+Inventory sales: 49995
+Notifications: 50000
+
+Rabbit queues: unavailable from this host
+
+Status: PROCESSING
+===== POLL 2026-06-02T04:15:07.233Z elapsed=333.71s =====
+FastOrder HA results - 1/6/2026, 10:15:10 p. m.
+DB node for queries: fastorder-db-0
+
+Patroni cluster:
+  fastorder-db-0 @ http://192.168.0.2:8008: role=primary, state=running, reachable=true
+  unknown @ http://192.168.0.5:8108: role=unknown, state=timeout, reachable=false
+  fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
+
+Orders: COMPLETED: 50000
+Orders total: 50000
+Orders final progress: 50000/50000
+Idempotency keys unique: 50000
+
+Outbox processed: 50000
+Outbox pending: 0
+
+Inventory:
+  product 1: quantity=5, reserved=5, sold=49995
+Inventory sales: 49995
+Notifications: 50000
+
+Rabbit queues: unavailable from this host
+
+Status: PROCESSING
+===== POLL 2026-06-02T04:15:20.780Z elapsed=347.25s =====
+FastOrder HA results - 1/6/2026, 10:15:24 p. m.
+DB node for queries: fastorder-db-0
+
+Patroni cluster:
+  fastorder-db-0 @ http://192.168.0.2:8008: role=primary, state=running, reachable=true
+  unknown @ http://192.168.0.5:8108: role=unknown, state=timeout, reachable=false
+  fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
+
+Orders: COMPLETED: 50000
+Orders total: 50000
+Orders final progress: 50000/50000
+Idempotency keys unique: 50000
+
+Outbox processed: 50000
+Outbox pending: 0
+
+Inventory:
+  product 1: quantity=5, reserved=5, sold=49995
+Inventory sales: 49995
+Notifications: 50000
+
+Rabbit queues: unavailable from this host
+
+Status: PROCESSING
+===== POLL 2026-06-02T04:15:34.305Z elapsed=360.78s =====
+FastOrder HA results - 1/6/2026, 10:15:37 p. m.
+DB node for queries: fastorder-db-0
+
+Patroni cluster:
+  fastorder-db-0 @ http://192.168.0.2:8008: role=primary, state=running, reachable=true
+  unknown @ http://192.168.0.5:8108: role=unknown, state=timeout, reachable=false
+  fastorder-db-2 @ http://192.168.0.6:8008: role=replica, state=running, reachable=true
+
+Orders: COMPLETED: 50000
+Orders total: 50000
+Orders final progress: 50000/50000
+Idempotency keys unique: 50000
+
+Outbox processed: 50000
+Outbox pending: 0
+
+Inventory:
+  product 1: quantity=5, reserved=5, sold=49995
+Inventory sales: 49995
+Notifications: 50000
+
+Rabbit queues: unavailable from this host
+
+Status: PROCESSING
