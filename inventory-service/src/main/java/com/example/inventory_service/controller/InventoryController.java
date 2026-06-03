@@ -35,4 +35,10 @@ public class InventoryController {
             return ResponseEntity.badRequest().body("No hay suficiente stock disponible");
         }
     }
+
+    @PostMapping("/release")
+    public ResponseEntity<String> releaseStock(@RequestBody StockUpdateRequest request) {
+        inventoryService.releaseStock(request);
+        return ResponseEntity.ok("Stock liberado exitosamente");
+    }
 }

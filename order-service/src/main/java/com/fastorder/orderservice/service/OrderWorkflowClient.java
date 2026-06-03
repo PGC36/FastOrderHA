@@ -21,6 +21,7 @@ public class OrderWorkflowClient {
     private static final String DEFAULT_DELIVERY_ADDRESS = "Direccion pendiente";
     private static final String DEFAULT_NOTIFICATION_CHANNEL = "EMAIL";
     private static final String DEFAULT_NOTIFICATION_RECIPIENT = "cliente@fastorder.test";
+    private static final Long SYSTEM_DRIVER_ID = 1L;
 
     private final RestClient restClient;
     private final String inventoryBaseUrl;
@@ -65,25 +66,95 @@ public class OrderWorkflowClient {
         }
     }
 
-    public void createKitchenOrder(Order order) {
+    public void releaseInventory(Order order) {
+        try {
+            restClient.post()
+                    .uri(inventoryBaseUrl + "/release")
+                    .body(Map.of(
+                            "orderId", order.getId(),
+                            "productId", order.getProductId(),
+                            "quantity", order.getQuantity()))
+                    .retrieve()
+                    .body(String.class);
+            logger.info("Inventario liberado productId={}, quantity={}, orderId={}",
+                    order.getProductId(), order.getQuantity(), order.getId());
+        } catch (RestClientException exception) {
+            logger.error("No se pudo liberar inventario productId={}, quantity={}, orderId={}",
+                    order.getProductId(), order.getQuantity(), order.getId(), exception);
+        }
+    }
+
+    public Long createKitchenOrder(Order order) {
         Map<String, Object> kitchenOrder = post(kitchenBaseUrl, Map.of("orderId", order.getId()), "kitchen-service");
         Long kitchenOrderId = readId(kitchenOrder, "kitchen-service");
 
-        patch(kitchenBaseUrl + "/" + kitchenOrderId + "/status", Map.of("status", "PREPARING"), "kitchen-service");
-        patch(kitchenBaseUrl + "/" + kitchenOrderId + "/status", Map.of("status", "READY"), "kitchen-service");
+        try {
+            patch(kitchenBaseUrl + "/" + kitchenOrderId + "/status", Map.of("status", "PREPARING"), "kitchen-service");
+            patch(kitchenBaseUrl + "/" + kitchenOrderId + "/status", Map.of("status", "READY"), "kitchen-service");
+            return kitchenOrderId;
+        } catch (RuntimeException exception) {
+            cancelKitchenOrder(kitchenOrderId, "Fallo durante flujo de cocina");
+            throw exception;
+        }
     }
 
-    public void createDelivery(Order order, CreateOrderRequest request) {
+    public Long createDelivery(Order order, CreateOrderRequest request) {
+        String deliveryAddress = request == null
+                ? valueOrDefault(order.getDeliveryAddress(), DEFAULT_DELIVERY_ADDRESS)
+                : valueOrDefault(request.getDeliveryAddress(), DEFAULT_DELIVERY_ADDRESS);
         Map<String, Object> delivery = post(deliveryBaseUrl, Map.of(
                 "orderId", order.getId(),
-                "deliveryAddress", valueOrDefault(request.getDeliveryAddress(), DEFAULT_DELIVERY_ADDRESS)),
+                "deliveryAddress", deliveryAddress),
                 "delivery-service");
-        Long deliveryId = readId(delivery, "delivery-service");
+        return readId(delivery, "delivery-service");
+    }
 
-        patch(deliveryBaseUrl + "/" + deliveryId + "/assign", Map.of("driverId", 1), "delivery-service");
-        patch(deliveryBaseUrl + "/" + deliveryId + "/pick-up", null, "delivery-service");
-        patch(deliveryBaseUrl + "/" + deliveryId + "/in-transit", null, "delivery-service");
-        patch(deliveryBaseUrl + "/" + deliveryId + "/deliver", null, "delivery-service");
+    public void createAndCompleteDelivery(Order order, CreateOrderRequest request) {
+        Map<String, Object> delivery = createDeliveryResponse(order, request);
+        Long deliveryId = readId(delivery, "delivery-service");
+        completeDeliveryIfNeeded(order, deliveryId, delivery);
+    }
+
+    public void createAndCompleteDelivery(Order order) {
+        Map<String, Object> delivery = createDeliveryResponse(order, null);
+        Long deliveryId = readId(delivery, "delivery-service");
+        completeDeliveryIfNeeded(order, deliveryId, delivery);
+    }
+
+    private Map<String, Object> createDeliveryResponse(Order order, CreateOrderRequest request) {
+        String deliveryAddress = request == null
+                ? valueOrDefault(order.getDeliveryAddress(), DEFAULT_DELIVERY_ADDRESS)
+                : valueOrDefault(request.getDeliveryAddress(), DEFAULT_DELIVERY_ADDRESS);
+        return post(deliveryBaseUrl, Map.of(
+                "orderId", order.getId(),
+                "deliveryAddress", deliveryAddress),
+                "delivery-service");
+    }
+
+    private void completeDeliveryIfNeeded(Order order, Long deliveryId, Map<String, Object> delivery) {
+        if (isDeliveryAlreadyCompleted(delivery)) {
+            logger.info("Entrega ya estaba completada deliveryId={}, orderId={}", deliveryId, order.getId());
+            return;
+        }
+
+        completeDelivery(order, deliveryId);
+    }
+
+    private void completeDelivery(Order order, Long deliveryId) {
+
+        try {
+            patch(deliveryBaseUrl + "/" + deliveryId + "/assign",
+                    Map.of("driverId", SYSTEM_DRIVER_ID),
+                    "delivery-service");
+            patch(deliveryBaseUrl + "/" + deliveryId + "/pick-up", null, "delivery-service");
+            patch(deliveryBaseUrl + "/" + deliveryId + "/in-transit", null, "delivery-service");
+            patch(deliveryBaseUrl + "/" + deliveryId + "/deliver", null, "delivery-service");
+            logger.info("Entrega completada automaticamente deliveryId={}, orderId={}", deliveryId, order.getId());
+        } catch (RuntimeException exception) {
+            cancelDelivery(deliveryId, "Fallo durante flujo automatico de delivery");
+            failDelivery(deliveryId, "Fallo durante flujo automatico de delivery");
+            throw exception;
+        }
     }
 
     public void createNotification(Order order, CreateOrderRequest request) {
@@ -93,6 +164,47 @@ public class OrderWorkflowClient {
                 "recipient", valueOrDefault(request.getNotificationRecipient(), DEFAULT_NOTIFICATION_RECIPIENT),
                 "message", "Pedido " + order.getId() + " de Pollo Frito recibido"),
                 "notification-service");
+    }
+
+    public void cancelKitchenOrder(Long kitchenOrderId, String reason) {
+        if (kitchenOrderId == null) {
+            return;
+        }
+
+        try {
+            patch(kitchenBaseUrl + "/" + kitchenOrderId + "/status", Map.of("status", "CANCELLED"), "kitchen-service");
+            logger.info("Orden de cocina cancelada kitchenOrderId={}, reason={}", kitchenOrderId, reason);
+        } catch (RuntimeException exception) {
+            logger.error("No se pudo cancelar orden de cocina kitchenOrderId={}, reason={}",
+                    kitchenOrderId, reason, exception);
+        }
+    }
+
+    public void cancelDelivery(Long deliveryId, String reason) {
+        if (deliveryId == null) {
+            return;
+        }
+
+        try {
+            patch(deliveryBaseUrl + "/" + deliveryId + "/cancel", Map.of("reason", reason), "delivery-service");
+            logger.info("Entrega cancelada deliveryId={}, reason={}", deliveryId, reason);
+        } catch (RuntimeException exception) {
+            logger.error("No se pudo cancelar entrega deliveryId={}, reason={}", deliveryId, reason, exception);
+        }
+    }
+
+    public void failDelivery(Long deliveryId, String reason) {
+        if (deliveryId == null) {
+            return;
+        }
+
+        try {
+            patch(deliveryBaseUrl + "/" + deliveryId + "/fail", Map.of("reason", reason), "delivery-service");
+            logger.info("Entrega marcada como fallida deliveryId={}, reason={}", deliveryId, reason);
+        } catch (RuntimeException exception) {
+            logger.error("No se pudo marcar entrega como fallida deliveryId={}, reason={}",
+                    deliveryId, reason, exception);
+        }
     }
 
     private Map<String, Object> post(String url, Map<String, ?> body, String serviceName) {
@@ -131,6 +243,10 @@ public class OrderWorkflowClient {
             throw new InventoryUnavailableException(serviceName + " no devolvio id");
         }
         return id.longValue();
+    }
+
+    private boolean isDeliveryAlreadyCompleted(Map<String, Object> delivery) {
+        return delivery != null && "DELIVERED".equals(String.valueOf(delivery.get("status")));
     }
 
     private String valueOrDefault(String value, String defaultValue) {

@@ -1,9 +1,13 @@
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5441}/${DB_NAME:menu_db}
-    username: ${DB_USER:menu_user}
-    password: ${DB_PASSWORD:menu123}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5440}/${DB_NAME:fastorder_db}
+    username: ${DB_USER:fastorder_user}
+    password: ${DB_PASSWORD:fastorder123}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE:10}
+      minimum-idle: ${SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE:3}
+      connection-timeout: ${SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT:3000}
 
   application:
     name: menu-service
@@ -11,16 +15,26 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
     open-in-view: false
+
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:guest}
+    password: ${SPRING_RABBITMQ_PASSWORD:guest}
 
 server:
   port: 8081
 
 management:
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
   endpoints:
     web:
       exposure:
@@ -37,6 +51,12 @@ info:
     name: menu-service
     description: Microservicio de administracion y consulta de productos del menu para FastOrder HA
     version: 0.0.1-SNAPSHOT
+
+app:
+  rabbit:
+    exchange: menu.exchange
+    queue: menu.events.queue
+    routing-key: menu.event
 
 logging:
   level:

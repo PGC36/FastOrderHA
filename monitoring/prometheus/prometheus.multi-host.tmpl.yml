@@ -1,0 +1,197 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - prometheus:9090
+
+  - job_name: cadvisor
+    static_configs:
+      - targets:
+          - cadvisor:8080
+
+  - job_name: docker-stats
+    static_configs:
+      - targets:
+          - docker-stats-exporter:9104
+
+  - job_name: rabbitmq
+    static_configs:
+      - targets:
+          - ${RABBITMQ_HOST}:15692
+
+  - job_name: rabbitmq-per-object
+    metrics_path: /metrics/per-object
+    static_configs:
+      - targets:
+          - ${RABBITMQ_HOST}:15692
+
+  - job_name: postgres-node
+    static_configs:
+      - targets:
+          - ${PC1_IP}:9187
+        labels:
+          postgres_node: db-0
+          postgres_host: ${PC1_IP}
+          postgres_role_hint: candidate
+      - targets:
+          - ${PC2_IP}:9188
+        labels:
+          postgres_node: db-1
+          postgres_host: ${PC2_IP}
+          postgres_role_hint: candidate
+      - targets:
+          - ${PC3_IP}:9187
+        labels:
+          postgres_node: db-2
+          postgres_host: ${PC3_IP}
+          postgres_role_hint: candidate
+
+  - job_name: postgres-proxy
+    static_configs:
+      - targets:
+          - ${PC2_IP}:9189
+        labels:
+          proxy_node: proxy-1
+          proxy_host: ${PC2_IP}
+          proxy_role: primary_proxy
+      - targets:
+          - ${PC4_IP}:9187
+        labels:
+          proxy_node: proxy-2
+          proxy_host: ${PC4_IP}
+          proxy_role: secondary_proxy
+
+  - job_name: patroni
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - ${PC1_IP}:8008
+        labels:
+          postgres_node: db-0
+          postgres_host: ${PC1_IP}
+      - targets:
+          - ${PC2_IP}:8108
+        labels:
+          postgres_node: db-1
+          postgres_host: ${PC2_IP}
+      - targets:
+          - ${PC3_IP}:8008
+        labels:
+          postgres_node: db-2
+          postgres_host: ${PC3_IP}
+
+  - job_name: api-gateway
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - ${PC2_IP}:8080
+        labels:
+          service_name: api-gateway
+          service_host: ${PC2_IP}
+          service_node: pc2
+      - targets:
+          - ${PC3_IP}:8080
+        labels:
+          service_name: api-gateway
+          service_host: ${PC3_IP}
+          service_node: pc3
+
+  - job_name: menu-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - ${PC2_IP}:8081
+        labels:
+          service_name: menu-service
+          service_host: ${PC2_IP}
+          service_node: pc2
+      - targets:
+          - ${PC3_IP}:8081
+        labels:
+          service_name: menu-service
+          service_host: ${PC3_IP}
+          service_node: pc3
+
+  - job_name: order-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - ${PC2_IP}:8082
+        labels:
+          service_name: order-service
+          service_host: ${PC2_IP}
+          service_node: pc2
+      - targets:
+          - ${PC3_IP}:8082
+        labels:
+          service_name: order-service
+          service_host: ${PC3_IP}
+          service_node: pc3
+
+  - job_name: inventory-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - ${PC2_IP}:8083
+        labels:
+          service_name: inventory-service
+          service_host: ${PC2_IP}
+          service_node: pc2
+      - targets:
+          - ${PC3_IP}:8083
+        labels:
+          service_name: inventory-service
+          service_host: ${PC3_IP}
+          service_node: pc3
+
+  - job_name: kitchen-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - ${PC2_IP}:8084
+        labels:
+          service_name: kitchen-service
+          service_host: ${PC2_IP}
+          service_node: pc2
+      - targets:
+          - ${PC3_IP}:8084
+        labels:
+          service_name: kitchen-service
+          service_host: ${PC3_IP}
+          service_node: pc3
+
+  - job_name: delivery-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - ${PC2_IP}:8085
+        labels:
+          service_name: delivery-service
+          service_host: ${PC2_IP}
+          service_node: pc2
+      - targets:
+          - ${PC3_IP}:8085
+        labels:
+          service_name: delivery-service
+          service_host: ${PC3_IP}
+          service_node: pc3
+
+  - job_name: notification-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - ${PC2_IP}:8086
+        labels:
+          service_name: notification-service
+          service_host: ${PC2_IP}
+          service_node: pc2
+      - targets:
+          - ${PC3_IP}:8086
+        labels:
+          service_name: notification-service
+          service_host: ${PC3_IP}
+          service_node: pc3

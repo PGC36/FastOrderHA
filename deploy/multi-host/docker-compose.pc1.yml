@@ -1,0 +1,105 @@
+services:
+  etcd-0:
+    image: quay.io/coreos/etcd:v3.5.18
+    container_name: fastorder-etcd-0
+    environment:
+      ETCD_NAME: etcd-0
+      ETCD_INITIAL_ADVERTISE_PEER_URLS: http://${PC1_IP}:2380
+      ETCD_LISTEN_PEER_URLS: http://0.0.0.0:2380
+      ETCD_ADVERTISE_CLIENT_URLS: http://${PC1_IP}:2379
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+      ETCD_INITIAL_CLUSTER: etcd-0=http://${PC1_IP}:2380,etcd-1=http://${PC2_IP}:2380,etcd-2=http://${PC3_IP}:2380
+      ETCD_INITIAL_CLUSTER_STATE: new
+      ETCD_INITIAL_CLUSTER_TOKEN: fastorder-etcd-cluster
+    command:
+      - /usr/local/bin/etcd
+      - --data-dir=/etcd-data
+    volumes:
+      - fastorder_etcd_0_data:/etcd-data
+    ports:
+      - "2379:2379"
+      - "2380:2380"
+    restart: unless-stopped
+
+  fastorder-db-0:
+    build:
+      context: ../patroni-3nodes/patroni
+    container_name: fastorder-db-0
+    environment:
+      FASTORDER_NODE_IP: ${PC1_IP}
+      FASTORDER_POSTGRES_PORT: "5432"
+      FASTORDER_PATRONI_API_PORT: "8008"
+      FASTORDER_PATRONI_NAME: fastorder-db-0
+      FASTORDER_ETCD_HOSTS: etcd-0:2379,${PC2_IP}:2379,${PC3_IP}:2379
+      FASTORDER_POSTGRES_PASSWORD: fastorder123
+      FASTORDER_REPLICATION_PASSWORD: replicator123
+      FASTORDER_APP_DB: fastorder_db
+      FASTORDER_APP_USER: fastorder_user
+      FASTORDER_APP_PASSWORD: fastorder123
+    command:
+      - /bin/sh
+      - -c
+      - mkdir -p /var/lib/postgresql/data/pgdata /var/run/postgresql && chown -R postgres:postgres /var/lib/postgresql /var/run/postgresql && chmod 700 /var/lib/postgresql/data /var/lib/postgresql/data/pgdata && chmod 3775 /var/run/postgresql && exec gosu postgres sh -c 'envsubst < /etc/patroni/patroni.yml.tmpl > /tmp/patroni.yml && exec patroni /tmp/patroni.yml'
+    volumes:
+      - fastorder_db_0_data:/var/lib/postgresql/data
+      - ../../database/fastorder-init.sql:/bootstrap/fastorder-init.sql:ro
+      - ./patroni.yml.tmpl:/etc/patroni/patroni.yml.tmpl:ro
+      - ../patroni-3nodes/scripts/post-bootstrap.sh:/scripts/post-bootstrap.sh:ro
+    depends_on:
+      - etcd-0
+    ports:
+      - "5432:5432"
+      - "8008:8008"
+    restart: unless-stopped
+
+  db-backup-proxy:
+    build:
+      context: ../patroni-3nodes/haproxy
+    container_name: fastorder-db-backup-proxy
+    environment:
+      FASTORDER_DB_PRIMARY_PROXY_HOST: ${DB_PROXY_VIP}
+      FASTORDER_DB_PRIMARY_PROXY_PORT: "5432"
+      FASTORDER_DB_SECONDARY_PROXY_HOST: ${PC4_IP}
+      FASTORDER_DB_SECONDARY_PROXY_PORT: "5432"
+    command:
+      - /bin/sh
+      - -c
+      - envsubst < /usr/local/etc/haproxy/haproxy.cfg.tmpl > /usr/local/etc/haproxy/haproxy.cfg && exec haproxy -W -db -f /usr/local/etc/haproxy/haproxy.cfg
+    volumes:
+      - ./haproxy-app-client.cfg.tmpl:/usr/local/etc/haproxy/haproxy.cfg.tmpl:ro
+    restart: unless-stopped
+
+  postgres-backup:
+    image: postgres:17-alpine
+    container_name: fastorder-postgres-backup
+    environment:
+      PGHOST: db-backup-proxy
+      PGPORT: "5432"
+      PGDATABASE: fastorder_db
+      PGUSER: postgres
+      PGPASSWORD: fastorder123
+      BACKUP_DIR: /backups
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-600}
+      BACKUP_RETENTION_COUNT: ${BACKUP_RETENTION_COUNT:-5}
+    volumes:
+      - ../../database/backup/backup.sh:/scripts/backup.sh:ro
+      - ../../backups/postgres:/backups
+    command: ["sh", "/scripts/backup.sh"]
+    depends_on:
+      - db-backup-proxy
+    restart: unless-stopped
+
+  postgres-exporter-db-0:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: fastorder-postgres-exporter-db-0
+    environment:
+      DATA_SOURCE_NAME: postgresql://postgres:fastorder123@fastorder-db-0:5432/postgres?sslmode=disable
+    depends_on:
+      - fastorder-db-0
+    ports:
+      - "9187:9187"
+    restart: unless-stopped
+
+volumes:
+  fastorder_etcd_0_data:
+  fastorder_db_0_data:

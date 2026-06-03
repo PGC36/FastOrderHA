@@ -1,0 +1,37 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: fastorder-rabbitmq
+    command: >
+      bash -c "rabbitmq-plugins enable --offline rabbitmq_prometheus && rabbitmq-server"
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+      - "15692:15692"
+    networks:
+      - fastorder-network
+    restart: unless-stopped
+
+  dlq-recovery:
+    image: node:24-alpine
+    container_name: fastorder-dlq-recovery
+    working_dir: /app
+    command: ["node", "requeue-dlq.js", "--watch"]
+    environment:
+      RABBIT_URL: http://rabbitmq:15672/api
+      RABBIT_USER: guest
+      RABBIT_PASSWORD: guest
+      INTERVAL_SECONDS: "15"
+      BATCH_SIZE: "100"
+    volumes:
+      - ./monitoring/requeue-dlq.js:/app/requeue-dlq.js:ro
+    depends_on:
+      - rabbitmq
+    networks:
+      - fastorder-network
+    restart: always
+
+networks:
+  fastorder-network:
+    name: fastorder-network
+    driver: bridge

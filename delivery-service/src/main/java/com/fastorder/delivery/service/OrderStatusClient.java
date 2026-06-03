@@ -27,9 +27,8 @@ public class OrderStatusClient {
     public void syncDeliveryStatus(Long orderId, DeliveryStatus deliveryStatus) {
         String orderStatus = switch (deliveryStatus) {
             case ASSIGNED, PICKED_UP, IN_TRANSIT -> "IN_DELIVERY";
-            case DELIVERED -> "COMPLETED";
             case FAILED -> "DELIVERY_FAILED";
-            case CANCELLED -> "CANCELLED";
+            case CANCELLED -> "DELIVERY_CANCELLED";
             default -> null;
         };
 

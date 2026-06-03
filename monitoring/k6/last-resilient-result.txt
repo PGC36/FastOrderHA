@@ -1,0 +1,31 @@
+RUN_ID=resilient-1780163684446
+BASE_URL=http://api-gateway:8080
+TOTAL_ORDERS=1
+VUS=1
+MAX_DURATION=1m
+MAX_ATTEMPTS=1
+RETRY_DELAY_SECONDS=1
+REQUEST_TIMEOUT=5s
+ITERATION_DELAY_SECONDS=0
+START=2026-05-30T17:54:44.446Z
+END=2026-05-30T17:54:44.447Z
+     ✓ order eventually accepted
+     ✓ order finished within retry budget
+
+     attempts_per_order.............: avg=1        min=1        med=1        p(90)=1        p(95)=1        p(99)=1        max=1       
+   ✓ checks.........................: 100.00% ✓ 2         ✗ 0
+     data_received..................: 454 B   12 kB/s
+     data_sent......................: 345 B   9.2 kB/s
+   ✓ final_order_failed.............: 0.00%   ✓ 0         ✗ 1
+     http_req_blocked...............: avg=835.4µs  min=835.4µs  med=835.4µs  p(90)=835.4µs  p(95)=835.4µs  p(99)=835.4µs  max=835.4µs 
+     http_req_connecting............: avg=264.74µs min=264.74µs med=264.74µs p(90)=264.74µs p(95)=264.74µs p(99)=264.74µs max=264.74µs
+   ✓ http_req_duration..............: avg=33.59ms  min=33.59ms  med=33.59ms  p(90)=33.59ms  p(95)=33.59ms  p(99)=33.59ms  max=33.59ms 
+       { expected_response:true }...: avg=33.59ms  min=33.59ms  med=33.59ms  p(90)=33.59ms  p(95)=33.59ms  p(99)=33.59ms  max=33.59ms 
+     http_req_failed................: 0.00%   ✓ 0         ✗ 1
+     http_req_receiving.............: avg=600.28µs min=600.28µs med=600.28µs p(90)=600.28µs p(95)=600.28µs p(99)=600.28µs max=600.28µs
+     http_req_sending...............: avg=204.69µs min=204.69µs med=204.69µs p(90)=204.69µs p(95)=204.69µs p(99)=204.69µs max=204.69µs
+     http_req_tls_handshaking.......: avg=0s       min=0s       med=0s       p(90)=0s       p(95)=0s       p(99)=0s       max=0s      
+     http_req_waiting...............: avg=32.79ms  min=32.79ms  med=32.79ms  p(90)=32.79ms  p(95)=32.79ms  p(99)=32.79ms  max=32.79ms 
+     http_reqs......................: 1       26.637922/s
+     iteration_duration.............: avg=36.84ms  min=36.84ms  med=36.84ms  p(90)=36.84ms  p(95)=36.84ms  p(99)=36.84ms  max=36.84ms 
+     iterations.....................: 1       26.637922/s

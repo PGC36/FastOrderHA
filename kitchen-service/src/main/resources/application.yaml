@@ -5,18 +5,44 @@ spring:
   application:
     name: kitchen-service
   datasource:
-    url: jdbc:postgresql://localhost:5444/kitchen_db
-    username: kitchen_user
-    password: kitchen123
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5440/fastorder_db}
+    username: ${SPRING_DATASOURCE_USERNAME:fastorder_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:fastorder123}
+    hikari:
+      maximum-pool-size: ${SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE:20}
+      minimum-idle: ${SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE:5}
+      connection-timeout: ${SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT:3000}
   jpa:
     hibernate:
       ddl-auto: validate
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
+
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:guest}
+    password: ${SPRING_RABBITMQ_PASSWORD:guest}
+    listener:
+      simple:
+        prefetch: ${SPRING_RABBITMQ_LISTENER_SIMPLE_PREFETCH:20}
+        concurrency: ${SPRING_RABBITMQ_LISTENER_SIMPLE_CONCURRENCY:8}
+        max-concurrency: ${SPRING_RABBITMQ_LISTENER_SIMPLE_MAX_CONCURRENCY:16}
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          max-attempts: ${SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_ATTEMPTS:3}
+          initial-interval: ${SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_INITIAL_INTERVAL:1000}
+          multiplier: ${SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MULTIPLIER:2}
+          max-interval: ${SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_INTERVAL:10000}
 
 management:
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
   endpoints:
     web:
       exposure:
@@ -25,6 +51,15 @@ management:
     health:
       show-details: always
 
+logging:
+  level:
+    com.fastorder.kitchen: WARN
+
 app:
   services:
     order-url: ${ORDER_SERVICE_URL:http://localhost:8082/orders}
+  rabbit:
+    exchange: kitchen.exchange
+    queue: kitchen.events.queue
+    routing-key: kitchen.event
+    inventory-reserved-consumers: ${KITCHEN_INVENTORY_RESERVED_CONSUMERS:8}

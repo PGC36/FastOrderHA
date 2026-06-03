@@ -2,39 +2,62 @@ spring:
   application:
     name: order-service
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5443/order_db}
-    username: ${SPRING_DATASOURCE_USERNAME:order_user}
-    password: ${SPRING_DATASOURCE_PASSWORD:order123}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5440/fastorder_db}
+    username: ${SPRING_DATASOURCE_USERNAME:fastorder_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:fastorder123}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE:30}
+      minimum-idle: ${SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE:10}
+      connection-timeout: ${SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT:3000}
   jpa:
     hibernate:
       ddl-auto: none
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
   rabbitmq:
     host: ${SPRING_RABBITMQ_HOST:localhost}
     port: ${SPRING_RABBITMQ_PORT:5672}
     username: ${SPRING_RABBITMQ_USERNAME:guest}
     password: ${SPRING_RABBITMQ_PASSWORD:guest}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    listener:
+      simple:
+        prefetch: ${SPRING_RABBITMQ_LISTENER_SIMPLE_PREFETCH:20}
+        concurrency: ${SPRING_RABBITMQ_LISTENER_SIMPLE_CONCURRENCY:8}
+        max-concurrency: ${SPRING_RABBITMQ_LISTENER_SIMPLE_MAX_CONCURRENCY:16}
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          max-attempts: ${SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_ATTEMPTS:3}
+          initial-interval: ${SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_INITIAL_INTERVAL:1000}
+          multiplier: ${SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MULTIPLIER:2}
+          max-interval: ${SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_INTERVAL:10000}
 
 server:
   port: 8082
 
 management:
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
   endpoints:
     web:
       exposure:
         include: health,prometheus
   endpoint:
     health:
+      show-details: always
       probes:
         enabled: true
 
 logging:
   level:
-    com.fastorder.orderservice: INFO
+    com.fastorder.orderservice: WARN
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} %-5level order-service - %msg%n"
 
@@ -44,3 +67,18 @@ app:
     kitchen-url: ${KITCHEN_SERVICE_URL:http://localhost:8084/kitchen/orders}
     delivery-url: ${DELIVERY_SERVICE_URL:http://localhost:8085/deliveries}
     notification-url: ${NOTIFICATION_SERVICE_URL:http://localhost:8086/notifications}
+  rabbit:
+    exchange: order.exchange
+    routing-key: order.event
+    workflow-consumers: ${ORDER_WORKFLOW_EVENT_CONSUMERS:8}
+  orders:
+    processing-mode: ${ORDER_PROCESSING_MODE:event}
+    internal-worker-enabled: ${ORDER_INTERNAL_WORKER_ENABLED:false}
+    pending-processor-delay-ms: ${ORDER_PENDING_PROCESSOR_DELAY_MS:250}
+    pending-processor-batch-size: ${ORDER_PENDING_PROCESSOR_BATCH_SIZE:200}
+    workflow-worker-core-size: ${ORDER_WORKFLOW_WORKER_CORE_SIZE:10}
+    workflow-worker-max-size: ${ORDER_WORKFLOW_WORKER_MAX_SIZE:20}
+    workflow-worker-queue-capacity: ${ORDER_WORKFLOW_WORKER_QUEUE_CAPACITY:1000}
+    outbox-publisher-delay-ms: ${ORDER_OUTBOX_PUBLISHER_DELAY_MS:500}
+    outbox-publisher-batch-size: ${ORDER_OUTBOX_PUBLISHER_BATCH_SIZE:100}
+    outbox-publisher-confirm-timeout-ms: ${ORDER_OUTBOX_PUBLISHER_CONFIRM_TIMEOUT_MS:5000}

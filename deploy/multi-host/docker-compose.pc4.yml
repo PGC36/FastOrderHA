@@ -1,0 +1,37 @@
+services:
+  fastorder-db-proxy-2:
+    build:
+      context: ../patroni-3nodes/haproxy
+    container_name: fastorder-db-proxy-2
+    environment:
+      FASTORDER_PATRONI_NODE_1_IP: ${PC1_IP}
+      FASTORDER_PATRONI_NODE_1_PORT: "5432"
+      FASTORDER_PATRONI_NODE_1_API_PORT: "8008"
+      FASTORDER_PATRONI_NODE_2_IP: ${PC2_IP}
+      FASTORDER_PATRONI_NODE_2_PORT: "6432"
+      FASTORDER_PATRONI_NODE_2_API_PORT: "8108"
+      FASTORDER_PATRONI_NODE_3_IP: ${PC3_IP}
+      FASTORDER_PATRONI_NODE_3_PORT: "5432"
+      FASTORDER_PATRONI_NODE_3_API_PORT: "8008"
+    command:
+      - /bin/sh
+      - -c
+      - envsubst < /usr/local/etc/haproxy/haproxy.cfg.tmpl > /usr/local/etc/haproxy/haproxy.cfg && exec haproxy -W -db -f /usr/local/etc/haproxy/haproxy.cfg
+    volumes:
+      - ./haproxy.cfg.tmpl:/usr/local/etc/haproxy/haproxy.cfg.tmpl:ro
+    ports:
+      - "5432:5432"
+      - "5433:5433"
+      - "7000:7000"
+    restart: unless-stopped
+
+  postgres-exporter-db-proxy-2:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: fastorder-postgres-exporter-db-proxy-2
+    environment:
+      DATA_SOURCE_NAME: postgresql://postgres:fastorder123@fastorder-db-proxy-2:5432/postgres?sslmode=disable
+    depends_on:
+      - fastorder-db-proxy-2
+    ports:
+      - "9187:9187"
+    restart: unless-stopped

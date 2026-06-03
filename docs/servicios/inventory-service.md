@@ -1,52 +1,143 @@
-# 📦 Inventory Service (Microservicio de Inventario)
+# inventory-service
 
-##  1. Contexto del Problema y Dominio
-Dentro de la arquitectura de **FastOrder HA**, el **Inventory Service** es el microservicio central encargado de proteger el activo físico más importante del restaurante: **el stock de ingredientes y productos**. 
+## Responsabilidad
 
-Su objetivo no es solo guardar números en una tabla, sino actuar como un "guardián" concurrente que evite anomalías de datos bajo escenarios de alto estrés (ej. la hora pico del restaurante). Si este servicio falla o es inconsistente, la cocina recibe órdenes que no puede preparar y el cliente paga por productos inexistentes, rompiendo la promesa de la aplicación.
+`inventory-service` protege el stock del restaurante. Es el dueno funcional de `inventory` e `inventory_sales`, y participa en la Saga reservando inventario cuando llega una orden y confirmando la venta cuando delivery termina correctamente.
 
-##  2. Estado Actual y Especificaciones Técnicas
-* **Tecnología Base:** Java 21 / Spring Boot 3.5.14
-* **Puerto de Aplicación:** `8082`
-* **Persistencia Independiente:** PostgreSQL (Puerto local `5442`)
-  * **Aislamiento:** Cumpliendo el patrón *Database-per-service*, este servicio es el **único** dueño absoluto de la tabla `inventory`. Ningún otro microservicio puede leer o escribir en el inventario directamente; deben comunicarse por los endpoints expuestos o mediante eventos.
-* **Componentes Listos:** 
-  * Entidad (`Inventory.java`)
-  * Repositorio JPA (`InventoryRepository.java`)
-  * Capa de Negocio Transaccional (`InventoryService.java`)
-  * API RESTful (`InventoryController.java`)
-  * Script de Migración Inicial (`inventory-init.sql`)
+## Puerto
 
-##  3. Reglas Críticas de Negocio Aseguradas
-De acuerdo a las reglas críticas del sistema, este microservicio defiende las siguientes directrices bajo cualquier condición de concurrencia:
+```text
+8083
+```
 
-1. **No sobrevivir ventas (Sobrevender):** Un pedido jamás podrá confirmarse si no hay stock real suficiente.
-2. **No descontar inventario doble:** El sistema distingue entre stock total y stock "reservado". Cuando entra una orden, se suma al campo `reserved`, garantizando que ese stock exacto se respete hasta que la orden se complete o sea cancelada (compensación).
-3. **Consistencia Transaccional Estricta:** Gracias a la anotación `@Transactional` de Spring, el método `reserveStock()` asegura que la lectura del stock y la actualización del descuento ocurran como una única unidad atómica. Si dos hilos intentan reservar la última hamburguesa al milisegundo exacto, la base de datos aplicará un lock a nivel de fila y rechazará la transacción que no cumpla con la cantidad mínima, devolviendo un error controlado y previniendo el saldo negativo.
+## Base de datos
 
-##  4. Modelo de Datos
-La tabla principal, inicializada a través del Docker Compose, se diseñó enfocándose en la simplicidad y el rendimiento:
-* `id` (BIGSERIAL): Llave primaria.
-* `product_id` (BIGINT UNIQUE): Identificador único del producto referenciado (asociado al Menu Service). Su índice único previene duplicidades de catálogo.
-* `quantity` (INTEGER): Cantidad física total disponible en el almacén.
-* `reserved` (INTEGER): Cantidad que actualmente está en carritos de compra o pedidos no despachados.
-* *El stock real vendible siempre se calcula en memoria como:* `(quantity - reserved)`.
+Usa PostgreSQL general:
 
-##  5. Endpoints REST Implementados (Prueba Funcional)
+```text
+fastorder_db
+```
 
-### A. Endpoint de Consulta de Disponibilidad (Lectura)
-Permite a otros servicios (como el API Gateway o el Order Service) verificar rápidamente si es posible armar un pedido antes de intentar reservarlo.
-* **Método:** `GET`
-* **Ruta:** `/api/inventory/check?productId={id}&quantity={cantidad}`
-* **Respuestas:** Devuelve un booleano (`true` o `false`).
+Tablas principales:
 
-### B. Endpoint de Reserva de Stock (Escritura Crítica)
-Ejecuta la transacción de retención del inventario.
-* **Método:** `POST`
-* **Ruta:** `/api/inventory/reserve`
-* **Payload (JSON):**
-  ```json
-  {
-      "productId": 1,
-      "quantity": 5
-  }
+- `inventory`
+- `inventory_sales`
+
+Campos clave de `inventory`:
+
+- `product_id` — identificador del producto.
+- `quantity` — unidades fisicas en existencia.
+- `reserved` — unidades comprometidas por ordenes en curso.
+- `sold` — unidades ya vendidas y entregadas.
+
+El stock disponible se calcula como:
+
+```text
+quantity - reserved
+```
+
+Cuando una entrega se completa, la reserva se convierte en venta:
+
+```text
+quantity  -= cantidad_vendida
+reserved  -= cantidad_vendida
+sold      += cantidad_vendida
+```
+
+`inventory_sales.order_id` tiene restriccion `UNIQUE` para que un redelivery de `delivery.completed` no descuente dos veces.
+
+## RabbitMQ
+
+Consume:
+
+| Cola | Evento |
+|---|---|
+| `inventory.order-created.queue` | `order.created` |
+| `inventory.delivery-completed.queue` | `delivery.completed` |
+
+Publica:
+
+| Evento | Significado |
+|---|---|
+| `inventory.reserved` | Stock reservado correctamente; la orden avanza a cocina |
+| `inventory.rejected` | Stock insuficiente o error de reserva; la orden se cancela |
+
+Configuracion relevante:
+
+```text
+INVENTORY_ORDER_CREATED_CONSUMERS=8
+INVENTORY_DELIVERY_COMPLETED_CONSUMERS=4
+SPRING_RABBITMQ_LISTENER_SIMPLE_PREFETCH=20
+SPRING_RABBITMQ_LISTENER_SIMPLE_CONCURRENCY=8
+SPRING_RABBITMQ_LISTENER_SIMPLE_MAX_CONCURRENCY=16
+SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_ATTEMPTS=12
+SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_INITIAL_INTERVAL=2000
+SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MULTIPLIER=1.5
+SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_INTERVAL=15000
+```
+
+## Comportamiento en la Saga
+
+### Flujo de reserva
+
+1. Recibe `order.created` desde `inventory.order-created.queue`.
+2. Verifica stock disponible: `quantity - reserved >= cantidad_solicitada`.
+3. Si no hay stock suficiente, publica `inventory.rejected` y la orden se cancela en `order-service`.
+4. Si hay stock, incrementa `reserved` de forma transaccional y publica `inventory.reserved`.
+5. `kitchen-service` consume `inventory.reserved` y comienza la preparacion.
+
+### Flujo de confirmacion de venta
+
+1. Recibe `delivery.completed` desde `inventory.delivery-completed.queue`.
+2. Verifica idempotencia por `order_id` en `inventory_sales`.
+3. Si la venta ya fue registrada, descarta el evento sin modificar datos.
+4. Si es nueva, registra la fila en `inventory_sales` y actualiza `inventory` de forma atomica.
+
+Si el servicio esta caido, RabbitMQ mantiene los mensajes en cola. Cuando vuelve a levantarse, los consume automaticamente.
+
+## Reglas de negocio
+
+- No se permite reservar mas stock del disponible (`quantity - reserved`).
+- La reserva es transaccional; si falla a mitad, no se modifica el inventario.
+- Si no hay stock, se publica `inventory.rejected` y la orden queda `CANCELLED`.
+- Si hay stock, se incrementa `reserved` y la orden avanza hacia cocina.
+- Si la orden falla antes de cocina (rechazo de inventario), el stock no fue reservado y no requiere compensacion.
+- Si delivery se completa, la reserva se confirma como venta de forma idempotente.
+- Si delivery falla despues de cocina, no se devuelve inventario porque la comida ya fue preparada.
+
+## Endpoints
+
+| Metodo | Endpoint | Descripcion |
+|---|---|---|
+| `GET` | `/inventory/check?productId={id}&quantity={n}` | Verifica disponibilidad sin modificar stock |
+| `POST` | `/inventory/reserve` | Reserva stock para una orden |
+| `POST` | `/inventory/release` | Libera una reserva (compensacion manual) |
+| `GET` | `/actuator/health` | Health Actuator |
+| `GET` | `/actuator/prometheus` | Metricas Prometheus |
+
+Notas de uso:
+
+- `GET /inventory/check` es de solo lectura y no aplica reserva.
+- `POST /inventory/reserve` es idempotente por `orderId`; si la reserva ya existe para esa orden, no duplica el descuento.
+- `POST /inventory/release` se usa para compensacion manual o en pruebas de caos; en el flujo normal la compensacion no aplica tras cocina.
+
+## Observabilidad
+
+Registra logs cuando:
+
+- consume `order.created`.
+- verifica disponibilidad de stock.
+- reserva stock correctamente.
+- rechaza una orden por stock insuficiente.
+- consume `delivery.completed`.
+- confirma la venta en `inventory_sales`.
+- detecta venta duplicada y descarta por idempotencia.
+- publica `inventory.reserved` o `inventory.rejected`.
+- ocurre un error de procesamiento.
+
+## Docker
+
+```bash
+docker compose up --build -d inventory-service
+docker compose logs -f inventory-service
+```

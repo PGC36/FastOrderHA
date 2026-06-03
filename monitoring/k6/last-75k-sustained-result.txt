@@ -1,0 +1,29 @@
+RUN_ID=local-1778565728569
+BASE_URL=http://[::1]:8080
+TOTAL_ORDERS=75000
+RATE=250
+DURATION=5m
+PRE_ALLOCATED_VUS=300
+MAX_VUS=1000
+START=2026-05-12T06:02:08.569Z
+END=2026-05-12T06:02:08.570Z
+     ✓ order accepted or already known
+     ✓ order accepted for processing
+
+   ✓ checks.........................: 100.00% ✓ 1180       ✗ 0    
+     data_received..................: 322 kB  136 kB/s
+     data_sent......................: 201 kB  85 kB/s
+     http_req_blocked...............: avg=268.35µs min=0s     med=0s     p(90)=768.83µs p(95)=1.02ms   p(99)=1.17ms   max=1.44ms 
+     http_req_connecting............: avg=243.77µs min=0s     med=0s     p(90)=544.67µs p(95)=908.49µs p(99)=1.08ms   max=1.44ms 
+   ✓ http_req_duration..............: avg=7.81ms   min=2.71ms med=7.55ms p(90)=10.6ms   p(95)=11.82ms  p(99)=13.91ms  max=15.84ms
+       { expected_response:true }...: avg=7.81ms   min=2.71ms med=7.55ms p(90)=10.6ms   p(95)=11.82ms  p(99)=13.91ms  max=15.84ms
+   ✓ http_req_failed................: 0.00%   ✓ 0          ✗ 590  
+     http_req_receiving.............: avg=142.71µs min=0s     med=0s     p(90)=556.3µs  p(95)=731.2µs  p(99)=1.19ms   max=1.61ms 
+     http_req_sending...............: avg=29.11µs  min=0s     med=0s     p(90)=0s       p(95)=0s       p(99)=686.58µs max=1ms    
+     http_req_tls_handshaking.......: avg=0s       min=0s     med=0s     p(90)=0s       p(95)=0s       p(99)=0s       max=0s     
+     http_req_waiting...............: avg=7.64ms   min=2.71ms med=7.41ms p(90)=10.47ms  p(95)=11.44ms  p(99)=13.42ms  max=15.84ms
+     http_reqs......................: 590     249.081554/s
+     iteration_duration.............: avg=8.16ms   min=2.71ms med=7.92ms p(90)=11.29ms  p(95)=12.29ms  p(99)=14.72ms  max=16.9ms 
+     iterations.....................: 590     249.081554/s
+     vus............................: 2       min=2        max=2  
+     vus_max........................: 300     min=300      max=300

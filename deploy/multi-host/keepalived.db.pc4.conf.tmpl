@@ -1,0 +1,14 @@
+vrrp_instance VI_FASTORDER_DB {
+    state BACKUP
+    interface ${DB_KEEPALIVED_PC4_INTERFACE}
+    virtual_router_id ${DB_KEEPALIVED_ROUTER_ID}
+    priority ${DB_KEEPALIVED_PC4_PRIORITY}
+    advert_int 1
+    authentication {
+        auth_type PASS
+        auth_pass ${DB_KEEPALIVED_AUTH_PASS}
+    }
+    virtual_ipaddress {
+        ${DB_PROXY_VIP}/24
+    }
+}

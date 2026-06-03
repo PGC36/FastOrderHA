@@ -1,0 +1,42 @@
+global
+    log stdout format raw local0
+    maxconn 2000
+
+defaults
+    log global
+    mode tcp
+    timeout connect 5s
+    timeout client 60s
+    timeout server 60s
+
+frontend postgres_rw
+    bind *:5000
+    default_backend patroni_primary
+
+frontend postgres_ro
+    bind *:5001
+    default_backend patroni_replicas
+
+frontend haproxy_stats
+    bind *:7000
+    mode http
+    stats enable
+    stats uri /stats
+    stats refresh 10s
+
+backend patroni_primary
+    option httpchk GET /primary
+    http-check expect status 200
+    default-server inter 3s fall 3 rise 2 on-marked-down shutdown-sessions
+    server db0 ${FASTORDER_PATRONI_NODE_1_IP}:5432 check port 8008
+    server db1 ${FASTORDER_PATRONI_NODE_2_IP}:5432 check port 8008
+    server db2 ${FASTORDER_PATRONI_NODE_3_IP}:5432 check port 8008
+
+backend patroni_replicas
+    option httpchk GET /replica
+    http-check expect status 200
+    balance roundrobin
+    default-server inter 3s fall 3 rise 2
+    server db0 ${FASTORDER_PATRONI_NODE_1_IP}:5432 check port 8008
+    server db1 ${FASTORDER_PATRONI_NODE_2_IP}:5432 check port 8008
+    server db2 ${FASTORDER_PATRONI_NODE_3_IP}:5432 check port 8008

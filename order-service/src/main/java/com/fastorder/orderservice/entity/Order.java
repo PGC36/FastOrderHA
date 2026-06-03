@@ -29,6 +29,18 @@ public class Order {
     @Column(nullable = false, length = 50)
     private String status;
 
+    @Column(name = "delivery_address", length = 500)
+    private String deliveryAddress;
+
+    @Column(name = "delivery_retry_count", nullable = false)
+    private Integer deliveryRetryCount;
+
+    @Column(name = "delivery_last_retry_at")
+    private LocalDateTime deliveryLastRetryAt;
+
+    @Column(name = "delivery_failure_reason", length = 255)
+    private String deliveryFailureReason;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -36,6 +48,9 @@ public class Order {
     void onCreate() {
         if (createdAt == null) {
             createdAt = LocalDateTime.now();
+        }
+        if (deliveryRetryCount == null) {
+            deliveryRetryCount = 0;
         }
     }
 
@@ -77,6 +92,38 @@ public class Order {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getDeliveryAddress() {
+        return deliveryAddress;
+    }
+
+    public void setDeliveryAddress(String deliveryAddress) {
+        this.deliveryAddress = deliveryAddress;
+    }
+
+    public Integer getDeliveryRetryCount() {
+        return deliveryRetryCount;
+    }
+
+    public void setDeliveryRetryCount(Integer deliveryRetryCount) {
+        this.deliveryRetryCount = deliveryRetryCount;
+    }
+
+    public LocalDateTime getDeliveryLastRetryAt() {
+        return deliveryLastRetryAt;
+    }
+
+    public void setDeliveryLastRetryAt(LocalDateTime deliveryLastRetryAt) {
+        this.deliveryLastRetryAt = deliveryLastRetryAt;
+    }
+
+    public String getDeliveryFailureReason() {
+        return deliveryFailureReason;
+    }
+
+    public void setDeliveryFailureReason(String deliveryFailureReason) {
+        this.deliveryFailureReason = deliveryFailureReason;
     }
 
     public LocalDateTime getCreatedAt() {

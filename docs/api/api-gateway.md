@@ -4,7 +4,7 @@
 
 El API Gateway es el punto de entrada HTTP para FastOrder HA. Su responsabilidad actual es recibir peticiones externas y redirigirlas hacia los microservicios internos configurados en `api-gateway/src/main/resources/application.yaml`.
 
-El gateway no implementa logica de negocio de pedidos. Su funcion es enrutar solicitudes y exponer endpoints operativos de Actuator.
+El gateway no implementa logica de negocio de pedidos. Su funcion es proteger la entrada, enrutar solicitudes y exponer endpoints operativos de Actuator.
 
 ## Tecnologias usadas
 
@@ -27,13 +27,27 @@ El gateway no implementa logica de negocio de pedidos. Su funcion es enrutar sol
 
 | ID de ruta | Path externo | Destino interno | Estado del destino |
 | --- | --- | --- | --- |
-| `menu-service` | `/api/menu/**` | `http://menu-service:8081` | Pendiente: servicio no implementado |
+| `menu-service` | `/api/menu/**` | `http://menu-service:8081` | Implementado |
 | `order-service-root` | `/api/orders` | `http://order-service:8082` | Implementado |
 | `order-service-paths` | `/api/orders/**` | `http://order-service:8082` | Implementado |
-| `inventory-service` | `/api/inventory/**` | `http://inventory-service:8083` | Pendiente: servicio no implementado |
-| `kitchen-service` | `/api/kitchen/**` | `http://kitchen-service:8084` | Pendiente: servicio no implementado |
-| `delivery-service` | `/api/delivery/**` | `http://delivery-service:8085` | Pendiente: servicio no implementado |
-| `notification-service` | `/api/notifications/**` | `http://notification-service:8086` | Pendiente: servicio no implementado |
+| `inventory-service` | `/api/inventory/**` | `http://inventory-service:8083` | Implementado |
+| `kitchen-service` | `/api/kitchen/**` | `http://kitchen-service:8084` | Implementado |
+| `delivery-service-root` | `/api/delivery` | `http://delivery-service:8085` | Implementado |
+| `delivery-service-paths` | `/api/delivery/**` | `http://delivery-service:8085` | Implementado |
+| `notification-service-root` | `/api/notifications` | `http://notification-service:8086` | Implementado |
+| `notification-service-paths` | `/api/notifications/**` | `http://notification-service:8086` | Implementado |
+
+## Rate limiting
+
+El gateway enruta trafico sin una capa adicional de rate limiting activa en esta version.
+
+Existen clases de configuracion relacionadas con limites de tasa, pero la implementacion operativa no esta conectada al flujo HTTP actual y no depende de Redis.
+
+Por tanto, en el estado actual del proyecto:
+
+- no se documenta `429 Too Many Requests` como comportamiento validado;
+- no se exponen headers de cuota o ventana;
+- los endpoints `/actuator/**` solo se consideran operativos y de monitoreo.
 
 ## Redireccion hacia order-service
 
@@ -53,6 +67,19 @@ Ejemplos:
 | `GET /api/orders/1` | `GET /orders/1` |
 | `GET /api/orders/health-check` | `GET /orders/health-check` |
 
+## Redireccion hacia delivery-service
+
+`delivery-service` no usa `StripPrefix`. El gateway reescribe la ruta externa hacia el prefijo real `/deliveries` del microservicio:
+
+| Peticion al gateway | Peticion enviada a delivery-service |
+| --- | --- |
+| `GET /api/delivery` | `GET /deliveries` |
+| `POST /api/delivery` | `POST /deliveries` |
+| `GET /api/delivery/1` | `GET /deliveries/1` |
+| `PATCH /api/delivery/1/deliver` | `PATCH /deliveries/1/deliver` |
+
+Esto se implementa con filtros `RewritePath`.
+
 ## Endpoints de Actuator
 
 El API Gateway expone endpoints operativos mediante Actuator:
@@ -66,6 +93,4 @@ La configuracion actual tambien incluye `info` dentro de la exposicion de Actuat
 
 ## Estado actual
 
-El API Gateway esta configurado para enrutar hacia todos los microservicios previstos por la arquitectura. Actualmente, la ruta funcional implementada a nivel de microservicio es `order-service`.
-
-Las rutas hacia `menu-service`, `inventory-service`, `kitchen-service`, `delivery-service` y `notification-service` dependen de aplicaciones que todavia estan pendientes de implementacion. Por esa razon, esas rutas pueden fallar en ejecucion hasta que dichos servicios existan y esten levantados dentro de la red de Docker.
+El API Gateway esta configurado para enrutar hacia todos los microservicios previstos por la arquitectura. La logica de negocio sigue viviendo en los microservicios.

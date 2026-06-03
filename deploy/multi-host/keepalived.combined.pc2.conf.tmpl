@@ -1,0 +1,45 @@
+global_defs {
+    enable_script_security
+    script_user root
+}
+
+vrrp_script chk_fastorder_app {
+    script "/usr/bin/curl -fsS -o /dev/null http://127.0.0.1:8080/actuator/health"
+    interval 2
+    timeout 2
+    fall 2
+    rise 1
+}
+
+vrrp_instance VI_FASTORDER_DB {
+    state MASTER
+    interface ${DB_KEEPALIVED_PC2_INTERFACE}
+    virtual_router_id ${DB_KEEPALIVED_ROUTER_ID}
+    priority ${DB_KEEPALIVED_PC2_PRIORITY}
+    advert_int 1
+    authentication {
+        auth_type PASS
+        auth_pass ${DB_KEEPALIVED_AUTH_PASS}
+    }
+    virtual_ipaddress {
+        ${DB_PROXY_VIP}/24
+    }
+}
+
+vrrp_instance VI_FASTORDER_APP {
+    state MASTER
+    interface ${KEEPALIVED_PC2_INTERFACE}
+    virtual_router_id ${KEEPALIVED_ROUTER_ID}
+    priority ${KEEPALIVED_PC2_PRIORITY}
+    advert_int 1
+    authentication {
+        auth_type PASS
+        auth_pass ${KEEPALIVED_AUTH_PASS}
+    }
+    virtual_ipaddress {
+        ${APP_VIP_IP}/24
+    }
+    track_script {
+        chk_fastorder_app
+    }
+}

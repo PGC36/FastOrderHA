@@ -1,118 +1,145 @@
-# Notification Service
+# notification-service
 
-## 1. Objetivo del Servicio
-El `notification-service` es responsable de registrar notificaciones relacionadas al ciclo de vida de los pedidos en FastOrder HA.  
-En esta fase del proyecto, su alcance funcional cubre:
-- Creación de notificaciones.
-- Consulta de notificaciones por identificador.
+## Responsabilidad
 
-Este servicio está diseñado para evolucionar a un consumidor de eventos de negocio vía RabbitMQ (por ejemplo, eventos de pedido creado, pedido en cocina, pedido en despacho o pedido entregado).
+`notification-service` registra notificaciones del ciclo de vida de pedidos. Expone API REST para crear/consultar notificaciones, publica eventos `notification.created` y consume esa misma cola para marcar notificaciones como procesadas.
 
-## 2. Contexto Arquitectónico
-Dentro de la arquitectura distribuida, `notification-service` participa como un microservicio de soporte operacional y trazabilidad.
+## Puerto
 
-Relación con otros componentes:
-- Entrada actual: API REST directa.
-- Persistencia: PostgreSQL dedicado (`notification_db`).
-- Mensajería: RabbitMQ configurado a nivel de aplicación para integración asíncrona posterior.
-
-Principio aplicado:
-- **Database per Service**: la base de datos de notificaciones es independiente del resto de microservicios.
-
-## 3. Configuración Técnica
-- Puerto HTTP del servicio: `8086`
-- Base de datos: `notification_db`
-- Puerto PostgreSQL en host: `5446`
-- Driver: PostgreSQL JDBC
-- Broker configurado: RabbitMQ (`5672`)
-- Gestión y observabilidad básica: Spring Boot Actuator
-
-## 4. Dependencias del Proyecto
-Dependencias seleccionadas desde Spring Initializr (Spring Boot `3.5.14`, Java `21`, Maven):
-- Spring Web
-- Spring Data JPA
-- PostgreSQL Driver
-- Validation
-- Spring Boot Actuator
-- Lombok
-- Spring for RabbitMQ
-
-## 5. Diseño Interno (Estructura por Capas)
-Implementación actual:
-- `controller/NotificationController`
-- `service/NotificationService`
-- `repository/NotificationRepository`
-- `entity/Notification`
-- `dto/CreateNotificationRequest`
-- `dto/NotificationResponse`
-- `exception/NotificationNotFoundException`
-- `exception/ApiErrorResponse`
-- `exception/GlobalExceptionHandler`
-
-Este diseño separa claramente transporte HTTP, lógica de negocio, acceso a datos y manejo transversal de errores.
-
-## 6. Modelo de Datos
-Archivo de inicialización: `database/notification-init.sql`
-
-Tabla principal: `notifications`
-- `id` BIGSERIAL PRIMARY KEY
-- `order_id` BIGINT NOT NULL
-- `channel` VARCHAR(30) NOT NULL
-- `recipient` VARCHAR(150) NOT NULL
-- `message` TEXT NOT NULL
-- `status` VARCHAR(30) NOT NULL DEFAULT 'PENDING'
-- `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-
-Índices implementados:
-- `idx_notifications_order_id`
-- `idx_notifications_created_at`
-
-Justificación:
-- `order_id` optimiza búsquedas por pedido.
-- `created_at` facilita consultas cronológicas y auditoría operativa.
-
-## 7. API Implementada
-### 7.1 Crear notificación
-**Endpoint:** `POST /api/notifications`
-
-Request JSON:
-```json
-{
-  "orderId": 1001,
-  "channel": "EMAIL",
-  "recipient": "cliente@correo.com",
-  "message": "Tu pedido fue recibido"
-}
+```text
+8086
 ```
 
-Respuesta esperada:
-- `201 Created` con el objeto persistido.
+## Base de datos
 
-### 7.2 Consultar notificación por ID
-**Endpoint:** `GET /api/notifications/{id}`
+Usa PostgreSQL general:
 
-Respuestas esperadas:
-- `200 OK` cuando el recurso existe.
-- `404 Not Found` cuando no existe el identificador solicitado.
+```text
+fastorder_db
+```
 
-## 8. Estrategia de Logging
-Convención actual:
-- `INFO`: operaciones exitosas de creación y consulta.
-- `WARN`: solicitudes inválidas y recursos no encontrados.
-- `ERROR`: excepciones no previstas.
+Tabla principal:
 
-Objetivo:
-- Facilitar depuración funcional durante el checkpoint.
-- Proveer trazabilidad mínima para pruebas y demo técnica.
+- `notifications`
 
-## 9. Evidencia Funcional Actual
-Pruebas manuales realizadas en Postman:
-- `POST /api/notifications` con payload válido -> `201`.
-- `GET /api/notifications/{id}` existente -> `200`.
-- `POST` inválido -> `400` con mensaje descriptivo.
-- `GET` inexistente -> `404` con mensaje descriptivo.
+Campos clave:
 
-Estado de infraestructura validado:
-- Contenedor `notification-db` operativo.
-- Tabla `notifications` creada y accesible.
-- Conexión JPA activa con validación de esquema.
+- `id`
+- `order_id` (unico)
+- `channel`
+- `recipient`
+- `message`
+- `status`
+- `created_at`
+
+Estados usados por el servicio:
+
+- `PENDING`
+- `PROCESSED`
+
+## RabbitMQ
+
+Consume:
+
+| Cola | Evento |
+|---|---|
+| `notification.created.queue` | `notification.created` |
+
+Publica:
+
+| Evento | Significado |
+|---|---|
+| `notification.created` | Solicita procesar/confirmar una notificacion creada |
+
+Configuracion relevante:
+
+```text
+NOTIFICATION_CREATED_CONSUMERS=8
+SPRING_RABBITMQ_LISTENER_SIMPLE_PREFETCH=20
+SPRING_RABBITMQ_LISTENER_SIMPLE_CONCURRENCY=8
+SPRING_RABBITMQ_LISTENER_SIMPLE_MAX_CONCURRENCY=16
+SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_ATTEMPTS=3
+SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_INITIAL_INTERVAL=1000
+SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MULTIPLIER=2
+SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_INTERVAL=10000
+```
+
+Infraestructura de colas:
+
+- `notification.exchange` (topic exchange)
+- `notification.created.queue` (durable)
+- `fastorder.dlx` (dead-letter exchange)
+- `notification.created.queue.dlq` (cola DLQ)
+
+## Comportamiento en la Saga
+
+1. El flujo publica `notification.created` con datos de la notificacion.
+2. `notification-service` consume `notification.created.queue`.
+3. Si llega `notificationId`, intenta marcar esa notificacion en `PROCESSED`.
+4. Si no llega `notificationId`, crea/actualiza notificacion por `orderId`.
+5. Si faltan datos requeridos (`orderId`, `channel`, `recipient`), rechaza el mensaje con error.
+
+Si el servicio esta caido, RabbitMQ conserva mensajes pendientes. Si un mensaje falla luego de los reintentos configurados, se enruta a DLQ.
+
+## Reglas de idempotencia y consistencia
+
+- `order_id` es unico en `notifications` para evitar duplicados por orden.
+- `POST /notifications` reutiliza la notificacion existente si ya hay una para el mismo `orderId`.
+- si existe y ya esta `PROCESSED`, no vuelve a publicar evento.
+- si existe y no esta `PROCESSED`, vuelve a publicar `notification.created`.
+- si no existe, crea en `PENDING` y publica evento.
+
+Adicionalmente, existe reconciliacion programada:
+
+- cada `5s` (configurable) busca ordenes `COMPLETED` sin notificacion.
+- crea notificacion automatica con valores por defecto (`EMAIL`, `cliente@fastorder.test`) y mensaje de entrega.
+
+## Endpoints
+
+| Metodo | Endpoint | Descripcion |
+|---|---|---|
+| `POST` | `/notifications` | Crea o reutiliza una notificacion por `orderId` |
+| `GET` | `/notifications/{id}` | Consulta notificacion |
+| `GET` | `/actuator/health` | Health Actuator |
+| `GET` | `/actuator/prometheus` | Metricas Prometheus |
+
+Notas de uso:
+
+- `POST /notifications` requiere `orderId`, `channel`, `recipient`, `message`.
+- validaciones: `channel` maximo `30`, `recipient` maximo `150`, campos requeridos no vacios.
+- errores de validacion responden `400`.
+- si no existe `id` en `GET /notifications/{id}`, responde `404`.
+
+## Observabilidad
+
+Registra logs cuando:
+
+- recibe mensajes desde `notification.created.queue`.
+- publica `notification.created`.
+- crea notificacion por API.
+- marca notificaciones como `PROCESSED`.
+- ejecuta reconciliacion automatica.
+- ocurre un error de procesamiento o validacion.
+
+## Verificacion en RabbitMQ
+
+RabbitMQ Management:
+
+```text
+http://localhost:15672
+```
+
+Credenciales:
+
+```text
+guest / guest
+```
+
+La cola `notification.created.queue` debe bajar a `Ready: 0` cuando `notification-service` esta levantado y consume correctamente. Si hay fallos persistentes, revisar `notification.created.queue.dlq`.
+
+## Docker
+
+```bash
+docker compose up --build -d notification-service
+docker compose logs -f notification-service
+```

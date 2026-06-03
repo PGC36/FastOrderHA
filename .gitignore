@@ -1,3 +1,5 @@
 target/
 *.class
 .env
+backups/postgres/*.sql
+backups/postgres/*.tmp

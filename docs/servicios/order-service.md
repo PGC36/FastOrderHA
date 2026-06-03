@@ -1,206 +1,161 @@
 # order-service
 
-## Descripcion
+## Responsabilidad
 
-`order-service` es el microservicio responsable de la gestion inicial de pedidos dentro de FastOrder HA. Actualmente funciona como orquestador inicial del flujo critico de creacion de pedidos.
-
-El servicio recibe solicitudes HTTP, valida los datos de entrada, aplica idempotencia mediante `idempotencyKey`, guarda el pedido en su base de datos propia y registra un evento en la tabla `outbox_events`.
-
-## Responsabilidad actual
-
-- Crear pedidos con estado inicial `PENDING`.
-- Consultar pedidos existentes.
-- Evitar pedidos duplicados mediante idempotencia.
-- Registrar eventos `order.created` usando Outbox Pattern.
-- Dejar preparado el punto de integracion futura con `inventory-service`.
-
-## Tecnologias usadas
-
-| Tecnologia | Uso |
-| --- | --- |
-| Java 21 | Runtime del servicio |
-| Spring Boot 3.5.14 | Base de la aplicacion |
-| Spring Web | API REST |
-| Spring Data JPA | Persistencia |
-| PostgreSQL Driver | Conexion con `order_db` |
-| Spring for RabbitMQ | Preparacion para mensajeria |
-| Spring Boot Actuator | Endpoints de monitoreo |
-| Micrometer Prometheus | Metricas |
-| Validation | Validacion de DTOs |
-| Maven | Gestion de dependencias y build |
+`order-service` es el centro del flujo de pedidos. Recibe ordenes por HTTP, aplica idempotencia, guarda la orden, publica el evento inicial con Outbox Pattern, consume eventos de otros servicios y coordina los reintentos de delivery.
 
 ## Puerto
 
-| Entorno | Puerto |
-| --- | --- |
-| order-service | `8082` |
+```text
+8082
+```
 
 ## Base de datos
 
-`order-service` usa una base de datos propia:
+Usa PostgreSQL general:
 
-| Propiedad | Valor |
-| --- | --- |
-| Base de datos | `order_db` |
-| Contenedor | `fastorder-order-db` |
-| Puerto local | `5443` |
-| Puerto interno Docker | `5432` |
-| Usuario | `order_user` |
-| Contrasena | `order123` |
+```text
+fastorder_db
+```
 
-## Tablas usadas
+Tablas principales:
 
 - `orders`
 - `outbox_events`
 
-## Endpoints implementados
+## Flujo principal
 
-| Metodo | Endpoint | Descripcion |
-| --- | --- | --- |
-| `GET` | `/orders/health-check` | Verifica que el servicio responda |
-| `POST` | `/orders` | Crea un pedido |
-| `GET` | `/orders` | Lista todos los pedidos |
-| `GET` | `/orders/{id}` | Consulta un pedido por ID |
-| `GET` | `/actuator/health` | Estado de salud del servicio |
-| `GET` | `/actuator/prometheus` | Metricas en formato Prometheus |
-
-## Ejemplo de peticion POST /orders
-
-```json
-{
-  "productId": 1,
-  "quantity": 1,
-  "idempotencyKey": "pedido-cliente-001"
-}
-```
-
-## Ejemplo de respuesta exitosa
-
-```json
-{
-  "id": 1,
-  "idempotencyKey": "pedido-cliente-001",
-  "productId": 1,
-  "quantity": 1,
-  "status": "PENDING",
-  "createdAt": "2026-05-07T17:54:31.742867"
-}
-```
+1. Recibe `POST /orders`.
+2. Valida `idempotencyKey`.
+3. Crea la orden en estado `PENDING`.
+4. Guarda `order.created` en `outbox_events`.
+5. Un publisher procesa el outbox y publica a RabbitMQ con publisher confirms.
+6. `inventory-service`, `kitchen-service` y `delivery-service` actualizan el estado de la orden por eventos o por `PATCH /orders/{id}/status`.
+7. Consume respuestas de inventario y delivery.
+8. Si delivery falla, deja la orden en `DELIVERY_RETRY_PENDING` o la mueve a `DELIVERY_ABANDONED` cuando se agotan los reintentos.
 
 ## Idempotencia
 
-La creacion de pedidos usa el campo `idempotencyKey` para evitar duplicados.
+`idempotencyKey` evita duplicar ordenes cuando el cliente reintenta una solicitud.
 
-Si llega una solicitud con un `idempotencyKey` que ya existe en la tabla `orders`, el servicio no crea un nuevo registro. En su lugar, devuelve el pedido existente y registra un log indicando que se detecto una solicitud idempotente.
+Si la misma clave llega otra vez, el servicio devuelve la orden existente y no crea otra fila.
 
-Esto permite reintentar solicitudes desde clientes o sistemas externos sin duplicar pedidos.
+## Outbox
 
-## Outbox Pattern
+`outbox_events` evita perder eventos entre la escritura de la orden y la publicacion a RabbitMQ. El publisher marca un evento como procesado solo cuando RabbitMQ confirma la publicacion y el mensaje no fue devuelto como no enrutable.
 
-Cuando se crea un pedido nuevo, `order-service` tambien crea un registro en `outbox_events` con:
+Si RabbitMQ no esta listo o aun no existe un binding, el evento queda pendiente para reintento.
 
-| Campo | Valor actual |
-| --- | --- |
-| `aggregate_type` | `ORDER` |
-| `aggregate_id` | ID del pedido creado |
-| `event_type` | `order.created` |
-| `payload` | JSON con `orderId`, `productId`, `quantity` y `status` |
-| `processed` | `false` |
+Configuracion relevante:
 
-Actualmente el evento queda registrado en base de datos. La publicacion o procesamiento asincrono del outbox queda para una fase posterior.
+```text
+ORDER_PROCESSING_MODE=event
+ORDER_OUTBOX_PUBLISHER_DELAY_MS=500
+ORDER_OUTBOX_PUBLISHER_CONFIRM_TIMEOUT_MS=5000
+ORDER_WORKFLOW_EVENT_CONSUMERS=8
+SPRING_RABBITMQ_LISTENER_SIMPLE_PREFETCH=20
+SPRING_RABBITMQ_LISTENER_SIMPLE_CONCURRENCY=8
+SPRING_RABBITMQ_LISTENER_SIMPLE_MAX_CONCURRENCY=16
+SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_ATTEMPTS=12
+SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_INITIAL_INTERVAL=2000
+SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MULTIPLIER=1.5
+SPRING_RABBITMQ_LISTENER_SIMPLE_RETRY_MAX_INTERVAL=15000
+```
 
-## Errores controlados
+## RabbitMQ
 
-El servicio usa `GlobalExceptionHandler` con `@RestControllerAdvice` para centralizar respuestas de error.
+Publica:
 
-| Codigo | Caso | Respuesta |
-| --- | --- | --- |
-| `400 Bad Request` | DTO invalido | `Datos invalidos en la solicitud` |
-| `404 Not Found` | Pedido no encontrado | `Pedido no encontrado con id {id}` |
-| `409 Conflict` | Regla de negocio | Mensaje de la regla de negocio |
-| `503 Service Unavailable` | `inventory-service` no disponible | Preparado para integracion futura |
-| `500 Internal Server Error` | Error inesperado | `Error interno controlado en order-service` |
+| Evento | Exchange | Routing key |
+|---|---|---|
+| `order.created` | `order.exchange` | `order.event` |
 
-Formato general de error:
+Consume:
+
+| Cola | Evento esperado |
+|---|---|
+| `order.inventory-rejected.queue` | `inventory.rejected` |
+| `order.delivery-completed.queue` | `delivery.completed` |
+| `order.delivery-failed.queue` | `delivery.failed` |
+
+Tambien expone `PATCH /orders/{id}/status` para que otros servicios sincronicen estados derivados:
+
+- `kitchen-service` envia `IN_KITCHEN`, `READY_FOR_DELIVERY` y `CANCELLED`
+- `delivery-service` envia `IN_DELIVERY`, `COMPLETED`, `DELIVERY_FAILED` y `DELIVERY_CANCELLED`
+
+## Estados de orden
+
+| Estado | Uso |
+|---|---|
+| `PENDING` | Orden creada y en proceso asincrono |
+| `IN_KITCHEN` | Cocina ya inicio preparacion |
+| `CANCELLED` | Sin stock o fallo antes de preparacion; puede aplicar compensacion |
+| `READY_FOR_DELIVERY` | Cocina termino y espera delivery |
+| `IN_DELIVERY` | Delivery ya tomo la orden y esta en curso |
+| `DELIVERY_FAILED` | Delivery reporto fallo tecnico o de negocio antes del siguiente reintento |
+| `DELIVERY_RETRY_PENDING` | Orden pendiente de nuevo intento de delivery |
+| `COMPLETED` | Delivery finalizado |
+| `DELIVERY_CANCELLED` | Delivery fue cancelado por el flujo de entrega |
+| `DELIVERY_ABANDONED` | Delivery fallo luego de agotar reintentos |
+
+## Reintentos de delivery
+
+Cuando delivery falla despues de que la orden ya fue preparada:
+
+- la orden queda disponible para reintento.
+- se incrementa `delivery_retry_count`.
+- se actualiza `delivery_last_retry_at`.
+- se conserva `delivery_failure_reason`.
+- se reintenta automaticamente por tarea programada.
+- si se agotan los reintentos, pasa a `DELIVERY_ABANDONED`.
+
+En la implementacion actual, cuando el delivery se abandona definitivamente, `order-service` intenta liberar inventario llamando a `inventory-service/release`. Ademas, `inventory-service` tiene reconciliacion para reservas terminales en ordenes `CANCELLED` y `DELIVERY_ABANDONED`.
+
+## Endpoints
+
+| Metodo | Endpoint | Descripcion |
+|---|---|---|
+| `POST` | `/orders` | Crea una orden |
+| `GET` | `/orders` | Lista ordenes |
+| `GET` | `/orders/{id}` | Consulta una orden |
+| `GET` | `/orders/health-check` | Health funcional simple |
+| `PATCH` | `/orders/{id}/status` | Actualiza estado de una orden |
+| `GET` | `/actuator/health` | Health Actuator |
+| `GET` | `/actuator/prometheus` | Metricas Prometheus |
+
+Notas de uso:
+
+- `POST /orders` devuelve `201` cuando crea una orden nueva.
+- si llega la misma `idempotencyKey` con los mismos datos, devuelve la orden existente con `200`.
+- si llega la misma `idempotencyKey` con datos distintos, responde error de duplicidad.
+- `PATCH /orders/{id}/status` se usa internamente para sincronizacion desde cocina y delivery.
+
+## Ejemplo
 
 ```json
 {
-  "timestamp": "2026-05-07T17:54:22.388793508",
-  "status": 404,
-  "error": "Not Found",
-  "message": "Pedido no encontrado con id 999",
-  "path": "/orders/999"
+  "productId": 1,
+  "quantity": 1,
+  "idempotencyKey": "pedido-cliente-001",
+  "deliveryAddress": "Zona 1"
 }
 ```
 
-## Logs
+## Observabilidad
 
-El servicio registra logs con SLF4J en `OrderController`, `OrderService` y `GlobalExceptionHandler`.
+El servicio expone metricas con Actuator/Micrometer y logs de:
 
-Eventos registrados:
+- creacion de ordenes.
+- deteccion de idempotencia.
+- publicacion del outbox.
+- eventos consumidos desde RabbitMQ.
+- cambios de estado.
+- reintentos y abandono de delivery.
+- errores controlados.
 
-- Solicitud recibida para crear pedido.
-- `idempotencyKey` recibido.
-- Pedido duplicado detectado por idempotencia.
-- Pedido creado correctamente.
-- Evento `order.created` guardado en outbox.
-- Errores de validacion.
-- Pedidos no encontrados.
-- Errores inesperados.
-
-El formato configurado incluye fecha, nivel, nombre del servicio y mensaje:
-
-```text
-2026-05-07 11:54:31 INFO  order-service - Pedido creado correctamente con id=1
-```
-
-## Ejecucion con Docker
-
-Levantar solo lo necesario para `order-service`:
+## Docker
 
 ```bash
-docker compose up --build -d order-db rabbitmq order-service
-```
-
-Levantar todo lo configurado en Docker Compose:
-
-```bash
-docker compose up --build -d
-```
-
-Ver logs del servicio:
-
-```bash
+docker compose up --build -d order-service
 docker compose logs -f order-service
 ```
-
-## Pruebas recomendadas
-
-```bash
-curl http://localhost:8082/actuator/health
-curl http://localhost:8082/orders/health-check
-curl http://localhost:8082/orders
-curl http://localhost:8082/orders/999
-```
-
-Crear un pedido:
-
-```bash
-curl -X POST http://localhost:8082/orders \
-  -H "Content-Type: application/json" \
-  -d '{"productId":1,"quantity":1,"idempotencyKey":"pedido-cliente-001"}'
-```
-
-Probar validacion:
-
-```bash
-curl -X POST http://localhost:8082/orders \
-  -H "Content-Type: application/json" \
-  -d '{"productId":null,"quantity":0,"idempotencyKey":""}'
-```
-
-## Estado actual
-
-`order-service` ya crea pedidos en estado `PENDING`, consulta pedidos, valida idempotencia y registra eventos en `outbox_events`.
-
-La integracion real con `inventory-service` queda pendiente para una fase posterior. En el codigo existe el metodo `validateInventoryReservation`, preparado como punto de extension, pero actualmente no realiza una llamada remota.

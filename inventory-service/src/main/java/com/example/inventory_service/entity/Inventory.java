@@ -31,6 +31,9 @@ public class Inventory {
     @Column(nullable = false)
     private Integer reserved;
 
+    @Column(nullable = false)
+    private Integer sold;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

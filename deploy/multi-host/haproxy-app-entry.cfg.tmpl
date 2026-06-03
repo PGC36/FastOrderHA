@@ -1,0 +1,30 @@
+global
+    log stdout format raw local0
+    maxconn 4000
+
+defaults
+    log global
+    mode http
+    option httpchk GET /actuator/health
+    http-check expect status 200
+    timeout connect 5s
+    timeout client 60s
+    timeout server 60s
+    retries 3
+
+frontend app_entry
+    bind *:8080
+    default_backend api_gateway_nodes
+
+frontend app_entry_stats
+    bind *:7011
+    mode http
+    stats enable
+    stats uri /stats
+    stats refresh 5s
+
+backend api_gateway_nodes
+    balance roundrobin
+    default-server inter 3s fall 2 rise 1
+    server gateway1 ${FASTORDER_GATEWAY_NODE_1_IP}:${FASTORDER_GATEWAY_NODE_1_PORT} check
+    server gateway2 ${FASTORDER_GATEWAY_NODE_2_IP}:${FASTORDER_GATEWAY_NODE_2_PORT} check

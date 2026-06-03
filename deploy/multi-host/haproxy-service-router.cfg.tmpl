@@ -1,0 +1,86 @@
+global
+    log stdout format raw local0
+    maxconn 4000
+
+defaults
+    log global
+    mode http
+    option httpchk GET /actuator/health
+    http-check expect status 200
+    timeout connect 5s
+    timeout client 60s
+    timeout server 60s
+    retries 3
+
+frontend menu_service
+    bind *:9081
+    default_backend menu_service_backends
+
+frontend order_service
+    bind *:9082
+    default_backend order_service_backends
+
+frontend inventory_service
+    bind *:9083
+    default_backend inventory_service_backends
+
+frontend kitchen_service
+    bind *:9084
+    default_backend kitchen_service_backends
+
+frontend delivery_service
+    bind *:9085
+    default_backend delivery_service_backends
+
+frontend notification_service
+    bind *:9086
+    default_backend notification_service_backends
+
+frontend service_router_stats
+    bind *:7010
+    mode http
+    stats enable
+    stats uri /stats
+    stats refresh 5s
+
+backend menu_service_backends
+    balance roundrobin
+    default-server inter 3s fall 2 rise 1
+    server node1 ${FASTORDER_APP_NODE_1_IP}:8081 check
+    server node2 ${FASTORDER_APP_NODE_2_IP}:8081 check
+    server node3 ${FASTORDER_APP_NODE_3_IP}:8081 check
+
+backend order_service_backends
+    balance roundrobin
+    default-server inter 3s fall 2 rise 1
+    server node1 ${FASTORDER_APP_NODE_1_IP}:8082 check
+    server node2 ${FASTORDER_APP_NODE_2_IP}:8082 check
+    server node3 ${FASTORDER_APP_NODE_3_IP}:8082 check
+
+backend inventory_service_backends
+    balance roundrobin
+    default-server inter 3s fall 2 rise 1
+    server node1 ${FASTORDER_APP_NODE_1_IP}:8083 check
+    server node2 ${FASTORDER_APP_NODE_2_IP}:8083 check
+    server node3 ${FASTORDER_APP_NODE_3_IP}:8083 check
+
+backend kitchen_service_backends
+    balance roundrobin
+    default-server inter 3s fall 2 rise 1
+    server node1 ${FASTORDER_APP_NODE_1_IP}:8084 check
+    server node2 ${FASTORDER_APP_NODE_2_IP}:8084 check
+    server node3 ${FASTORDER_APP_NODE_3_IP}:8084 check
+
+backend delivery_service_backends
+    balance roundrobin
+    default-server inter 3s fall 2 rise 1
+    server node1 ${FASTORDER_APP_NODE_1_IP}:8085 check
+    server node2 ${FASTORDER_APP_NODE_2_IP}:8085 check
+    server node3 ${FASTORDER_APP_NODE_3_IP}:8085 check
+
+backend notification_service_backends
+    balance roundrobin
+    default-server inter 3s fall 2 rise 1
+    server node1 ${FASTORDER_APP_NODE_1_IP}:8086 check
+    server node2 ${FASTORDER_APP_NODE_2_IP}:8086 check
+    server node3 ${FASTORDER_APP_NODE_3_IP}:8086 check
